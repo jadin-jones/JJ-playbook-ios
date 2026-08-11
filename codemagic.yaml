@@ -8,7 +8,9 @@ workflows:
         - appstore_credentials
       vars:
         XCODE_SCHEME: "App"
-        BUNDLE_ID: "app.netlify.jjplaybook"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: app.netlify.jjplaybook
       xcode: latest
       cocoapods: default
       node: latest
@@ -25,21 +27,6 @@ workflows:
         script: npx cap copy ios
       - name: Install CocoaPods dependencies
         script: cd ios/App && pod install
-      - name: Decode private key
-        script: |
-          echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | tr -d '[:space:]' | base64 -D > /tmp/appstore_key.p8
-          echo "--- First line of decoded key ---"
-          head -1 /tmp/appstore_key.p8
-          echo "--- Last line of decoded key ---"
-          tail -1 /tmp/appstore_key.p8
-      - name: Fetch signing files
-        script: |
-          export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-      - name: Set up signing certificate
-        script: keychain add-certificates
       - name: Set up code signing settings on Xcode project
         script: xcode-project use-profiles
       - name: Build ipa
@@ -49,6 +36,7 @@ workflows:
             --scheme "$XCODE_SCHEME"
       - name: Publish to TestFlight
         script: |
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | tr -d '[:space:]' | base64 -D > /tmp/appstore_key.p8
           export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
           APP_FILE=$(find "$CM_BUILD_DIR/build/ios/ipa" -name "*.ipa" | head -1)
           app-store-connect publish \
