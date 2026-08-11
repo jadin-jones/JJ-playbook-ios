@@ -21,6 +21,27 @@ workflows:
           npx capacitor-assets generate --icon
       - name: Add iOS platform
         script: npx cap add ios
+      - name: Add push notification entitlement
+        script: |
+          ENTITLEMENTS_FILE="ios/App/App/App.entitlements"
+          if [ ! -f "$ENTITLEMENTS_FILE" ]; then
+            cat > "$ENTITLEMENTS_FILE" << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          </dict>
+          </plist>
+          EOF
+          fi
+          /usr/libexec/PlistBuddy -c "Delete :aps-environment" "$ENTITLEMENTS_FILE" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :aps-environment string production" "$ENTITLEMENTS_FILE"
+          echo "--- Entitlements file contents ---"
+          cat "$ENTITLEMENTS_FILE"
+          if ! grep -q "CODE_SIGN_ENTITLEMENTS" ios/App/App.xcodeproj/project.pbxproj; then
+            sed -i '' '/PRODUCT_BUNDLE_IDENTIFIER = app.netlify.jjplaybook;/a\
+            CODE_SIGN_ENTITLEMENTS = App/App.entitlements;' ios/App/App.xcodeproj/project.pbxproj
+          fi
       - name: Set minimum iOS deployment target
         script: |
           cd ios/App
