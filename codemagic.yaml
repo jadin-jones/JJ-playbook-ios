@@ -18,7 +18,7 @@ workflows:
       - name: Generate app icons
         script: |
           npm install @capacitor/assets --save-dev
-          npx capacitor-assets generate --icon
+          npx capacitor-assets generate
       - name: Add iOS platform
         script: npx cap add ios
       - name: Add push notification entitlement
