@@ -19,7 +19,11 @@ workflows:
       - name: Set minimum iOS deployment target
         script: |
           cd ios/App
-          sed -i '' "s/platform :ios, '.*'/platform :ios, '14.0'/" Podfile
+          echo "--- Podfile BEFORE ---"
+          cat Podfile
+          sed -i '' -E "s/platform :ios, [\"'][0-9.]+[\"']/platform :ios, '15.0'/" Podfile
+          echo "--- Podfile AFTER ---"
+          cat Podfile
       - name: Copy web config (no auto pod install)
         script: npx cap copy ios
       - name: Install CocoaPods dependencies
