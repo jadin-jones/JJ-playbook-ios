@@ -39,11 +39,16 @@ workflows:
             --create
       - name: Set up code signing settings on Xcode project
         script: xcode-project use-profiles
-      - name: Build ipa
+      - - name: Build ipa
         script: |
+          set +e
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/ios/App/App.xcworkspace" \
             --scheme "$XCODE_SCHEME"
+          BUILD_STATUS=$?
+          echo "--- RAW XCODEBUILD LOG ---"
+          find /tmp/xcodebuild_logs -name "*.log" -exec cat {} \;
+          exit $BUILD_STATUS
       - name: Publish to TestFlight
         script: |
           export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
