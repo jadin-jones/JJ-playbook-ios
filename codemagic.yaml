@@ -9,9 +9,6 @@ workflows:
       vars:
         XCODE_SCHEME: "App"
         BUNDLE_ID: "app.netlify.jjplaybook"
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: app.netlify.jjplaybook
       xcode: latest
       cocoapods: default
       node: latest
