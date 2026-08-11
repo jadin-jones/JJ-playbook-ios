@@ -39,7 +39,7 @@ workflows:
             --create
       - name: Set up code signing settings on Xcode project
         script: xcode-project use-profiles
-      - - name: Build ipa
+      - name: Build ipa
         script: |
           set +e
           xcode-project build-ipa \
