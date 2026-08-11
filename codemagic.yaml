@@ -21,6 +21,9 @@ workflows:
         script: |
           cd ios/App
           sed -i '' -E "s/platform :ios, [\"'][0-9.]+[\"']/platform :ios, '15.0'/" Podfile
+       - name: Fix Xcode project deployment target
+        script: |
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/App/App.xcodeproj/project.pbxproj
       - name: Copy web config (no auto pod install)
         script: npx cap copy ios
       - name: Install CocoaPods dependencies
