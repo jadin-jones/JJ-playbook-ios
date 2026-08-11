@@ -1,0 +1,258 @@
+/* =====================================================================
+   Jadin | Jones — Championship Teams Playbook
+   Push notification senders (Firebase Cloud Functions, 2nd gen)
+
+   Two functions:
+   1. notifyOnFeedWrite  — fires on every write to the jj_playbook
+      collection; sends a push when a NEW chat message, event, or
+      update appears for an organization.
+   2. fiveSDailyNudge    — runs hourly; sends a "score your 5 S's"
+      reminder to each device at its configured local hour.
+
+   Data shapes (must match the app's storage conventions exactly):
+   - Generic key/value docs (org:, program:, events:CODE, updates:CODE,
+     push:idkey, resp:CODE:idkey, etc.) are stored as:
+        { value: "<JSON.stringify(...) string>" }
+     — this mirrors the app's sset()/sget() helpers.
+   - Chat docs (chat:CODE) are the one exception — they're written
+     directly with a native Firestore array field:
+        { messages: [ {id, authorName, authorIdkey, body, imageUrl,
+                        createdAt}, ... ] }
+   ===================================================================== */
+
+const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+const logger = require("firebase-functions/logger");
+const admin = require("firebase-admin");
+
+admin.initializeApp();
+const db = admin.firestore();
+const COLL = "jj_playbook";
+
+/* ---------- shared helpers ---------- */
+
+function safeParse(str) {
+  if (str == null) return null;
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Mirrors the app's slist(prefix) helper: find all doc IDs starting
+// with a prefix using a documentId() range query.
+async function listDocsByPrefix(prefix) {
+  const end = prefix + "\uf8ff";
+  const snap = await db
+    .collection(COLL)
+    .where(admin.firestore.FieldPath.documentId(), ">=", prefix)
+    .where(admin.firestore.FieldPath.documentId(), "<", end)
+    .get();
+  return snap.docs;
+}
+
+// Returns [{ idkey, token, name, code, tz, remind5s, remindHour, docRef }]
+async function getAllDevices() {
+  const docs = await listDocsByPrefix("push:");
+  const out = [];
+  docs.forEach((d) => {
+    const raw = d.data();
+    const parsed = safeParse(raw.value);
+    if (parsed && parsed.token) {
+      out.push({
+        idkey: parsed.idkey,
+        token: parsed.token,
+        name: parsed.name,
+        code: parsed.code,
+        tz: parsed.tz || "America/Chicago",
+        remind5s: !!parsed.remind5s,
+        remindHour: parsed.remindHour != null ? parsed.remindHour : 18,
+        docRef: d.ref,
+      });
+    }
+  });
+  return out;
+}
+
+async function getDevicesForCode(code) {
+  const all = await getAllDevices();
+  return all.filter((dv) => dv.code === code);
+}
+
+async function sendPush(device, title, body, path) {
+  const message = {
+    token: device.token,
+    notification: { title, body },
+    webpush: {
+      notification: {
+        title,
+        body,
+        icon: "/icon-192.png",
+      },
+      fcmOptions: {
+        link: path ? "https://jadinjonesplaybook.netlify.app" + path : "https://jadinjonesplaybook.netlify.app",
+      },
+    },
+  };
+  try {
+    await admin.messaging().send(message);
+    return true;
+  } catch (e) {
+    logger.warn("push failed for " + (device.idkey || device.token), e.message || e);
+    // If the token is dead, remove the subscription so we stop retrying it.
+    const code = (e && e.code) || "";
+    if (
+      code === "messaging/registration-token-not-registered" ||
+      code === "messaging/invalid-registration-token"
+    ) {
+      try {
+        await device.docRef.delete();
+        logger.log("removed stale push subscription for " + device.idkey);
+      } catch (delErr) {
+        logger.warn("could not remove stale subscription", delErr);
+      }
+    }
+    return false;
+  }
+}
+
+function truncate(str, n) {
+  str = String(str || "");
+  return str.length > n ? str.slice(0, n - 1) + "…" : str;
+}
+
+/* ---------- 1. notifyOnFeedWrite ---------- */
+
+exports.notifyOnFeedWrite = onDocumentWritten(
+  `${COLL}/{docId}`,
+  async (event) => {
+    const docId = event.params.docId;
+    const before = event.data.before.exists ? event.data.before.data() : null;
+    const after = event.data.after.exists ? event.data.after.data() : null;
+
+    if (!after) return; // deletions — nothing to notify
+
+    if (docId.startsWith("chat:")) {
+      await handleChatWrite(docId, before, after);
+    } else if (docId.startsWith("events:")) {
+      await handleListWrite(docId, "events:", before, after, (item) => ({
+        title: "📅 New event scheduled",
+        body: truncate(item.title || "A new event was added", 90),
+        path: "/events",
+      }));
+    } else if (docId.startsWith("updates:")) {
+      await handleListWrite(docId, "updates:", before, after, (item) => ({
+        title: "💬 New update from your coach",
+        body: truncate(item.title || "A new update was posted", 90),
+        path: "/updates",
+      }));
+    }
+  }
+);
+
+async function handleChatWrite(docId, before, after) {
+  const code = docId.slice("chat:".length);
+  const beforeMsgs = Array.isArray(before && before.messages) ? before.messages : [];
+  const afterMsgs = Array.isArray(after && after.messages) ? after.messages : [];
+  if (afterMsgs.length <= beforeMsgs.length) return;
+
+  const beforeIds = new Set(beforeMsgs.map((m) => m.id));
+  const freshMsgs = afterMsgs.filter((m) => !beforeIds.has(m.id));
+  if (!freshMsgs.length) return;
+
+  const devices = await getDevicesForCode(code);
+  if (!devices.length) return;
+
+  const sends = [];
+  freshMsgs.forEach((msg) => {
+    devices
+      .filter((dv) => dv.idkey !== msg.authorIdkey)
+      .forEach((dv) => {
+        sends.push(
+          sendPush(
+            dv,
+            "💬 " + (msg.authorName || "Teammate"),
+            truncate(msg.body || (msg.imageUrl ? "Sent an image" : ""), 90),
+            "/chat"
+          )
+        );
+      });
+  });
+  await Promise.all(sends);
+}
+
+async function handleListWrite(docId, prefix, before, after, describe) {
+  const code = docId.slice(prefix.length);
+  const beforeList = safeParse(before && before.value) || [];
+  const afterList = safeParse(after && after.value) || [];
+  if (!Array.isArray(afterList) || afterList.length <= beforeList.length) return;
+
+  const beforeIds = new Set(beforeList.map((it) => it.id));
+  const freshItems = afterList.filter((it) => !beforeIds.has(it.id));
+  if (!freshItems.length) return;
+
+  const devices = await getDevicesForCode(code);
+  if (!devices.length) return;
+
+  const sends = [];
+  freshItems.forEach((item) => {
+    const { title, body, path } = describe(item);
+    devices.forEach((dv) => sends.push(sendPush(dv, title, body, path)));
+  });
+  await Promise.all(sends);
+}
+
+/* ---------- 2. fiveSDailyNudge ---------- */
+// Runs once an hour. For each device, checks whether it's currently
+// the device owner's configured reminder hour in their own timezone,
+// and that we haven't already nudged them today.
+
+exports.fiveSDailyNudge = onSchedule(
+  { schedule: "0 * * * *", timeZone: "UTC" },
+  async () => {
+    const devices = await getAllDevices();
+    const now = Date.now();
+
+    const sends = [];
+    for (const dv of devices) {
+      if (!dv.remind5s) continue;
+
+      let localHour, localDateStr;
+      try {
+        const fmt = new Intl.DateTimeFormat("en-US", {
+          timeZone: dv.tz,
+          hour: "2-digit",
+          hour12: false,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        });
+        const parts = {};
+        fmt.formatToParts(new Date(now)).forEach((p) => (parts[p.type] = p.value));
+        localHour = parts.hour === "24" ? 0 : parseInt(parts.hour, 10);
+        localDateStr = `${parts.year}-${parts.month}-${parts.day}`;
+      } catch (e) {
+        continue; // bad timezone string on this device — skip safely
+      }
+
+      if (localHour !== dv.remindHour) continue;
+
+      // Dedupe: skip if we already nudged this device today.
+      const snap = await dv.docRef.get();
+      const raw = snap.data() || {};
+      if (raw.lastNudgeDate === localDateStr) continue;
+
+      sends.push(
+        sendPush(
+          dv,
+          "⏱️ Score your 5 S's",
+          "Sleep, Sweat, Structure, Social, Stillness — takes 30 seconds.",
+          "/toolkit"
+        ).then(() => dv.docRef.set({ lastNudgeDate: localDateStr }, { merge: true }))
+      );
+    }
+    await Promise.all(sends);
+    logger.log(`fiveSDailyNudge: checked ${devices.length} device(s), sent ${sends.length}`);
+  }
+);
