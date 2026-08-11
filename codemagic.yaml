@@ -30,16 +30,20 @@ workflows:
       - name: Decode private key
         script: |
           echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | tr -d '[:space:]' | base64 -D > /tmp/appstore_key.p8
+      - name: Delete all existing distribution certificates
+        script: |
+          export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
+          for TYPE in DISTRIBUTION IOS_DISTRIBUTION; do
+            echo "--- Checking type $TYPE ---"
+            IDS=$(app-store-connect certificates list --type "$TYPE" --json 2>/dev/null | python3 -c "import sys,json; data=json.load(sys.stdin); print(' '.join(c['id'] for c in data))" 2>/dev/null)
+            for CERT_ID in $IDS; do
+              echo "Deleting certificate $CERT_ID (type $TYPE)"
+              app-store-connect certificates delete "$CERT_ID" || true
+            done
+          done
       - name: Fetch signing files
         script: |
           export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
-          echo "--- Existing certificates ---"
-          app-store-connect certificates list --type IOS_DISTRIBUTION || true
-          echo "--- Deleting existing distribution certificates ---"
-          for CERT_ID in $(app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "import sys,json; data=json.load(sys.stdin); print(' '.join(c['id'] for c in data))" 2>/dev/null); do
-            echo "Deleting certificate $CERT_ID"
-            app-store-connect certificates delete "$CERT_ID" || true
-          done
           export CERTIFICATE_PRIVATE_KEY="$(openssl genrsa 2048)"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
@@ -48,14 +52,9 @@ workflows:
         script: xcode-project use-profiles
       - name: Build ipa
         script: |
-          set +e
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/ios/App/App.xcworkspace" \
             --scheme "$XCODE_SCHEME"
-          BUILD_STATUS=$?
-          echo "--- RAW XCODEBUILD LOG ---"
-          find /tmp/xcodebuild_logs -name "*.log" -exec cat {} \;
-          exit $BUILD_STATUS
       - name: Publish to TestFlight
         script: |
           export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
