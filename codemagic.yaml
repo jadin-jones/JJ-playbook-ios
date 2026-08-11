@@ -33,6 +33,7 @@ workflows:
       - name: Fetch signing files
         script: |
           export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
+          export CERTIFICATE_PRIVATE_KEY="$(openssl genrsa 2048)"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create
