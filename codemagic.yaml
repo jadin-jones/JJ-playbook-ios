@@ -15,6 +15,8 @@ workflows:
     scripts:
       - name: Install npm dependencies
         script: npm install
+      - name: Install push notifications plugin
+        script: npm install @capacitor/push-notifications
       - name: Generate app icons
         script: |
           npm install @capacitor/assets --save-dev
@@ -81,6 +83,9 @@ workflows:
       - name: Fix code signing identity placeholder
         script: |
           sed -i '' 's/= "iOS Distribution";/= "Apple Distribution";/g' ios/App/App.xcodeproj/project.pbxproj
+      - name: Set build number
+        script: |
+          sed -i '' 's/CURRENT_PROJECT_VERSION = 1;/CURRENT_PROJECT_VERSION = '"$(date +%s)"';/g' ios/App/App.xcodeproj/project.pbxproj
       - name: Build ipa
         script: |
           set +e
@@ -91,10 +96,6 @@ workflows:
           echo "--- RAW XCODEBUILD LOG ---"
           find /tmp/xcodebuild_logs -name "*.log" -exec cat {} \;
           exit $BUILD_STATUS
-      - name: Set build number
-        script: |
-          cd ios/App
-          agvtool new-version -all $(date +%s)
       - name: Publish to TestFlight
         script: |
           export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
