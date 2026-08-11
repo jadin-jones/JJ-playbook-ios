@@ -50,12 +50,21 @@ workflows:
         script: xcode-project use-profiles
       - name: Fix code signing identity placeholder
         script: |
+          echo "--- CODE_SIGN_IDENTITY lines BEFORE ---"
+          grep -n "CODE_SIGN_IDENTITY" ios/App/App.xcodeproj/project.pbxproj || echo "none found"
           sed -i '' 's/CODE_SIGN_IDENTITY = "iOS Distribution"/CODE_SIGN_IDENTITY = "Apple Distribution"/g' ios/App/App.xcodeproj/project.pbxproj
+          echo "--- CODE_SIGN_IDENTITY lines AFTER ---"
+          grep -n "CODE_SIGN_IDENTITY" ios/App/App.xcodeproj/project.pbxproj || echo "none found"
       - name: Build ipa
         script: |
+          set +e
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/ios/App/App.xcworkspace" \
             --scheme "$XCODE_SCHEME"
+          BUILD_STATUS=$?
+          echo "--- RAW XCODEBUILD LOG ---"
+          find /tmp/xcodebuild_logs -name "*.log" -exec cat {} \;
+          exit $BUILD_STATUS
       - name: Publish to TestFlight
         script: |
           export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
