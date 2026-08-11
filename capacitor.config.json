@@ -1,5 +1,9 @@
 {
-  "url": "https://jjplaybook.netlify.app",
+  "appId": "com.jadinjones.playbook",
   "appName": "Championship Playbook",
-  "webDir": "www"
+  "webDir": "www",
+  "server": {
+    "url": "https://jjplaybook.netlify.app",
+    "cleartext": false
+  }
 }
