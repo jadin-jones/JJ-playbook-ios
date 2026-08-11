@@ -34,10 +34,8 @@ workflows:
         script: |
           export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
           for TYPE in DISTRIBUTION IOS_DISTRIBUTION; do
-            echo "--- Checking type $TYPE ---"
             IDS=$(app-store-connect certificates list --type "$TYPE" --json 2>/dev/null | python3 -c "import sys,json; data=json.load(sys.stdin); print(' '.join(c['id'] for c in data))" 2>/dev/null)
             for CERT_ID in $IDS; do
-              echo "Deleting certificate $CERT_ID (type $TYPE)"
               app-store-connect certificates delete "$CERT_ID" || true
             done
           done
@@ -50,16 +48,14 @@ workflows:
             --create
       - name: Set up code signing settings on Xcode project
         script: xcode-project use-profiles
+      - name: Fix code signing identity placeholder
+        script: |
+          sed -i '' 's/CODE_SIGN_IDENTITY = "iOS Distribution"/CODE_SIGN_IDENTITY = "Apple Distribution"/g' ios/App/App.xcodeproj/project.pbxproj
       - name: Build ipa
         script: |
-          set +e
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/ios/App/App.xcworkspace" \
             --scheme "$XCODE_SCHEME"
-          BUILD_STATUS=$?
-          echo "--- RAW XCODEBUILD LOG ---"
-          find /tmp/xcodebuild_logs -name "*.log" -exec cat {} \;
-          exit $BUILD_STATUS
       - name: Publish to TestFlight
         script: |
           export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
