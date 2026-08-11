@@ -8,6 +8,10 @@ workflows:
         - appstore_credentials
       vars:
         XCODE_SCHEME: "App"
+        BUNDLE_ID: "app.netlify.jjplaybook"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: app.netlify.jjplaybook
       xcode: latest
       cocoapods: default
       node: latest
@@ -19,16 +23,19 @@ workflows:
       - name: Set minimum iOS deployment target
         script: |
           cd ios/App
-          echo "--- Podfile BEFORE ---"
-          cat Podfile
           sed -i '' -E "s/platform :ios, [\"'][0-9.]+[\"']/platform :ios, '15.0'/" Podfile
-          echo "--- Podfile AFTER ---"
-          cat Podfile
       - name: Copy web config (no auto pod install)
         script: npx cap copy ios
       - name: Install CocoaPods dependencies
         script: cd ios/App && pod install
-      - name: Set up code signing
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+      - name: Set up signing certificate
+        script: keychain add-certificates
+      - name: Set up code signing settings on Xcode project
         script: xcode-project use-profiles
       - name: Build ipa
         script: |
