@@ -20,8 +20,8 @@ workflows:
         script: |
           cd ios/App
           sed -i '' "s/platform :ios, '.*'/platform :ios, '14.0'/" Podfile
-      - name: Sync Capacitor
-        script: npx cap sync ios
+      - name: Copy web config (no auto pod install)
+        script: npx cap copy ios
       - name: Install CocoaPods dependencies
         script: cd ios/App && pod install
       - name: Set up code signing
