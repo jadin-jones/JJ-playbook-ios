@@ -91,6 +91,10 @@ workflows:
           echo "--- RAW XCODEBUILD LOG ---"
           find /tmp/xcodebuild_logs -name "*.log" -exec cat {} \;
           exit $BUILD_STATUS
+      - name: Set build number
+        script: |
+          cd ios/App
+          agvtool new-version -all $(date +%s)
       - name: Publish to TestFlight
         script: |
           export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
