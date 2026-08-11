@@ -15,6 +15,10 @@ workflows:
     scripts:
       - name: Install npm dependencies
         script: npm install
+      - name: Generate app icons
+        script: |
+          npm install @capacitor/assets --save-dev
+          npx capacitor-assets generate --iconOnly
       - name: Add iOS platform
         script: npx cap add ios
       - name: Set minimum iOS deployment target
