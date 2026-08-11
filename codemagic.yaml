@@ -25,8 +25,16 @@ workflows:
         script: npx cap copy ios
       - name: Install CocoaPods dependencies
         script: cd ios/App && pod install
+      - name: Decode private key
+        script: |
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | tr -d '[:space:]' | base64 -D > /tmp/appstore_key.p8
+          echo "--- First line of decoded key ---"
+          head -1 /tmp/appstore_key.p8
+          echo "--- Last line of decoded key ---"
+          tail -1 /tmp/appstore_key.p8
       - name: Fetch signing files
         script: |
+          export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create
@@ -39,11 +47,12 @@ workflows:
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/ios/App/App.xcworkspace" \
             --scheme "$XCODE_SCHEME"
+      - name: Publish to TestFlight
+        script: |
+          export APP_STORE_CONNECT_PRIVATE_KEY="$(cat /tmp/appstore_key.p8)"
+          APP_FILE=$(find "$CM_BUILD_DIR/build/ios/ipa" -name "*.ipa" | head -1)
+          app-store-connect publish \
+            --path "$APP_FILE" \
+            --testflight
     artifacts:
       - build/ios/ipa/*.ipa
-    publishing:
-      app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
