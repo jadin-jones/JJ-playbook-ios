@@ -16,7 +16,7 @@ workflows:
       - name: Install npm dependencies
         script: npm install
       - name: Install push notifications plugin
-        script: npm install @capacitor/push-notifications
+        script: npm install @capacitor-firebase/messaging @capacitor/push-notifications
       - name: Generate app icons
         script: |
           npm install @capacitor/assets --save-dev
