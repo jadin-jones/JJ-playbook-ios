@@ -24,7 +24,12 @@ workflows:
       - name: Add iOS platform
         script: npx cap add ios
       - name: Copy Firebase config into place
-        script: cp GoogleService-Info.plist ios/App/App/GoogleService-Info.plist
+        script: |
+          echo "--- Files in repo root ---"
+          ls -la
+          echo "--- Searching for any plist files ---"
+          find . -maxdepth 2 -iname "*.plist" -not -path "./ios/*"
+          cp GoogleService-Info.plist ios/App/App/GoogleService-Info.plist
       - name: Add GoogleService-Info.plist to Xcode project
         script: |
           gem install xcodeproj --no-document
