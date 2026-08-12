@@ -23,13 +23,11 @@ workflows:
           npx capacitor-assets generate
       - name: Add iOS platform
         script: npx cap add ios
-      - name: Copy Firebase config into place
+     - name: Copy Firebase config into place
         script: |
-          echo "--- Files in repo root ---"
-          ls -la
-          echo "--- Searching for any plist files ---"
-          find . -maxdepth 2 -iname "*.plist" -not -path "./ios/*"
-          cp GoogleService-Info.plist ios/App/App/GoogleService-Info.plist
+          PLIST_PATH=$(find . -maxdepth 1 -iname "*GoogleService-Info.plist*" -not -path "./ios/*" | head -1)
+          echo "Found plist at: [$PLIST_PATH]"
+          cp "$PLIST_PATH" ios/App/App/GoogleService-Info.plist
       - name: Add GoogleService-Info.plist to Xcode project
         script: |
           gem install xcodeproj --no-document
