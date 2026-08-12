@@ -23,6 +23,19 @@ workflows:
           npx capacitor-assets generate
       - name: Add iOS platform
         script: npx cap add ios
+      - name: Add GoogleService-Info.plist to Xcode project
+        script: |
+          gem install xcodeproj --no-document
+          ruby -e '
+          require "xcodeproj"
+          project = Xcodeproj::Project.open("ios/App/App.xcodeproj")
+          target = project.targets.first
+          group = project.main_group["App"]
+          existing = group.files.find { |f| f.path == "GoogleService-Info.plist" }
+          file_ref = existing || group.new_reference("GoogleService-Info.plist")
+          target.resources_build_phase.add_file_reference(file_ref) unless target.resources_build_phase.files_references.include?(file_ref)
+          project.save
+          '
       - name: Add push notification entitlement
         script: |
           ENTITLEMENTS_FILE="ios/App/App/App.entitlements"
