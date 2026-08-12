@@ -53,6 +53,8 @@ workflows:
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/App/App.xcodeproj/project.pbxproj
       - name: Copy web config (no auto pod install)
         script: npx cap copy ios
+      - name: Update native plugin dependencies
+        script: npx cap update ios
       - name: Install CocoaPods dependencies
         script: cd ios/App && pod install
       - name: Initialize keychain
