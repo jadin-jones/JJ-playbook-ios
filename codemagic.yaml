@@ -17,12 +17,12 @@ workflows:
         script: npm install
       - name: Install push notifications plugin
         script: npm install @capacitor-firebase/messaging @capacitor/push-notifications
-      - name: Generate app icons
-        script: |
-          npm install @capacitor/assets --save-dev
-          npx capacitor-assets generate
       - name: Add iOS platform
-        script: npx cap add ios
+  script: npx cap add ios
+- name: Generate app icons
+  script: |
+    npm install @capacitor/assets --save-dev
+    npx capacitor-assets generate
       - name: Copy Firebase config into place
         script: |
           PLIST_PATH=$(find . -maxdepth 1 -iname "*GoogleService-Info.plist*" -not -path "./ios/*" | head -1)
