@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Studio</title>
+<!-- Its own manifest, so adding this to a Home Screen installs Studio rather
+     than the leader app: the two share an origin but not a start_url. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Studio">
+<link rel="apple-touch-icon" href="../assets/icon-180.png">
+<style>
+  html,body{margin:0;height:100%;background:#0C2647;color:#FADA01;
+    font-family:Montserrat,system-ui,-apple-system,sans-serif}
+  main{height:100%;display:flex;align-items:center;justify-content:center}
+  p{font-weight:900;font-size:11px;letter-spacing:.22em;text-transform:uppercase;margin:0}
+</style>
+</head>
+<body>
+<main><p>Opening Studio&hellip;</p></main>
+<script>
+  /* A separate address so the operator door is never part of the sign-in page
+     anyone lands on. Replace rather than assign — no history entry, so Back
+     from Studio does not bounce through here. */
+  location.replace('../index.html?studio=1');
+</script>
+</body>
+</html>
