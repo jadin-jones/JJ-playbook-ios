@@ -8261,7 +8261,18 @@ async function sgetStrict(key){
   const raw=localStorage.getItem('jj:'+key); return raw==null?null:JSON.parse(raw);
 }
 async function sset(key,val){ await fbReady(); try{ const s=JSON.stringify(val); const db=fb(); if(db){ cachePut(key,val);
-    await attempt(()=>db.collection(COLL).doc(key).set({value:s}),2,9000); return true; }
+    /* Member records (resp:/coach:/gin:/chat:) carry a top-level ownerEmail so
+       Firestore rules can protect them. Owner = signed-in user if available,
+       else the email already inside the record. Shared/content keys are untouched. */
+    const _isMember=/^(resp|coach|gin|chat):/.test(key);
+    let _payload={value:s};
+    if(_isMember){
+      let _oe=null;
+      try{ const _u=(firebase.auth&&firebase.apps.length)?firebase.auth().currentUser:null; if(_u&&_u.email) _oe=_u.email.toLowerCase(); }catch(e){}
+      if(!_oe && val && typeof val==="object"){ const _e=val.email||(val.resp&&val.resp.email)||""; if(_e) _oe=String(_e).toLowerCase(); }
+      if(_oe) _payload.ownerEmail=_oe;
+    }
+    await attempt(()=>db.collection(COLL).doc(key).set(_payload,{merge:true}),2,9000); return true; }
   localStorage.setItem('jj:'+key,s); return true; }catch(e){ console.error('sset',key,e); return false; } }
 async function sdel(key){ await fbReady(); try{ const db=fb(); if(db){ await withTimeout(db.collection(COLL).doc(key).delete(),9000); return true; }
   localStorage.removeItem('jj:'+key); return true; }catch(e){ console.error('sdel',key,e); return false; } }
