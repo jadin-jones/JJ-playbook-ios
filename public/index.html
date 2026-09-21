@@ -8205,6 +8205,25 @@ function fb(){ try{ if(_db) return _db; if(typeof firebase==='undefined') return
   try{ _db.settings({experimentalAutoDetectLongPolling:true,merge:true}); }catch(e){}
   try{ _db.enablePersistence({synchronizeTabs:true}).catch(()=>{}); }catch(e){}
   return _db; }catch(e){ return null; } }
+/* Firebase Auth (login) is not in the base bundle; load it on demand. Version must match the rest of Firebase (10.12.2) or the SDK conflicts. */
+let _authWait=null;
+function authReady(){
+  if(typeof firebase!=="undefined" && firebase.auth) return Promise.resolve(true);
+  if(_authWait) return _authWait;
+  _authWait=new Promise(async res=>{
+    try{
+      await fbReady();
+      if(!firebase.auth){
+        await new Promise((ok,bad)=>{ const s=document.createElement("script");
+          s.src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js";
+          s.onload=ok; s.onerror=bad; document.head.appendChild(s); });
+      }
+      if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      res(true);
+    }catch(e){ console.error("authReady",e); _authWait=null; res(false); }
+  });
+  return _authWait;
+}
 function withTimeout(p,ms){ let t; return Promise.race([
   Promise.resolve(p).then(v=>{ clearTimeout(t); return v; },e=>{ clearTimeout(t); throw e; }),
   new Promise((_,r)=>{ t=setTimeout(()=>r(new Error('timeout')),ms); })]); }
