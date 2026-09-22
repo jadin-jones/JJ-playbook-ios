@@ -7605,7 +7605,7 @@ Or upload an image
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:940}}">
-const FIREBASE_CONFIG={apiKey:"AIzaSyAgcRPj65snd_CxN-zs8v3EXiOsDcLaxI4",authDomain:"test-6b2ab.firebaseapp.com",projectId:"test-6b2ab",storageBucket:"test-6b2ab.firebasestorage.app",messagingSenderId:"468112905284",appId:"1:468112905284:web:5073dffaece8633bc9d811"};
+const FIREBASE_CONFIG=(location.hostname.indexOf("dev")>-1)?{apiKey:"AIzaSyBuWZtJiL6Plizs6GkAtZvvipBy9Cs5KJY",authDomain:"jj-playbook-dev.firebaseapp.com",projectId:"jj-playbook-dev",storageBucket:"jj-playbook-dev.firebasestorage.app",messagingSenderId:"330195639799",appId:"1:330195639799:web:ebbfe5631dfe5ae0af22f2"}:{apiKey:"AIzaSyAgcRPj65snd_CxN-zs8v3EXiOsDcLaxI4",authDomain:"test-6b2ab.firebaseapp.com",projectId:"test-6b2ab",storageBucket:"test-6b2ab.firebasestorage.app",messagingSenderId:"468112905284",appId:"1:468112905284:web:5073dffaece8633bc9d811"};
 const COLL='jj_playbook';
 // Two editions of the same nine-fundamental format. Y1 keeps the original
 // storage keys so every organization and every response already out there
@@ -8205,6 +8205,71 @@ function fb(){ try{ if(_db) return _db; if(typeof firebase==='undefined') return
   try{ _db.settings({experimentalAutoDetectLongPolling:true,merge:true}); }catch(e){}
   try{ _db.enablePersistence({synchronizeTabs:true}).catch(()=>{}); }catch(e){}
   return _db; }catch(e){ return null; } }
+/* Firebase Auth (login) is not in the base bundle; load it on demand. Version must match the rest of Firebase (10.12.2) or the SDK conflicts.
+   authReady() does two jobs: it loads the Auth SDK, AND it does not resolve
+   until a real signed-in user exists — showing a login overlay in the
+   meantime. Every read/write below awaits this, so nothing touches Firestore
+   before someone is actually authenticated. */
+let _authWait=null;
+let _authUser=null;
+function authReady(){
+  if(_authUser) return Promise.resolve(true);
+  if(_authWait) return _authWait;
+  _authWait=new Promise(async res=>{
+    try{
+      await fbReady();
+      if(!firebase.auth){
+        await new Promise((ok,bad)=>{ const s=document.createElement("script");
+          s.src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js";
+          s.onload=ok; s.onerror=bad; document.head.appendChild(s); });
+      }
+      if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      firebase.auth().onAuthStateChanged(user=>{
+        _authUser=user;
+        if(user){ _hideLoginOverlay(); res(true); }
+        else{ _showLoginOverlay(); }
+      });
+    }catch(e){ console.error("authReady",e); _authWait=null; res(false); }
+  });
+  return _authWait;
+}
+function currentUserEmail(){ return _authUser?_authUser.email:null; }
+function _showLoginOverlay(){
+  if(document.getElementById('jj-login-gate')) return;
+  const div=document.createElement('div');
+  div.id='jj-login-gate';
+  div.style.cssText='position:fixed;inset:0;z-index:999999;background:#0b1f3a;'
+    +'display:flex;align-items:center;justify-content:center;flex-direction:column;'
+    +'color:#fff;font-family:system-ui,-apple-system,sans-serif;';
+  div.innerHTML=
+    '<div style="text-align:center;max-width:320px;padding:24px;">'
+    +'<h2 style="margin:0 0 16px;">JJ Playbook</h2>'
+    +'<p style="opacity:.8;margin:0 0 24px;">Sign in to continue</p>'
+    +'<button id="jj-google-signin" style="background:#fff;color:#0b1f3a;border:none;'
+    +'border-radius:8px;padding:12px 24px;font-size:16px;font-weight:600;cursor:pointer;">'
+    +'Sign in with Google</button>'
+    +'<p id="jj-login-error" style="color:#ffb4b4;margin-top:16px;font-size:14px;"></p>'
+    +'</div>';
+  document.body.appendChild(div);
+  document.getElementById('jj-google-signin').addEventListener('click',_doGoogleSignIn);
+}
+function _hideLoginOverlay(){
+  const el=document.getElementById('jj-login-gate');
+  if(el) el.remove();
+}
+async function _doGoogleSignIn(){
+  const errEl=document.getElementById('jj-login-error');
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    const provider=new firebase.auth.GoogleAuthProvider();
+    const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if(isMobile){ await firebase.auth().signInWithRedirect(provider); }
+    else{ await firebase.auth().signInWithPopup(provider); }
+  }catch(e){
+    console.error('signIn',e);
+    if(errEl) errEl.textContent='Sign-in failed. Please try again.';
+  }
+}
 function withTimeout(p,ms){ let t; return Promise.race([
   Promise.resolve(p).then(v=>{ clearTimeout(t); return v; },e=>{ clearTimeout(t); throw e; }),
   new Promise((_,r)=>{ t=setTimeout(()=>r(new Error('timeout')),ms); })]); }
@@ -8225,7 +8290,7 @@ async function attempt(fn,tries,ms){
    from the last known copy instead of a failure. */
 function cacheGet(key){ try{ const raw=localStorage.getItem('jjc:'+key); return raw==null?undefined:JSON.parse(raw); }catch(e){ return undefined; } }
 function cachePut(key,val){ try{ localStorage.setItem('jjc:'+key,JSON.stringify(val)); }catch(e){} }
-async function sget(key){ await fbReady(); try{ const db=fb(); if(db){
+async function sget(key){ await fbReady(); await authReady(); try{ const db=fb(); if(db){
     try{ const d=await attempt(()=>db.collection(COLL).doc(key).get(),3,8000);
       const v=d.exists?JSON.parse(d.data().value):null; cachePut(key,v); return v; }
     catch(e){ const c=cacheGet(key); if(c!==undefined){ console.warn('sget cached',key); return c; } throw e; } }
@@ -8236,18 +8301,31 @@ async function sget(key){ await fbReady(); try{ const db=fb(); if(db){
    history the next time anything saves. */
 async function sgetStrict(key){
   await fbReady();
+  await authReady();
   const db=fb();
   if(db){ const d=await attempt(()=>db.collection(COLL).doc(key).get(),3,8000);
     const v=d.exists?JSON.parse(d.data().value):null; cachePut(key,v); return v; }
   const raw=localStorage.getItem('jj:'+key); return raw==null?null:JSON.parse(raw);
 }
-async function sset(key,val){ await fbReady(); try{ const s=JSON.stringify(val); const db=fb(); if(db){ cachePut(key,val);
-    await attempt(()=>db.collection(COLL).doc(key).set({value:s}),2,9000); return true; }
+async function sset(key,val){ await fbReady(); await authReady(); try{ const s=JSON.stringify(val); const db=fb(); if(db){ cachePut(key,val);
+    /* Member records (resp:/coach:/gin:/chat:) carry a top-level ownerEmail so
+       Firestore rules can protect them. Owner = signed-in user if available,
+       else the email already inside the record. Shared/content keys are untouched. */
+    const _isMember=/^(resp|coach|gin|chat):/.test(key);
+    let _payload={value:s};
+    if(_isMember){
+      let _oe=null;
+      try{ const _u=(firebase.auth&&firebase.apps.length)?firebase.auth().currentUser:null; if(_u&&_u.email) _oe=_u.email.toLowerCase(); }catch(e){}
+      if(!_oe && val && typeof val==="object"){ const _e=val.email||(val.resp&&val.resp.email)||""; if(_e) _oe=String(_e).toLowerCase(); }
+      if(_oe) _payload.ownerEmail=_oe;
+    }
+    await attempt(()=>db.collection(COLL).doc(key).set(_payload,{merge:true}),2,9000); return true; }
   localStorage.setItem('jj:'+key,s); return true; }catch(e){ console.error('sset',key,e); return false; } }
-async function sdel(key){ await fbReady(); try{ const db=fb(); if(db){ await withTimeout(db.collection(COLL).doc(key).delete(),9000); return true; }
+async function sdel(key){ await fbReady(); await authReady(); try{ const db=fb(); if(db){ await withTimeout(db.collection(COLL).doc(key).delete(),9000); return true; }
   localStorage.removeItem('jj:'+key); return true; }catch(e){ console.error('sdel',key,e); return false; } }
 async function slistDocs(prefix){
   await fbReady();
+  await authReady();
   const db=fb();
   if(!db){
     return Object.keys(localStorage).filter(k=>k.indexOf('jj:'+prefix)===0)
@@ -8265,7 +8343,7 @@ async function slistDocs(prefix){
   });
   return out;
 }
-async function slist(prefix){ await fbReady(); try{ const db=fb(); if(db){ const snap=await withTimeout(db.collection(COLL).get(),12000);
+async function slist(prefix){ await fbReady(); await authReady(); try{ const db=fb(); if(db){ const snap=await withTimeout(db.collection(COLL).get(),12000);
     return snap.docs.map(d=>d.id).filter(k=>k.indexOf(prefix)===0); }
   return Object.keys(localStorage).filter(k=>k.indexOf('jj:')===0).map(k=>k.slice(3)).filter(k=>k.indexOf(prefix)===0); }catch(e){ console.error('slist',e); return []; } }
 
