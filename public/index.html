@@ -659,8 +659,14 @@ sc-if,sc-for{display:none!important}
 <input type="password" name="password" value="{{ pwPass }}" sc-camel-on-change="{{ onPwPass }}" sc-camel-auto-complete="{{ pwPassAuto }}" placeholder="{{ pwPassPh }}" style="{{ pwInpStyle }}">
 <button type="submit" style="display:block;width:100%;max-width:300px;margin:4px auto 0;background:transparent;color:#FFFFFF;border:2px solid #FFFFFF;border-radius:999px;padding:13px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer">{{ pwCta }}</button>
 </form>
+<sc-if value="{{ pwShowForgot }}" hint-placeholder-val="{{ true }}">
+<p style="text-align:center;font-size:12.5px;line-height:1.5;margin:10px 0 0"><button sc-camel-on-click="{{ onPwForgot }}" style="background:none;border:none;padding:0;font:inherit;color:#7E8D9C;text-decoration:underline;cursor:pointer">Forgot password?</button></p>
+</sc-if>
 <sc-if value="{{ pwHasErr }}" hint-placeholder-val="{{ false }}">
 <p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ pwErr }}</p>
+</sc-if>
+<sc-if value="{{ pwHasMsg }}" hint-placeholder-val="{{ false }}">
+<p style="color:#9FD7B5;font-size:13px;line-height:1.5;margin:14px 0 0">{{ pwMsg }}</p>
 </sc-if>
 <p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:14px 0 0">{{ pwToggleLead }} <button sc-camel-on-click="{{ onPwToggle }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">{{ pwToggleCta }}</button></p>
 </div>
@@ -9101,7 +9107,7 @@ class Component extends DCLogic {
       joinCode:'', joinFirst:'', joinLast:'', joining:false, enterNewCode:false,
       authChecked:false, authEmail:'', gateSignInErr:'', gateSignInBusy:false,
       verifyEmail:'', verifyBusy:false, verifyMsg:'', verifyErr:'', verifySentAt:0,
-      pwEmail:'', pwPass:'', pwMode:'signin', pwBusy:false, pwErr:'',
+      pwEmail:'', pwPass:'', pwMode:'signin', pwBusy:false, pwErr:'', pwMsg:'', pwResetAt:0,
       gateStores:[], gateDepts:[], gateOrgName:'', joinStore:'', joinDept:'',
       odStore:'', odDept:'', odPerson:null, copyFrom:'', secOpen:{}, liveEdit:false,
       speedCode:'', speedN:75, speedBusy:false, speedResult:null, speedNote:'',
@@ -12565,7 +12571,7 @@ class Component extends DCLogic {
     if(!email) return this.setState({pwErr:'Enter your email address.'});
     if(!pw) return this.setState({pwErr:'Enter your password.'});
     const create=s.pwMode==='create';
-    this.setState({pwBusy:true,pwErr:'',gateSignInErr:''});
+    this.setState({pwBusy:true,pwErr:'',pwMsg:'',gateSignInErr:''});
     const r=create?await authEmailCreate(email,pw):await authEmailSignIn(email,pw);
     if(!r.ok) return this.setState({pwBusy:false,pwErr:r.error});
     this.setState({pwBusy:false,pwPass:''});
@@ -12576,6 +12582,20 @@ class Component extends DCLogic {
       this.showVerify(email);
       this.setState({verifyMsg:'This address is not verified yet. Can’t find the email? Tap Resend the email.'});
     }
+  }
+  /* Forgot password: uses the address typed above. The reply is the same
+     whether or not that address has an account. Once a minute at most. */
+  async emailReset(){
+    const s=this.state;
+    if(s.pwBusy) return;
+    const email=String(s.pwEmail||'').trim();
+    if(!email) return this.setState({pwMsg:'',pwErr:'Type your email address above, then tap Forgot password.'});
+    const wait=60000-(Date.now()-(s.pwResetAt||0));
+    if(wait>0) return this.setState({pwErr:'',pwMsg:'Sent. You can send another in '+Math.ceil(wait/1000)+' seconds.'});
+    this.setState({pwBusy:true,pwErr:'',pwMsg:'',pwResetAt:Date.now()});
+    const r=await authSendReset(email);
+    this.setState(r.ok?{pwBusy:false,pwMsg:'If there is an account for '+email+', a link to reset the password is on its way. Check spam or junk too.'}
+      :{pwBusy:false,pwErr:r.error,pwResetAt:0});
   }
   stopVerifyWatch(){
     if(this._verifyVis) document.removeEventListener('visibilitychange',this._verifyVis);
@@ -16524,7 +16544,7 @@ class Component extends DCLogic {
     const pwCreate=s.pwMode==='create';
     v.pwInpStyle=INP+';display:block;box-sizing:border-box;max-width:300px;margin:0 auto 10px';
     v.pwEmail=s.pwEmail||''; v.pwPass=s.pwPass||'';
-    v.onPwEmail=e=>this.setState({pwEmail:e.target.value,pwErr:''});
+    v.onPwEmail=e=>this.setState({pwEmail:e.target.value,pwErr:'',pwMsg:''});
     v.onPwPass=e=>this.setState({pwPass:e.target.value,pwErr:''});
     v.onPwSubmit=e=>{ if(e&&e.preventDefault) e.preventDefault(); this.emailSubmit(); };
     v.pwPassAuto=pwCreate?'new-password':'current-password';
@@ -16532,8 +16552,11 @@ class Component extends DCLogic {
     v.pwCta=s.pwBusy?(pwCreate?'Creating account…':'Signing in…'):(pwCreate?'Create account':'Sign in with email');
     v.pwToggleLead=pwCreate?'Already have an account?':'New here?';
     v.pwToggleCta=pwCreate?'Sign in':'Create an account';
-    v.onPwToggle=()=>{ if(!s.pwBusy) this.setState({pwMode:pwCreate?'signin':'create',pwErr:'',pwPass:''}); };
+    v.onPwToggle=()=>{ if(!s.pwBusy) this.setState({pwMode:pwCreate?'signin':'create',pwErr:'',pwMsg:'',pwPass:''}); };
     v.pwErr=s.pwErr||''; v.pwHasErr=!!s.pwErr;
+    v.pwMsg=s.pwMsg||''; v.pwHasMsg=!!s.pwMsg;
+    v.pwShowForgot=!pwCreate;
+    v.onPwForgot=()=>this.emailReset();
     v.verifyEmail=s.verifyEmail||'';
     v.verifyCta=s.verifyBusy?'Checking…':'I’ve verified — continue';
     v.onVerifyCheck=()=>this.verifyCheck();
