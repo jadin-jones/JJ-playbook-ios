@@ -1431,8 +1431,8 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 <sc-if value="{{ peer.confirming }}" hint-placeholder-val="{{ false }}">
 <div style="background:#FFF4EF;border:1px solid #E9A98F;border-radius:12px;padding:14px 15px;margin-top:14px">
-<div style="font-weight:900;font-size:13px;text-transform:uppercase;letter-spacing:.02em;color:#8F2D13">Delete every peer response?</div>
-<p style="font-size:12.5px;line-height:1.6;color:#8F2D13;margin:6px 0 12px">This deletes the link, every score and every written answer. It cannot be recovered, and anyone who has not replied yet will lose their chance.</p>
+<div style="font-weight:900;font-size:13px;text-transform:uppercase;letter-spacing:.02em;color:#8F2D13">{{ peer.delTitle }}</div>
+<p style="font-size:12.5px;line-height:1.6;color:#8F2D13;margin:6px 0 12px">{{ peer.delBody }}</p>
 <div style="display:flex;gap:8px">
 <button sc-camel-on-click="{{ peer.onConfirmDelete }}" style="flex:1;background:#D5502B;color:#FFFFFF;border:2px solid #D5502B;border-radius:9px;padding:11px;font-weight:900;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Delete permanently</button>
 <button sc-camel-on-click="{{ peer.onCancelDelete }}" style="flex:none;background:transparent;color:#8F2D13;border:2px solid #E9A98F;border-radius:9px;padding:11px 15px;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Keep</button>
@@ -1442,6 +1442,12 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 
+<sc-if value="{{ peer.waiting }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+<p style="flex:1;min-width:0;font-size:12.5px;line-height:1.55;color:#37475C;margin:0">{{ peer.waitNote }}</p>
+<button sc-camel-on-click="{{ peer.onRefresh }}" style="flex:none;background:transparent;color:#0C1B2E;border:2px solid #C6D4E2;border-radius:9px;padding:10px 14px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Refresh</button>
+</div>
+</sc-if>
 <sc-if value="{{ peer.noRound }}" hint-placeholder-val="{{ true }}">
 <div>
 <button sc-camel-on-click="{{ peer.onOpenRound }}" style="{{ peer.openBtnStyle }}">{{ peer.openCta }}</button>
@@ -1457,6 +1463,12 @@ sc-if,sc-for{display:none!important}
 <div style="font-weight:800;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#D4B400">Whole group</div>
 <div style="font-weight:900;font-size:18px;line-height:1.12;text-transform:uppercase;color:#0C1B2E;margin-top:6px">Team Assessment</div>
 
+<sc-if value="{{ teamCard.waiting }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+<p style="flex:1;min-width:0;font-size:12.5px;line-height:1.55;color:#37475C;margin:0">{{ teamCard.waitNote }}</p>
+<button sc-camel-on-click="{{ teamCard.onRefresh }}" style="flex:none;background:transparent;color:#0C1B2E;border:2px solid #C6D4E2;border-radius:9px;padding:10px 14px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Refresh</button>
+</div>
+</sc-if>
 <sc-if value="{{ teamCard.noRound }}" hint-placeholder-val="{{ true }}">
 <div>
 <button sc-camel-on-click="{{ teamCard.onOpenRound }}" style="{{ teamCard.openBtnStyle }}">{{ teamCard.openCta }}</button>
@@ -4884,6 +4896,12 @@ sc-if,sc-for{display:none!important}
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:16px;padding:16px;margin-bottom:12px">
 <div style="font-weight:900;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#0C1B2E">Team Assessment Results</div>
 
+<sc-if value="{{ orgDash.team.waiting }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+<p style="flex:1;min-width:0;font-size:12.5px;line-height:1.55;color:#37475C;margin:0">{{ orgDash.team.waitNote }}</p>
+<button sc-camel-on-click="{{ orgDash.team.onRefresh }}" style="flex:none;background:transparent;color:#0C1B2E;border:2px solid #C6D4E2;border-radius:9px;padding:10px 14px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Refresh</button>
+</div>
+</sc-if>
 <sc-if value="{{ orgDash.team.noRound }}" hint-placeholder-val="{{ true }}">
 <div>
 <p style="font-size:12.5px;line-height:1.6;color:#37475C;margin:8px 0 12px">{{ orgDash.team.intro }}</p>
@@ -9245,7 +9263,7 @@ class Component extends DCLogic {
       fundScoresOpen:false, toolHistOpen:false, assessDraft:{},
       peerTokenIn:'', peerRound:null, peerDraft:{}, peerKeep:'', peerChange:'',
       impText:'', impOpen:null, impBusy:false, valDraft:null, ringsIn:true,
-      peerSaving:false, peerDone:false, peerErr:'', peerDocs:{}, peerBusy:false,
+      peerSaving:false, peerDone:false, peerErr:'', peerDocs:{}, peerTried:{}, peerBusy:false,
       splash:true, splashOut:false, peerConfirmDelete:false, newFunds:{},
       commitPick:null, commitTarget:null, openToolFund:null, openActivity:null,
       joinCode:'', joinFirst:'', joinLast:'', joining:false, enterNewCode:false,
@@ -10455,15 +10473,27 @@ class Component extends DCLogic {
   }
   peerRoundList(){ const r=this.state.resp; return ((r&&r.peerRounds)||[]).slice().sort((a,b)=>b.openedAt-a.openedAt); }
   peerCurrent(){ const t=this.peerRoundList()[0]; return t?(this.state.peerDocs[t.token]||null):null; }
+  /* Where the newest listed round stands: 'none' (nothing listed), 'ready'
+     (its record is here), 'loading' (not read yet) or 'missing' (read, not
+     found). Only 'none' may open a round: a listed round that has not loaded
+     is still a round, and opening another would hide it while its link
+     keeps collecting answers. */
+  roundState(list){
+    const t=list[0]; if(!t) return 'none';
+    if(this.state.peerDocs[t.token]) return 'ready';
+    return this.state.peerTried[t.token]?'missing':'loading';
+  }
+  peerState(){ return this.roundState(this.peerRoundList()); }
   async loadPeerDocs(){
     const list=this.peerRoundList(); if(!list.length) return;
     const docs=Object.assign({},this.state.peerDocs);
-    for(const r of list){ const d=await sgetPeer(this.state.code,r.token); if(d) docs[r.token]=d; }
-    this.setState({peerDocs:docs});
+    const tried=Object.assign({},this.state.peerTried);
+    for(const r of list){ const d=await sgetPeer(this.state.code,r.token); if(d) docs[r.token]=d; tried[r.token]=1; }
+    this.setState({peerDocs:docs,peerTried:tried});
   }
   async openPeerRound(){
     const r=this.state.resp; if(!r||this.state.peerBusy) return;
-    if(this.peerCurrent()) return;
+    if(this.peerState()!=='none') return this.toast('You already have a round — tap Refresh to load it',true);
     this.setState({peerBusy:true});
     const token=await newPeerToken(), me=String(currentUserEmail()||'').toLowerCase();
     if(!token||!me){ this.setState({peerBusy:false}); return this.toast('Could not open the round — try again',true); }
@@ -10566,15 +10596,17 @@ class Component extends DCLogic {
   teamIsMine(){ const r=this.state.resp, t=this.teamRoundList()[0];
     return !!(t&&((r&&r.teamRounds)||[]).some(x=>x.token===t.token)); }
   teamCurrent(){ const t=this.teamRoundList()[0]; return t?(this.state.peerDocs[t.token]||null):null; }
+  teamState(){ return this.roundState(this.teamRoundList()); }
   async loadTeamDocs(){
     const list=this.teamRoundList(); if(!list.length) return;
     const docs=Object.assign({},this.state.peerDocs);
-    for(const r of list){ const d=await sgetPeer(this.state.code,r.token); if(d) docs[r.token]=d; }
-    this.setState({peerDocs:docs});
+    const tried=Object.assign({},this.state.peerTried);
+    for(const r of list){ const d=await sgetPeer(this.state.code,r.token); if(d) docs[r.token]=d; tried[r.token]=1; }
+    this.setState({peerDocs:docs,peerTried:tried});
   }
   async openTeamRound(){
     const r=this.state.resp; if(!r||this.state.peerBusy) return;
-    if(this.teamCurrent()) return;
+    if(this.teamState()!=='none') return this.toast('There is already a team round — tap Refresh to load it',true);
     this.setState({peerBusy:true});
     const token=await newPeerToken(), me=String(currentUserEmail()||'').toLowerCase();
     if(!token||!me){ this.setState({peerBusy:false}); return this.toast('Could not open the round — try again',true); }
@@ -16969,7 +17001,16 @@ class Component extends DCLogic {
 
       // ---- Peer-Review: the leader's side of the same instrument ----
       const pList=this.peerRoundList(), pCur=this.peerCurrent();
-      const P={hasRound:!!pCur,noRound:!pCur,lines:[],comments:[],
+      const pSt=this.peerState(), pN=pList.length;
+      const P={hasRound:!!pCur,noRound:pSt==='none',lines:[],comments:[],
+        waiting:pSt==='loading'||pSt==='missing',
+        waitNote:pSt==='missing'
+          ?'Your round did not load. Refresh to try again — a new round cannot be opened until this one is found.'
+          :'Loading your round…',
+        delTitle:pN>1?'Delete all '+pN+' peer rounds?':'Delete every peer response?',
+        delBody:pN>1
+          ?'You have '+pN+' peer rounds, some of them older than the one shown here. This deletes every link, every score and every written answer in all '+pN+'. It cannot be recovered, and anyone who has not replied yet will lose their chance.'
+          :'This deletes the link, every score and every written answer. It cannot be recovered, and anyone who has not replied yet will lose their chance.',
         onOpenRound:()=>{ if(!this.released('peer'))
             return this.toast('Peer review opens later in the program');
           this.openPeerRound(); },
@@ -17144,7 +17185,10 @@ class Component extends DCLogic {
         const isLead2=!!(s.resp&&s.resp.orgLead);
         v.teamCard={
           show:!(s.org&&s.org.teamAssessOn===false),
-          hasRound:!!tDoc2, noRound:!tDoc2,
+          hasRound:!!tDoc2, noRound:this.teamState()==='none',
+          waiting:!tDoc2&&this.teamState()!=='none',
+          waitNote:this.teamState()==='missing'
+            ?'The team round did not load. Refresh to try again.':'Loading the team round…',
           canOpen:this.released('team'),
           openCta:this.released('team')
             ? (s.peerBusy?'Opening…':'Open the team round')
@@ -17850,7 +17894,11 @@ class Component extends DCLogic {
            own leader reads results; they do not open and close rounds. */
         v.orgDash.showTeam=this.ccGroup();
         v.orgDash.team={
-          hasRound:tOpen, noRound:!tOpen,
+          hasRound:tOpen, noRound:this.teamState()==='none',
+          waiting:!tOpen&&this.teamState()!=='none',
+          waitNote:this.teamState()==='missing'
+            ?'The team round did not load. Refresh to try again — a new round cannot be opened until this one is found.'
+            :'Loading the team round…',
           onOpenRound:()=>{ if(!this.released('team'))
               return this.toast('The team assessment opens later in the program');
             this.openTeamRound(); },
