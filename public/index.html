@@ -679,6 +679,9 @@ sc-if,sc-for{display:none!important}
 <div style="animation:jjIn .3s ease both;text-align:center">
 <p style="font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 8px">Sign in to your playbook</p>
 <p style="font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 18px">{{ gateSignInHint }}</p>
+<sc-if value="{{ gateHasNotice }}" hint-placeholder-val="{{ false }}">
+<p style="color:#9FD7B5;font-weight:700;font-size:13.5px;line-height:1.5;margin:-6px 0 16px">{{ gateNotice }}</p>
+</sc-if>
 <sc-if value="{{ gateShowGoogle }}" hint-placeholder-val="{{ true }}">
 <button sc-camel-on-click="{{ onGateGoogle }}" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:300px;margin:0 auto;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:999px;padding:14px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.25)"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 2.9-2.2 5.4-4.7 7.1l7.6 5.9c4.4-4.1 6.9-10.1 6.9-17.5z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>{{ gateGoogleCta }}</button>
 <button sc-camel-on-click="{{ onGateMicrosoft }}" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:300px;margin:12px auto 0;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:999px;padding:14px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.25)"><svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true"><path fill="#F25022" d="M1 1h9v9H1z"/><path fill="#7FBA00" d="M11 1h9v9h-9z"/><path fill="#00A4EF" d="M1 11h9v9H1z"/><path fill="#FFB900" d="M11 11h9v9h-9z"/></svg>{{ gateMicrosoftCta }}</button>
@@ -733,12 +736,19 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 <sc-if value="{{ gatePick }}" hint-placeholder-val="{{ false }}">
 <div style="animation:jjIn .3s ease both">
-<p style="text-align:center;font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 6px">Choose a program</p>
-<p style="text-align:center;font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 14px">You are in more than one. Pick where to start — you can switch later.</p>
+<p style="text-align:center;font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 6px">My groups</p>
+<p style="text-align:center;font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 14px">Tap a group to open it.</p>
 <sc-for list="{{ gatePickList }}" as="gp" hint-placeholder-count="2">
-<button sc-camel-on-click="{{ gp.onPick }}" style="display:block;width:100%;max-width:300px;margin:0 auto 10px;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:14px;padding:12px 16px;font-family:inherit;cursor:pointer;text-align:left;box-shadow:0 6px 22px rgba(0,0,0,.25)"><span style="display:block;font-weight:900;font-size:15px;line-height:1.2">{{ gp.label }}</span><span style="display:block;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-top:3px">{{ gp.sub }}</span></button>
+<button sc-camel-on-click="{{ gp.onPick }}" style="{{ gp.style }}"><span style="display:block;font-weight:900;font-size:15px;line-height:1.2">{{ gp.label }}</span><span style="display:block;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-top:3px">{{ gp.sub }}</span></button>
 </sc-for>
-<p style="text-align:center;font-size:13px;color:#7E8D9C;margin:6px 0 0">Joining another program? <button sc-camel-on-click="{{ onUseDifferentCode }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Enter a code</button></p>
+<p style="text-align:center;font-weight:900;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#6FC0EA;margin:18px 0 8px">Have a new code?</p>
+<form sc-camel-on-submit="{{ onGateAddSubmit }}" style="display:flex;gap:8px;max-width:300px;margin:0 auto">
+<input type="text" value="{{ gateAddCode }}" sc-camel-on-change="{{ onGateAddCode }}" sc-camel-auto-capitalize="characters" sc-camel-spell-check="false" placeholder="GROUP CODE" style="flex:1;min-width:0;box-sizing:border-box;background:#fff;border:1.5px solid #C6D4E2;border-radius:999px;padding:12px 16px;font-size:16px;font-family:inherit;font-weight:800;letter-spacing:.08em;color:#0C1B2E">
+<button type="submit" style="{{ gateAddBtnStyle }}">{{ gateAddBtnLabel }}</button>
+</form>
+<sc-if value="{{ gateFromApp }}" hint-placeholder-val="{{ false }}">
+<p style="text-align:center;font-size:13px;color:#7E8D9C;margin:16px 0 0"><button sc-camel-on-click="{{ onGateBackToApp }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">{{ gateBackToAppLabel }}</button></p>
+</sc-if>
 </div>
 </sc-if>
 <sc-if value="{{ gateShowForm }}" hint-placeholder-val="{{ true }}">
@@ -5081,46 +5091,14 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ showMe }}" hint-placeholder-val="{{ false }}">
 <div style="padding:18px 14px 0;animation:jjIn .28s ease both">
 <h2 style="font-weight:900;font-size:26px;margin:0 0 16px;text-transform:uppercase;letter-spacing:.01em;color:#0C1B2E">My Profile</h2>
-<sc-if value="{{ hasGroups }}" hint-placeholder-val="{{ false }}">
-<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;margin-bottom:16px;overflow:hidden">
-<button sc-camel-on-click="{{ onToggleGroups }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;padding:14px;font-family:inherit;cursor:pointer;min-height:52px">
+<button sc-camel-on-click="{{ onOpenMyGroups }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:#fff;border:1px solid #DCE6F0;border-radius:14px;margin-bottom:16px;padding:14px;font-family:inherit;cursor:pointer;min-height:52px">
 <span style="flex:1;min-width:0">
 <span style="display:block;font-weight:900;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#9DAAB8">My groups</span>
 <span style="display:block;font-weight:800;font-size:14px;color:#0C1B2E;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ groupsCurrent }}</span>
 <span style="display:block;font-size:11px;color:#9DAAB8;margin-top:2px">{{ groupsLabel }}</span>
 </span>
-<span style="flex:none;width:26px;height:26px;border-radius:50%;background:#F6F9FC;border:1px solid #DCE6F0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#37475C">{{ groupsCaret }}</span>
+<span style="flex:none;width:26px;height:26px;border-radius:50%;background:#F6F9FC;border:1px solid #DCE6F0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#37475C">&rsaquo;</span>
 </button>
-<sc-if value="{{ groupsOpen }}" hint-placeholder-val="{{ false }}">
-<div style="padding:0 14px 14px;border-top:1px solid #EAF1F8">
-<div style="height:12px"></div>
-<sc-for list="{{ groups }}" as="mg" hint-placeholder-count="2">
-<button sc-camel-on-click="{{ mg.onPick }}" style="{{ mg.style }}">
-<span style="{{ mg.markStyle }}"></span>
-<span style="flex:1;min-width:0">
-<span style="display:block;font-weight:800;font-size:14px;color:#0C1B2E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ mg.name }}</span>
-<span style="display:block;font-size:11px;color:#9DAAB8;margin-top:2px">{{ mg.meta }}</span>
-</span>
-</button>
-</sc-for>
-<sc-if value="{{ addOpen }}" hint-placeholder-val="{{ false }}">
-<div style="margin-top:10px;padding-top:12px;border-top:1px solid #EAF1F8">
-<div style="font-weight:900;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-bottom:7px">Join another group</div>
-<p style="font-size:11.5px;line-height:1.5;color:#9DAAB8;margin:0 0 9px;text-wrap:pretty">Enter the group&rsquo;s code. We use the name and email already on your account.</p>
-<input type="text" value="{{ addCode }}" sc-camel-on-change="{{ onAddCode }}" placeholder="GROUP CODE" style="width:100%;background:#fff;border:1.5px solid #C6D4E2;border-radius:9px;padding:12px 13px;font-size:16px;font-family:inherit;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#0C1B2E">
-<div style="display:flex;gap:8px;margin-top:9px">
-<button sc-camel-on-click="{{ onCancelAdd }}" style="flex:none;background:transparent;border:1.5px solid #C6D4E2;color:#7E8D9C;border-radius:9px;padding:12px 16px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;min-height:44px">Cancel</button>
-<button sc-camel-on-click="{{ onJoinCode }}" style="{{ addBtnStyle }}">{{ addBtnLabel }}</button>
-</div>
-</div>
-</sc-if>
-<sc-if value="{{ addClosed }}" hint-placeholder-val="{{ true }}">
-<button sc-camel-on-click="{{ onOpenAdd }}" style="width:100%;margin-top:10px;background:transparent;border:1.5px dashed #C6D4E2;color:#0C1B2E;border-radius:10px;padding:12px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;min-height:44px">Join another group</button>
-</sc-if>
-</div>
-</sc-if>
-</div>
-</sc-if>
 <sc-if value="{{ isOrgLead }}" hint-placeholder-val="{{ false }}">
 <button sc-camel-on-click="{{ onOpenOrgDash }}" style="display:flex;align-items:center;gap:12px;width:100%;background:#E4F2E7;border:1px solid #A9D4B6;border-left:4px solid #3E9E6A;border-radius:14px;padding:15px 16px;margin-bottom:12px;cursor:pointer;text-align:left">
 <span style="flex:1;min-width:0">
@@ -8490,7 +8468,7 @@ async function ensureMember(code,opts){
     const out={ok:false,status:r.status,reason:j.code||'',
       error:j.error||'Could not join — check your connection and try again'};
     if(out.reason==='ms-verify'&&opts&&opts.sendLink){
-      const s=await msVerifyApi({action:'send'});
+      const s=await msVerifyApi({action:'send',code});
       const how=' Open it, tap Continue on the page it opens, then join again.';
       if(s.ok&&s.verified) return ensureMember(code);
       out.error=s.ok?'Check your email — we sent a link to '+u.email+' to confirm it is yours.'+how
@@ -8619,6 +8597,10 @@ async function _doOAuthSignIn(kind,onErr){
    which provider it was. An unverified Microsoft sign-in is sent the link
    here; _authRedirectVerifyErr says if that email did not go. */
 let _authRedirectVerifyErr='';
+/* True when this page load is the return from a Google or Microsoft redirect
+   that signed someone in: a fresh sign-in, even though the page opened with
+   them already signed in. */
+let _authRedirectUser=false;
 async function _checkGoogleRedirect(){
   let mark='';
   try{ mark=String(sessionStorage.getItem('jj_oauth_redirect')||'');
@@ -8628,6 +8610,7 @@ async function _checkGoogleRedirect(){
   const wasRedirect=left>0&&Date.now()-left<15*60*1000;
   try{
     const r=await withTimeout(firebase.auth().getRedirectResult(),10000);
+    if(r&&r.user) _authRedirectUser=true;
     const info=(r&&r.additionalUserInfo)||{};
     if(r&&r.user&&(info.providerId==='microsoft.com'||kind==='microsoft')){
       const a=await _afterMicrosoft(r.user);
@@ -9466,7 +9449,7 @@ class Component extends DCLogic {
       storeFilter:'', storeSort:'name',
       scoreOrg:'', scoreSrc:'self', scorePool:[], scoreLoading:false, scoreTeams:[],
       leaderFolder:'', leaderQ:'', scorePerson:'', scoreActivity:'', scoreShowAll:false, scoreOpen:'',
-      roster:[], selectedLeader:null, myGroups:[], gatePrograms:[], gatePickBusy:false, addOpen:false, addCode:'', addBusy:false, groupsOpen:false, coachDoc:null, coachDocs:{}, ldCoach:null, ldPaste:'', ldSessOpen:'', noteSel:'',
+      roster:[], selectedLeader:null, myGroups:[], gatePrograms:[], gatePickBusy:false, gateAddCode:'', gateAddBusy:false, gateNotice:'',coachDoc:null, coachDocs:{}, ldCoach:null, ldPaste:'', ldSessOpen:'', noteSel:'',
       cvList:[], cvClient:'', cvDoc:null, cvSess:'', cvPaste:'', cvDirty:false, ginItems:[], cvView:'call', cvMemberOn:false,
       members:[], membersLoading:false, openMember:null, bambooStoryOpen:false, vidOn:{},
       newOrgName:'', newOrgCode:'', newOrgCohort:'', newOrgStart:'',
@@ -9768,19 +9751,31 @@ class Component extends DCLogic {
     let rt=null;
     try{ rt=new URLSearchParams(location.search).get('r'); }catch(e){}
     if(rt) return this.openPeerForm(String(rt).trim().toUpperCase());
-    /* Back from the Microsoft confirmation email (?msv=secret). Kept for this
-       tab until sign-in, and taken out of the address bar so it is not shared
-       or bookmarked. */
+    /* Back from the Microsoft confirmation email (?msv=secret, and &c=CODE for
+       the program they were joining). Kept for this tab until sign-in, and
+       taken out of the address bar so it is not shared or bookmarked. */
     try{
       const q=new URLSearchParams(location.search), t=q.get('msv');
-      if(t){ sessionStorage.setItem('jj_msv',t); q.delete('msv');
+      if(t){ sessionStorage.setItem('jj_msv',t);
+        const c=cleanCode(q.get('c')||'');
+        if(c) sessionStorage.setItem('jj_msv_code',c); else sessionStorage.removeItem('jj_msv_code');
+        q.delete('msv'); q.delete('c');
         history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash); }
     }catch(e){}
     const signedIn=authReady();
     await _authFirst;
+    /* Nobody signed in as the page opened means whoever arrives next signs in
+       fresh (Google popup, Microsoft popup, email); a Google or Microsoft
+       redirect lands back already signed in and is caught by
+       _authRedirectUser below. Fresh sign-ins go to My groups. */
+    const signedOutAtLoad=!_authUser;
     if(!_authUser) this.setState({booting:false,view:'gate',authChecked:true,authEmail:''});
     // A saved Microsoft sign-in for an admin address was just signed out.
     if(!_authUser&&_authBlockMsg) this.setState({gateSignInErr:_authBlockMsg});
+    /* The confirmation link opened in a window that is not signed in: say
+       what to do. The link itself is checked the moment they sign in. */
+    let msvHeld=false; try{ msvHeld=!!sessionStorage.getItem('jj_msv'); }catch(e){}
+    if(!_authUser&&msvHeld) this.setState({gateNotice:'Email confirmed. Sign in with Microsoft to continue.'});
     /* Back from a Google or Microsoft redirect that did not sign anyone in (or
        a Microsoft one signed straight out for having no email): say so on the
        gate. An unverified Microsoft sign-in whose link did not send says so
@@ -9796,9 +9791,10 @@ class Component extends DCLogic {
         gateSignInErr:'Could not load sign-in. Check your connection and reload.'}); }
     this.stopVerifyWatch();
     const me=String(currentUserEmail()||'').trim().toLowerCase();
-    this.setState({authChecked:true,authEmail:me,gateSignInErr:'',gateSignInBusy:false,
+    this.setState({authChecked:true,authEmail:me,gateSignInErr:'',gateSignInBusy:false,gateNotice:'',
       verifyEmail:'',verifyBusy:false,verifyMsg:'',verifyErr:''});
-    await this.confirmMsLink();
+    // Back from the Microsoft link: confirm it and carry on with that join.
+    if(await this.confirmMsLink()) return;
     let known=null;
     try{ known=JSON.parse(localStorage.getItem('jj_known_leader')||'null'); }catch(e){}
     let sess=null;
@@ -9820,6 +9816,25 @@ class Component extends DCLogic {
        identity we keep retrying with backoff and say we are reconnecting,
        and the gate only appears if they have never signed in here. */
     const saved=(sess&&sess.role==='leader'&&sess.code&&sess.idkey)?sess:((known&&known.code&&known.idkey)?known:null);
+    /* After a fresh sign-in (Google, Microsoft or email), or with nothing
+       saved on this device, members land on My groups: every program still
+       theirs (members/{email}.orgs, revoked ones left out), or the first-time
+       code form when there are none. Reopening with a saved session goes
+       straight back in as before; admins keep their own routing. If the list
+       cannot be read, a saved session is used when there is one. */
+    try{ await _authRedirect; }catch(e){}
+    const fresh=signedOutAtLoad||_authRedirectUser;
+    if(!isAdminEmail(me)&&(fresh||!saved)){
+      this.setState({booting:true});
+      const progs=await this.myPrograms(me).catch(()=>null);
+      if(progs&&progs.length)
+        return this.setState({booting:false,view:'gate',known:null,gatePrograms:progs,enterNewCode:false});
+      if(progs){
+        if(saved) this.forgetSavedSession();
+        return this.setState({booting:false,view:'gate',known:null,gatePrograms:[],enterNewCode:false,joinCode:''});
+      }
+      if(!saved) return this.setState({booting:false,view:'gate',known,joinCode:known?known.code:''});
+    }
     if(saved){
       const chk=await this.checkSavedMembership(saved);
       if(chk==='revoked'){ this.setState({idkey:saved.idkey});
@@ -9838,21 +9853,6 @@ class Component extends DCLogic {
            throwing a "taking longer than usual" banner over a working screen. */
         if(!warm) this.setState({resumeSlow:ai>=3});
         await new Promise(r=>setTimeout(r,Math.min(600+ai*250,2500)));
-      }
-    }
-    /* Nothing saved on this device: a returning member is recognised by the
-       signed-in email and skips the code. One program opens straight away;
-       several get a picker on the gate; none (or a list that could not be
-       read) leaves code entry as it was. Admins keep their own routing. */
-    if(!saved&&!isAdminEmail(me)){
-      this.setState({booting:true});
-      const progs=await this.myPrograms(me).catch(()=>null);
-      if(progs&&progs.length===1){
-        const g=progs[0];
-        if(await this.loadLeader(g.code,g.idkey,g.name,me)) return;
-        if(this._revoked) return;
-      }else if(progs&&progs.length>1){
-        return this.setState({booting:false,view:'gate',known:null,gatePrograms:progs,enterNewCode:false});
       }
     }
     this.setState({booting:false,view:'gate',known,joinCode:known?known.code:''});
@@ -12716,52 +12716,74 @@ class Component extends DCLogic {
     if(!out||out.length<2) return this.setState({myGroups:[]});
     this.setState({myGroups:out},()=>this.watchOtherGroups());
   }
-  async joinByCode(){
-    const raw=String(this.state.addCode||'').trim().toUpperCase();
-    if(!raw) return this.toast('Enter the code first',true);
+  /* Join one more program with the name already on the account: the same
+     door checks as the full join (via /api/join, then revoked and the
+     approved list), and a record made if there is none. Returns
+     {ok,orgName} or {ok:false,error}. */
+  async addProgram(raw,name){
+    const code=cleanCode(raw);
     const email=String(currentUserEmail()||'').trim().toLowerCase();
-    const name=String((this.state.resp&&this.state.resp.name)||'').trim();
-    if(!email||!name) return this.toast('Could not read your account details',true);
-    if((this.state.myGroups||[]).some(g=>g.code===raw))
-      return this.toast('You are already in that group',true);
-    this.setState({addBusy:true});
+    if(!code) return {ok:false,error:'Enter the code first'};
+    if(!email||!name) return {ok:false,error:'Could not read your account details'};
     const idkey=slug(email);
-    const mem=await ensureMember(raw,{sendLink:true});
-    if(!mem.ok){ this.setState({addBusy:false}); return this.toast(mem.error,true); }
+    const mem=await ensureMember(code,{sendLink:true});
+    if(!mem.ok) return {ok:false,error:mem.error};
     try{
       const [org,revoked]=await Promise.all([
-        sget('org:'+raw),
-        sget('rev:'+raw+':'+idkey).catch(()=>null)
+        sget('org:'+code),
+        sget('rev:'+code+':'+idkey).catch(()=>null)
       ]);
-      if(!org){ this.setState({addBusy:false});
-        return this.toast('No group found for '+raw,true); }
-      if(revoked){ this.setState({addBusy:false});
-        return this.toast('Your access to '+(org.name||raw)+' has ended. Ask their program lead to restore it.',true); }
+      if(!org) return {ok:false,error:'No group found for '+code};
+      if(revoked) return {ok:false,error:'Your access to '+(org.name||code)+' has ended. Ask their program lead to restore it.'};
       const allow=org.allowlist||[];
-      if(allow.length&&allow.indexOf(email)<0){ this.setState({addBusy:false});
-        return this.toast(email+' is not approved for '+(org.name||raw)+'. Ask their program lead to add it.',true); }
-      let resp=null; try{ resp=await sget('resp:'+raw+':'+idkey); }catch(e){}
-      if(!resp) resp={name,email,idkey,code:raw,joinedAt:Date.now(),progress:{}};
+      if(allow.length&&allow.indexOf(email)<0)
+        return {ok:false,error:email+' is not approved for '+(org.name||code)+'. Ask their program lead to add it.'};
+      let resp=null; try{ resp=await sget('resp:'+code+':'+idkey); }catch(e){}
+      if(!resp) resp={name,email,idkey,code,joinedAt:Date.now(),progress:{}};
       resp.lastSeenAt=Date.now();
-      const ok=await sset('resp:'+raw+':'+idkey,resp);
-      if(!ok){ this.setState({addBusy:false});
-        return this.toast('Could not join — check your connection and try again',true); }
-      this.setState({addCode:'',addOpen:false,addBusy:false});
-      this.toast('Joined '+(org.name||raw));
-      await this.loadMyGroups(email);
-      await this.switchGroup({code:raw,idkey,name,orgName:org.name||raw});
+      if(!(await sset('resp:'+code+':'+idkey,resp)))
+        return {ok:false,error:'Could not join — check your connection and try again'};
+      return {ok:true,code,orgName:org.name||code};
     }catch(e){
-      console.error('joinByCode',e);
-      this.setState({addBusy:false});
-      this.toast('Could not join — check your connection and try again',true);
+      console.error('addProgram',e);
+      return {ok:false,error:'Could not join — check your connection and try again'};
     }
   }
-  /* The gate's program picker. loadLeader checks the tombstone again, so a
-     program revoked since the list was read still ends in the revoked screen. */
+  /* "Have a new code?" on My groups: join, then show the refreshed list with
+     the new group in it (it is not opened on its own). */
+  async gateAddProgram(){
+    const s=this.state;
+    if(s.gateAddBusy) return;
+    const code=cleanCode(s.gateAddCode);
+    if(!code) return this.toast('Enter the code first',true);
+    if((s.gatePrograms||[]).some(g=>g.code===code)) return this.toast('You are already in that group',true);
+    const name=((s.gatePrograms||[]).find(g=>g.name)||{}).name||(s.resp&&s.resp.name)||'';
+    // No name on the account yet: the full join form asks for it ("Back to my programs" returns).
+    if(!name) return this.setState({enterNewCode:true,joinCode:code,gateAddCode:''});
+    this.setState({gateAddBusy:true});
+    const r=await this.addProgram(code,name);
+    if(!r.ok){ this.setState({gateAddBusy:false}); return this.toast(r.error,true); }
+    const progs=await this.myPrograms(currentUserEmail()).catch(()=>null);
+    this.setState({gateAddBusy:false,gateAddCode:'',gatePrograms:progs&&progs.length?progs:s.gatePrograms});
+    this.toast('Joined '+r.orgName+' — tap it to open.');
+    if(s.role==='leader') this.loadMyGroups(currentUserEmail()).catch(()=>{});
+  }
+  /* My groups from inside the app: the same screen, without signing out. */
+  async openMyGroups(){
+    this.setState({booting:true});
+    const progs=await this.myPrograms(currentUserEmail()).catch(()=>null);
+    this.setState({booting:false,view:'gate',gatePrograms:progs||[],enterNewCode:false,gateAddCode:''});
+    if(!progs) this.toast('Could not load your groups — check your connection and try again',true);
+  }
+  /* A card on My groups. loadLeader checks the tombstone again, so a group
+     revoked since the list was read still ends in the revoked screen. The
+     group they are already in (opened from the app) just goes back to it. */
   async pickProgram(g){
+    const s=this.state;
+    if(s.role==='leader'&&g.code===s.code) return this.setState({view:'home',gatePrograms:[],gateAddCode:''});
     this.setState({gatePickBusy:true});
     const ok=await this.loadLeader(g.code,g.idkey,g.name,currentUserEmail());
-    this.setState(ok?{gatePickBusy:false,gatePrograms:[]}:{gatePickBusy:false,booting:false});
+    this.setState(ok?{gatePickBusy:false,gatePrograms:[],gateAddCode:''}:{gatePickBusy:false,booting:false});
   }
   async switchGroup(g){
     if(!g||g.code===this.state.code) return;
@@ -12990,14 +13012,46 @@ class Component extends DCLogic {
   /* The Microsoft confirmation link, once someone is signed in: the server
      checks the secret and, if it matches, never asks this account again.
      Tried once per page load; the email's link can be opened again. */
+  /* When the link named the program they were joining (&c=CODE), carry on
+     with that join here: straight into the program if their record there
+     already exists, otherwise the join form with the code (and their name,
+     if Microsoft gave one) filled in. Returns true when it has taken over
+     what the gate shows, false to let boot carry on as usual. */
   async confirmMsLink(){
-    let t=null;
-    try{ t=sessionStorage.getItem('jj_msv'); sessionStorage.removeItem('jj_msv'); }catch(e){}
-    if(!t) return;
+    let t=null, code='';
+    try{ t=sessionStorage.getItem('jj_msv'); code=sessionStorage.getItem('jj_msv_code')||'';
+      sessionStorage.removeItem('jj_msv'); sessionStorage.removeItem('jj_msv_code'); }catch(e){}
+    if(!t) return false;
     const r=await msVerifyApi({action:'confirm',t});
-    if(r.ok) return this.toast('Email confirmed — enter your code to join.');
-    if(r.code==='not-microsoft') return this.toast('That link is for a Microsoft sign-in. Sign in with Microsoft, then open the link again.',true);
-    this.toast(r.error,true);
+    if(!r.ok){
+      this.toast(r.code==='not-microsoft'?'That link is for a Microsoft sign-in. Sign in with Microsoft, then open the link again.':r.error,true);
+      return false;
+    }
+    code=cleanCode(code);
+    if(!code){ this.toast('Email confirmed — enter your code to join.'); return false; }
+    const mem=await ensureMember(code);
+    if(!mem.ok){ this.toast(mem.error,true); return false; }
+    const me=String(currentUserEmail()||'').trim().toLowerCase(), idkey=slug(me);
+    let resp=null; try{ resp=await sgetStrict('resp:'+code+':'+idkey); }catch(e){}
+    if(!resp){
+      // Already in other groups: join with the name on the account, as My groups does.
+      const progs=(await this.myPrograms(me).catch(()=>null))||[];
+      const known=(progs.find(g=>g.name)||{}).name;
+      if(known){
+        const r=await this.addProgram(code,known);
+        if(!r.ok){ this.toast(r.error,true); return false; }
+        resp={name:known};
+      }
+    }
+    if(resp){
+      if(await this.loadLeader(code,idkey,resp.name,me)){ this.toast('Email confirmed — you are in.'); return true; }
+      return false;
+    }
+    const parts=String((firebase.auth().currentUser||{}).displayName||'').trim().split(/\s+/).filter(Boolean);
+    this.setState({booting:false,view:'gate',known:null,gatePrograms:[],enterNewCode:true,
+      joinCode:code,joinFirst:parts[0]||'',joinLast:parts.slice(1).join(' ')});
+    this.toast('Email confirmed — check your name, then tap Join to finish joining '+code+'.');
+    return true;
   }
   /* The gate's "verify your email" panel. Coming back to the tab (from the
      mail app, or the tab the link opened) checks again on its own; once
@@ -17154,15 +17208,34 @@ class Component extends DCLogic {
     v.onGateMicrosoft=()=>oauth('microsoft');
     /* A returning member in several programs picks one (boot found them in
        members/{email}.orgs); "Enter a different code" drops to the form. */
+    /* "My groups": every program they still belong to (boot after a fresh
+       sign-in, or My groups in the app), each a card that opens it, and
+       "Have a new code?" underneath. With no programs the ordinary code
+       form shows instead. */
     const picks=(s.gatePrograms||[]);
-    v.gatePick=v.gateSignedIn&&picks.length>1&&!s.enterNewCode;
-    v.gatePickList=picks.map(g=>({label:g.orgName||g.code,sub:g.code,
-      onPick:()=>{ if(s.gatePickBusy) return; this.pickProgram(g); }}));
+    v.gatePick=v.gateSignedIn&&picks.length>0&&!s.enterNewCode;
+    const fromApp=s.role==='leader'&&!!s.code;
+    v.gatePickList=picks.map(g=>{ const here=fromApp&&g.code===s.code;
+      return {label:g.orgName||g.code,sub:here?g.code+' · you are here':g.code,
+        style:'display:block;width:100%;max-width:300px;margin:0 auto 10px;background:#FFFFFF;color:#0C1B2E;border:2px solid '
+          +(here?'#FADA01':'#FFFFFF')+';border-radius:14px;padding:12px 16px;font-family:inherit;cursor:pointer;text-align:left;box-shadow:0 6px 22px rgba(0,0,0,.25)',
+        onPick:()=>{ if(s.gatePickBusy) return; this.pickProgram(g); }}; });
     v.gatePickBusy=!!s.gatePickBusy;
+    v.gateAddCode=s.gateAddCode||'';
+    v.onGateAddCode=e=>this.setState({gateAddCode:cleanCode(e.target.value)});
+    v.onGateAddSubmit=e=>{ if(e&&e.preventDefault) e.preventDefault(); this.gateAddProgram(); };
+    const addReady=!!s.gateAddCode&&!s.gateAddBusy;
+    v.gateAddBtnLabel=s.gateAddBusy?'Joining…':'Join';
+    v.gateAddBtnStyle='flex:none;border:2px solid '+(addReady?'#FADA01':'rgba(255,255,255,.35)')+';border-radius:999px;padding:12px 18px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:'
+      +(addReady?'pointer':'default')+';background:'+(addReady?'#FADA01':'transparent')+';color:'+(addReady?'#0C2647':'#7E8D9C');
+    v.gateFromApp=fromApp;
+    v.gateBackToAppLabel='Back to '+((s.org&&s.org.name)||s.code||'the app');
+    v.onGateBackToApp=()=>this.setState({view:'home',gatePrograms:[],gateAddCode:''});
+    v.gateHasNotice=!!s.gateNotice; v.gateNotice=s.gateNotice||'';
     v.gateWelcomeBack=v.gateSignedIn&&!v.gatePick&&!!s.known&&!s.enterNewCode;
     v.gateShowForm=v.gateSignedIn&&!v.gatePick&&(!s.known||!!s.enterNewCode);
-    // Left the picker for "Enter a code": offer the way back while it has programs.
-    v.gateBackToPick=v.gateShowForm&&picks.length>1&&!!s.enterNewCode;
+    // On the full code form with groups to go back to: offer the way back.
+    v.gateBackToPick=v.gateShowForm&&picks.length>0&&!!s.enterNewCode;
     v.onBackToPick=()=>this.setState({enterNewCode:false,joinCode:'',joinFirst:'',joinLast:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
     v.resumeCta=s.joining?'Signing in\u2026':'Continue';
     v.onUseDifferentCode=()=>this.setState({enterNewCode:true,joinCode:'',joinFirst:'',joinLast:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
@@ -23083,35 +23156,15 @@ class Component extends DCLogic {
     }
 
     {
+      // My Profile → My groups: the same screen as after sign-in.
       const gs=s.myGroups||[];
-      v.hasGroups=gs.length>1;
-      const open=!!s.groupsOpen;
-      v.groupsOpen=open;
-      v.groupsLabel=gs.length+' groups on '+(s.email||'your email');
-      v.addOpen=!!s.addOpen; v.addClosed=!s.addOpen;
-      v.addCode=s.addCode||'';
-      v.onOpenAdd=()=>this.setState({addOpen:true,addCode:''});
-      v.onCancelAdd=()=>this.setState({addOpen:false,addCode:''});
-      v.onAddCode=e=>this.setState({addCode:e.target.value.toUpperCase()});
-      v.onJoinCode=()=>this.joinByCode();
-      v.addBtnLabel=s.addBusy?'Joining…':'Join';
-      v.addBtnStyle='flex:1;border:none;border-radius:9px;padding:12px;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.07em;text-transform:uppercase;min-height:44px;cursor:'
-        +(s.addBusy?'default':'pointer')+';background:'+(String(s.addCode||'').trim()&&!s.addBusy?'#FADA01':'#EAF1F8')
-        +';color:'+(String(s.addCode||'').trim()&&!s.addBusy?'#0C2647':'#9DAAB8');
-      v.groupsCurrent=(gs.find(g=>g.code===s.code)||{}).orgName||'';
-      v.groupsCaret=open?'\u2013':'+';
-      v.onToggleGroups=()=>this.setState({groupsOpen:!open});
-      v.groups=gs.map(g=>{ const cur=g.code===s.code;
-        return {name:g.orgName||g.code, meta:cur?'You are here':'Tap to switch',
-          style:'display:flex;align-items:center;gap:11px;width:100%;text-align:left;font-family:inherit;cursor:'
-            +(cur?'default':'pointer')+';border-radius:11px;padding:12px 13px;margin-bottom:8px;min-height:48px;border:1.5px solid '
-            +(cur?'#0C2647':'#DCE6F0')+';background:'+(cur?'#F6F9FC':'#FFFFFF'),
-          markStyle:'flex:none;width:9px;height:9px;border-radius:50%;background:'
-            +(cur?'#00A3E0':'#DCE6F0'),
-          onPick:()=>this.switchGroup(g)}; });
+      v.groupsCurrent=(s.org&&s.org.name)||s.code||'';
+      v.groupsLabel=gs.length>1?gs.length+' groups · switch or add a code':'Add a code for another group';
+      v.onOpenMyGroups=()=>this.openMyGroups();
     }
     const isAdminOnly=(s.role==='admin'&&!s.previewMode);
-    v.showTabs=s.role==='leader'||s.previewMode||s.role==='admin';
+    // My groups opened from inside the app is a gate screen: no tabs there.
+    v.showTabs=(s.role==='leader'||s.previewMode||s.role==='admin')&&s.view!=='gate';
 
     // Desktop grows a left sidebar, but only once there are tabs to put in
     // it — the sign-in screen stays a single centered column.

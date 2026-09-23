@@ -1,13 +1,15 @@
 /* One-time mailbox check for Microsoft sign-ins (see netlify/lib/ms-verify.js).
  *
  * POST /api/ms-verify   Authorization: Bearer <Firebase ID token>
- *   { action: 'send' }
+ *   { action: 'send', code? }
  *       Makes a random secret, keeps only its SHA-256 in
  *       msVerifyPending/{uid}, and has Firebase send its verification email to
- *       the account's address with continueUrl <site>/?msv=<secret>. The
- *       secret is never returned: it exists only in that email. <site> is
- *       Netlify's URL for this site, never a request header, so a forged Host
- *       cannot send the link anywhere else. Once a minute, 5 a day.
+ *       the account's address with continueUrl <site>/?msv=<secret>, plus
+ *       &c=<code> when the app says which program they were joining, so the
+ *       window the link opens in can carry on with that join. The secret is
+ *       never returned: it exists only in that email. <site> is Netlify's URL
+ *       for this site, never a request header, so a forged Host cannot send
+ *       the link anywhere else. Once a minute, 5 a day.
  *   { action: 'confirm', t }
  *       Checks t against the stored hash (same account, same email, within
  *       an hour, 10 wrong tries at most) and writes msVerified/{uid}.
@@ -40,6 +42,8 @@ const CORS = {
 };
 const reply = (statusCode, body) => ({ statusCode, headers: CORS, body: JSON.stringify(body) });
 const sha = s => crypto.createHash('sha256').update(String(s)).digest('hex');
+// Same as /api/join and the app, character for character.
+const cleanCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
 const same = (a, b) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 function siteUrl() {
@@ -91,7 +95,7 @@ exports.handler = async function (event) {
       const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=' + key, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken: m[1],
-          continueUrl: site + '/?msv=' + secret })
+          continueUrl: site + '/?msv=' + secret + (cleanCode(body.code) ? '&c=' + cleanCode(body.code) : '') })
       });
       if (!r.ok) {
         let why = ''; try { why = (await r.json()).error.message; } catch (e) {}
