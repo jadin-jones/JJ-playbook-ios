@@ -14724,10 +14724,11 @@ class Component extends DCLogic {
   /* Remove a leader from a program, in the order that keeps them locked out
      if anything stops part-way:
        1. find every address their access could be held under (read only);
-       2. take CODE out of members/{email}.orgs and check with the server that
-          it is gone, so the rules stop letting them read the program;
-       3. write rev:CODE:idkey and take them off the approved list, so
-          /api/join refuses them;
+       2. write a rev: tombstone for each, so /api/join refuses them from now
+          on, whatever email they sign in with;
+       3. take CODE out of members/{email}.orgs and check with the server that
+          it is gone, so the rules stop letting them read the program; then
+          take them off the approved list;
        4. only then delete their peer/team rounds, push token and, last, their
           record. Until the record is gone, Remove can simply be run again.
      Any failure stops at that step and says what is left; nothing after it runs. */
@@ -14736,6 +14737,7 @@ class Component extends DCLogic {
     if(!window.confirm('Remove '+name+' from '+code+'?\n\nThey lose access to '+code+'. Their assessment scores, written answers and tool history are deleted and they will have to sign up again with the code.')) return;
     const stop=msg=>{ this.toast(msg,true); return false; };
     const unchanged='Could not remove access for '+name+' — nothing was changed. Try again.';
+    const partial=()=>stop('Access partly removed — tap Remove again to finish.');
     await fbReady(); await authReady();
     const db=fb(); if(!db) return stop(unchanged);
     // 1. Every address their membership could be under: the account that saved
@@ -14747,29 +14749,27 @@ class Component extends DCLogic {
     const emails=Array.from(new Set([snap.exists?snap.get('ownerEmail'):'',inner&&inner.email,r.email]
       .map(e=>String(e||'').trim().toLowerCase()).filter(e=>e.indexOf('@')>0)));
     if(!emails.length) return stop('Could not remove access for '+name+' — their record has no email. Nothing was changed.');
-    // 2. Membership out, then confirmed by the server. No members doc means no membership.
-    //    arrayRemove takes out only this code; their other programs stay.
-    //    Once any address has been updated, a later failure has still deleted nothing.
+    // 2. The tombstones first. /api/join looks for rev:CODE:slug(signed-in
+    //    email), so each address gets one, the record's own key first.
+    const at=Date.now();
+    let written=0;
+    for(const ik of Array.from(new Set([r.idkey].concat(emails.map(slug))))){
+      if(!(await sset('rev:'+code+':'+ik,{at,email:emails[0],emails}))) return written?partial():stop(unchanged);
+      written++;
+    }
+    // 3. Membership out, then confirmed by the server. No members doc means no
+    //    membership. arrayRemove takes out only this code; their other programs stay.
     const FV=firebase.firestore.FieldValue;
-    let done=0;
-    const partial=()=>stop('Could not finish removing access for '+name+' — nothing was deleted. Tap Remove again.');
     for(const em of emails){
       const ref=db.collection('members').doc(em);
-      try{ await withTimeout(ref.update({orgs:FV.arrayRemove(code),updatedAt:FV.serverTimestamp()}),9000); done++; }
-      catch(e){ if(!(e&&e.code==='not-found')){ console.error('removeLeader members',em,e); return done?partial():stop(unchanged); } }
+      try{ await withTimeout(ref.update({orgs:FV.arrayRemove(code),updatedAt:FV.serverTimestamp()}),9000); }
+      catch(e){ if(!(e&&e.code==='not-found')){ console.error('removeLeader members',em,e); return partial(); } }
       try{
         const m=await withTimeout(ref.get({source:'server'}),9000);
         const orgs=m.exists?m.get('orgs'):null;
-        if(Array.isArray(orgs)&&orgs.indexOf(code)>=0) return done?partial():stop(unchanged);
-      }catch(e){ console.error('removeLeader check',em,e); return done?partial():stop(unchanged); }
+        if(Array.isArray(orgs)&&orgs.indexOf(code)>=0) return partial();
+      }catch(e){ console.error('removeLeader check',em,e); return partial(); }
     }
-    // 3. Lock the door before touching their data: the tombstone, then the approved list.
-    //    /api/join looks for rev:CODE:slug(signed-in email), so each address
-    //    gets one, the record's own key first.
-    const at=Date.now();
-    for(const ik of Array.from(new Set([r.idkey].concat(emails.map(slug)))))
-      if(!(await sset('rev:'+code+':'+ik,{at,email:emails[0],emails})))
-        return stop('Access to '+code+' is removed, but the revocation was not recorded — tap Remove again. Their record was not deleted.');
     const o=this.state.orgList.find(x=>x.code===code);
     if(o&&Array.isArray(o.allowlist)&&o.allowlist.some(x=>emails.indexOf(x)>=0)){
       if(!(await this.saveOrg(code,{allowlist:o.allowlist.filter(x=>emails.indexOf(x)<0)})))
