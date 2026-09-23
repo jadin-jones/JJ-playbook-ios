@@ -5183,7 +5183,7 @@ sc-if,sc-for{display:none!important}
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:16px;margin-bottom:12px">
 <div style="font-weight:800;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C">Notifications</div>
 <p style="margin:6px 0 0;font-size:13.5px;color:#0C1B2E;line-height:1.55">Get new sessions, check-ins and team messages on your lock screen.</p>
-<button sc-camel-on-click="{{ onEnablePush }}" style="{{ pushBtnStyle }}">{{ pushLabel }}</button>
+<button sc-camel-on-click="{{ onTogglePush }}" role="switch" aria-checked="{{ pushAria }}" style="display:flex;align-items:center;gap:12px;width:100%;margin-top:12px;background:#F6F9FC;border:1.5px solid #DCE6F0;border-radius:11px;padding:12px 13px;font-family:inherit;text-align:left;cursor:pointer;min-height:52px"><span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:13.5px;color:#0C1B2E">{{ pushLabel }}</span><span style="display:block;font-size:12px;color:#7E8D9C;margin-top:2px">{{ pushSub }}</span></span><span style="{{ pushTrackStyle }}"><span style="{{ pushKnobStyle }}"></span></span></button>
 <sc-if value="{{ hasPushMsg }}" hint-placeholder-val="{{ false }}">
 <p style="margin:9px 0 0;font-size:12.5px;color:#7E8D9C;line-height:1.5">{{ pushMsg }}</p>
 </sc-if>
@@ -10156,6 +10156,96 @@ class Component extends DCLogic {
     return typeof navigator!=='undefined' && 'serviceWorker' in navigator
       && typeof window!=='undefined' && 'Notification' in window && 'PushManager' in window;
   }
+  /* ---- Push on this device: one switch for the whole account ----
+     A device has one push token, shared by every program the person is in,
+     and each program's push:CODE:idkey record carries it. Off takes this
+     device's token out of all of them, deletes it with Firebase, and leaves
+     jj_push_off on the device so nothing registers it again on its own; only
+     the switch turns it back on. Another device of theirs keeps its token.
+     The servers choose recipients by token alone (they ignore active:false),
+     so the token itself has to go. */
+  pushOffHere(){ try{ return localStorage.getItem('jj_push_off')==='1'; }catch(e){ return false; } }
+  setPushOffHere(off){
+    try{
+      if(off){ localStorage.setItem('jj_push_off','1');
+        Object.keys(localStorage).forEach(k=>{ if(k.indexOf('jj_push_on:')===0) localStorage.removeItem(k); }); }
+      else localStorage.removeItem('jj_push_off');
+    }catch(e){}
+    if(off) this._mineSubscribed=false;
+  }
+  /* This device's token, without asking for permission; null if it has none. */
+  async devicePushToken(){
+    try{
+      if(this.isNativeApp()&&this.fbMessaging()){
+        if(this._nativeToken) return this._nativeToken;
+        const FM=this.fbMessaging(), perm=await FM.checkPermissions();
+        if(perm.receive!=='granted') return null;
+        const r=await FM.getToken(); return (r&&r.token)||null;
+      }
+      if(!this.pushSupported()||Notification.permission!=='granted'||!PUSH_VAPID_KEY) return null;
+      const reg=await navigator.serviceWorker.getRegistration(); if(!reg) return null;
+      await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
+      if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      return (await firebase.messaging().getToken({vapidKey:PUSH_VAPID_KEY,serviceWorkerRegistration:reg}))||null;
+    }catch(e){ console.warn('devicePushToken',e); return null; }
+  }
+  /* Their push records on this account: one per program (My groups' list,
+     plus the program open now) and the old one keyed by person only. */
+  async myPushKeys(){
+    const s=this.state, me=String(currentUserEmail()||'').trim().toLowerCase();
+    const idkey=s.idkey||(me?slug(me):'');
+    if(!idkey) return {idkey:'',keys:[]};
+    const codes=new Set(); if(s.code) codes.add(s.code);
+    const progs=me?await this.myPrograms(me).catch(()=>null):null;
+    (progs||[]).forEach(g=>codes.add(g.code));
+    return {idkey,keys:Array.from(codes).map(c=>'push:'+c+':'+idkey).concat(['push:'+idkey])};
+  }
+  /* Off, and sign-out: this device's token leaves every record of theirs. */
+  async unregisterPushHere(){
+    const token=await this.devicePushToken();
+    const {keys}=await this.myPushKeys();
+    for(const k of keys){
+      let rec=null; try{ rec=await sget(k); }catch(e){}
+      if(!rec||!rec.token||!token||rec.token!==token) continue;
+      delete rec.token; rec.active=false; rec.mutedAt=Date.now();
+      try{ await sset(k,rec); }catch(e){ console.warn('unregisterPushHere',k,e); }
+    }
+    try{
+      if(this.isNativeApp()&&this.fbMessaging()) await this.fbMessaging().deleteToken();
+      else if(token&&firebase.messaging) await firebase.messaging().deleteToken();
+    }catch(e){ console.warn('deleteToken',e); }
+    this._nativeToken=null;
+  }
+  /* On: every program record of theirs gets this device's token back. */
+  async registerPushEverywhere(){
+    const token=await this.devicePushToken(); if(!token) return;
+    const {idkey,keys}=await this.myPushKeys();
+    const tz=(Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||'America/Chicago';
+    for(const k of keys.filter(x=>x.split(':').length===3)){
+      let rec=null; try{ rec=await sget(k); }catch(e){}
+      rec=Object.assign({},rec||{},{token,active:true,code:k.split(':')[1],idkey,
+        name:this.state.name||(rec&&rec.name)||'',tz,at:Date.now()});
+      if(this.isNativeApp()) rec.platform='ios-native';
+      if(rec.remindHour==null) rec.remindHour=18;
+      delete rec.mutedAt; delete rec.mutedFor;
+      try{ await sset(k,rec); }catch(e){ console.warn('registerPushEverywhere',k,e); }
+    }
+  }
+  /* The switch in My Profile, turned off. */
+  async disablePush(){
+    if(this.state.pushBusy) return;
+    this.setState({pushBusy:true,pushMsg:'Turning notifications off on this device…'});
+    this.setPushOffHere(true);
+    try{ await this.unregisterPushHere(); }catch(e){ console.error('disablePush',e); }
+    this.setState({pushBusy:false,pushOn:false,pushAsk:false,
+      pushMsg:'Notifications are off on this device, for all your groups. Your other devices keep their own setting.'});
+  }
+  /* Where to allow notifications again once they have been blocked. */
+  pushBlockedHelp(){
+    const ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
+    if(this.isNativeApp()||ios) return 'Notifications are blocked for this app. To allow them, open Settings → Notifications → JJ Playbook and turn on Allow Notifications, then come back and switch this on.';
+    return 'Notifications are blocked for this site. To allow them, click the icon to the left of the web address → Site settings → Notifications → Allow, reload the page, then switch this on.';
+  }
   /* ---- Direct video upload (Firebase Storage) ---------------------------
      Studio can take the file itself instead of a pasted link. The upload
      returns a permanent download URL ending in the file's own extension, which
@@ -10254,6 +10344,8 @@ class Component extends DCLogic {
     }catch(e){ console.error('resumeNativePush',e); return false; }
   }
   async resumePush(){
+    // Switched off on this device: never registered again except by the switch.
+    if(this.pushOffHere()){ this.setState({pushOn:false}); return; }
     if(this.isNativeApp()){ if(await this.resumeNativePush()) return; }
     if(!this.pushSupported()) return; if(Notification.permission!=='granted') return;
     /* Same phone, second account. The device permission is already granted, but
@@ -10276,6 +10368,8 @@ class Component extends DCLogic {
   pushAskDue(){
     if(this.state.role!=='leader'||this.state.previewMode) return false;
     if(this.state.pushOn) return false;
+    // They switched notifications off here: no prompt, ever, until they switch it on.
+    if(this.pushOffHere()) return false;
     if(this.isNativeApp()) return this._nativePermChecked!==false&&!this._nativeGranted;
     if(!this.pushSupported()) return false;
     /* A hard browser denial is the one refusal we cannot ask past — the OS
@@ -10299,8 +10393,12 @@ class Component extends DCLogic {
   }
   async markPushAsked(){ const r=this.state.resp; if(!r||r.pushAsked) return;
     r.pushAsked=Date.now(); this.setState({resp:r}); try{ await this.saveResp(); }catch(e){} }
-  async enablePush(){
+  /* byUser: the person tapped a switch or button. Anything automatic (the
+     launch prompt, the end of the tour) leaves a device switched off alone. */
+  async enablePush(byUser){
     if(this.state.pushBusy) return;
+    if(!byUser&&this.pushOffHere()) return;
+    if(byUser) this.setPushOffHere(false);
     /* Inside the wrapper the browser's Notification API is not the thing that
        gets a device registered with APNs — the plugin is. Web visitors below
        are untouched. */
@@ -10319,6 +10417,7 @@ class Component extends DCLogic {
             const token=await this.registerNativePush();
             await this.saveNativeToken(token);
             this.syncReminderPrefs().catch(()=>{});
+            this.registerPushEverywhere().catch(()=>{});
           }catch(e){
             console.error('registerNativePush',e);
             /* Only surfaced if the device never got registered — the switch
@@ -10331,7 +10430,7 @@ class Component extends DCLogic {
         console.error('registerNativePush',e);
         return this.setState({pushBusy:false,pushMsg:
           (e&&e.message&&/denied/i.test(e.message))
-            ? 'Notifications are turned off for this app. Turn them on in Settings \u2192 Notifications, then try again.'
+            ? this.pushBlockedHelp()
             : ('Could not set up notifications \u2014 '+((e&&e.message)||'try again')+'.')});
       }
     }
@@ -10353,7 +10452,8 @@ class Component extends DCLogic {
     try{
       const perm=await Notification.requestPermission();
       if(perm!=='granted'){
-        return this.setState({pushBusy:false,pushMsg:'Notifications are blocked. Turn them back on in your phone\u2019s settings for this app.'});
+        return this.setState({pushBusy:false,pushMsg:perm==='denied'?this.pushBlockedHelp()
+          :'Notifications were not allowed. Switch this on again and choose Allow.'});
       }
       const reg=await this.pushStep(navigator.serviceWorker.register('firebase-messaging-sw.js'),15000,'service worker');
       // getToken needs an ACTIVE worker, not just a registered one
@@ -10368,8 +10468,9 @@ class Component extends DCLogic {
       const prev=(await this.pushStep(sget(pkey),15000,'save').catch(()=>({})))||{};
       await this.pushStep(sset(pkey,Object.assign({},prev,{
         token, name:this.state.name||'', code:this.state.code||'',
-        idkey:this.state.idkey||'', at:Date.now()
+        idkey:this.state.idkey||'', at:Date.now(), active:true
       })),15000,'save');
+      this.registerPushEverywhere().catch(()=>{});
       /* The token is stored — that is what makes push work, so call it done here.
          Anything after this is housekeeping and must never hold the button. */
       this.markPushOn();
@@ -13124,6 +13225,12 @@ class Component extends DCLogic {
   async signOutAccount(){
     if(this._signingOut) return;
     this._signingOut=true;
+    /* This device stops receiving their notifications before they leave
+       (the writes need them still signed in). Never holds sign-out up for
+       more than a few seconds. The device's on/off choice itself stays. */
+    try{ await Promise.race([this.unregisterPushHere(),new Promise(r=>setTimeout(r,6000))]); }
+    catch(e){ console.warn('signOut push',e); }
+    try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf('jj_push_on:')===0) localStorage.removeItem(k); }); }catch(e){}
     this.signOut();
     const ok=await authSignOut();
     if(!ok){ this._signingOut=false; this.toast('Could not sign out. Try again.',true); }
@@ -20260,9 +20367,13 @@ class Component extends DCLogic {
     v.scheduleText='One fundamental unlocks each month from your cohort start. Inside a fundamental, the next session drops every '+DAYS[sc.weekday||1]+' at '+((sc.hour||8)%12||12)+':00'+((sc.hour||8)<12?'am':'pm')+'.';
     v.scheduleNote=s.org&&s.org.startDate?('Your cohort started '+fmtFull(s.org.startDate)+'.'):'';
     const pOn=s.pushOn;
-    v.pushLabel=s.pushBusy?'Working\u2026':(pOn?'\u2713 Notifications on':'Turn on notifications');
-    v.pushBtnStyle='width:100%;margin-top:12px;padding:13px;border-radius:10px;font-weight:800;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;min-height:44px;cursor:'+(s.pushBusy?'default':'pointer')+';border:2px solid #FADA01;background:'+(pOn?'#FADA01':'transparent')+';color:'+(pOn?'#0C2647':'#0C1B2E');
-    v.onEnablePush=()=>this.enablePush();
+    /* One switch for this device, covering every group they are in. */
+    v.pushLabel='Push notifications on this device';
+    v.pushSub=s.pushBusy?'Working\u2026':(pOn?'On for all your groups':'Off');
+    v.pushAria=pOn?'true':'false';
+    v.pushTrackStyle='flex:none;position:relative;width:48px;height:28px;border-radius:999px;transition:background .18s ease;background:'+(pOn?'#3E9E6A':'#C6D4E2')+(s.pushBusy?';opacity:.6':'');
+    v.pushKnobStyle='position:absolute;top:3px;left:'+(pOn?'23px':'3px')+';width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .18s ease';
+    v.onTogglePush=()=>{ if(s.pushBusy) return; if(pOn) this.disablePush(); else this.enablePush(true); };
     {
       /* Any Accountability Bump they can actually be sent — the wording is
          taken from the module itself, not invented, so the test is the thing. */
@@ -23284,7 +23395,7 @@ class Component extends DCLogic {
       confirm:this._mineSubscribed===false&&typeof Notification!=='undefined'&&Notification.permission==='granted',
       request:!(this._mineSubscribed===false&&typeof Notification!=='undefined'&&Notification.permission==='granted'),
       hasMsg:!!s.pushMsg, msg:s.pushMsg||'',
-      onEnable:()=>this.enablePush(),
+      onEnable:()=>this.enablePush(true),
       onDismiss:()=>this.dismissPushAsk()
     };
 
