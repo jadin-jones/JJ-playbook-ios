@@ -14699,8 +14699,12 @@ class Component extends DCLogic {
       }catch(e){ console.error('removeLeader check',em,e); return done?partial():stop(unchanged); }
     }
     // 3. Lock the door before touching their data: the tombstone, then the approved list.
-    if(!(await sset('rev:'+code+':'+r.idkey,{at:Date.now(),email:emails[0],emails})))
-      return stop('Access to '+code+' is removed, but the revocation was not recorded — tap Remove again. Their record was not deleted.');
+    //    /api/join looks for rev:CODE:slug(signed-in email), so each address
+    //    gets one, the record's own key first.
+    const at=Date.now();
+    for(const ik of Array.from(new Set([r.idkey].concat(emails.map(slug)))))
+      if(!(await sset('rev:'+code+':'+ik,{at,email:emails[0],emails})))
+        return stop('Access to '+code+' is removed, but the revocation was not recorded — tap Remove again. Their record was not deleted.');
     const o=this.state.orgList.find(x=>x.code===code);
     if(o&&Array.isArray(o.allowlist)&&o.allowlist.some(x=>emails.indexOf(x)>=0)){
       if(!(await this.saveOrg(code,{allowlist:o.allowlist.filter(x=>emails.indexOf(x)<0)})))
