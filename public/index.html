@@ -8556,8 +8556,12 @@ function authErrMsg(e,kind){
     if(c==='auth/account-exists-with-different-credential'||c==='auth/credential-already-in-use'||c==='auth/email-already-in-use')
       return 'This email already has an account that signs in with Google or with email and password. Sign in that way instead — Microsoft cannot be added to an existing account.';
     if(c==='auth/operation-not-allowed') return 'Microsoft sign-in is not turned on yet. Use Google or email and password for now.';
-    // Company tenants can refuse unverified or unapproved apps (Entra AADSTS errors).
-    if(/AADSTS/.test(String((e&&e.message)||'')))
+    const m=String((e&&e.message)||'');
+    // AADSTS50011: this site's /__/auth/handler is not a redirect URI on the Entra app.
+    if(/AADSTS50011/.test(m))
+      return 'Microsoft sign-in isn’t set up correctly for this site. Use Google or email and password for now.';
+    // Company tenants can refuse unverified or unapproved apps (other Entra AADSTS errors).
+    if(/AADSTS/.test(m))
       return 'Your organisation’s Microsoft settings blocked this sign-in — an administrator may need to approve JJ Playbook. Use Google or email and password for now.';
     if(c==='auth/invalid-credential'||c==='auth/internal-error')
       return 'Microsoft sign-in did not work. Try again, or use Google or email and password.';
