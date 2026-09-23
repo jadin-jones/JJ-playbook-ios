@@ -1097,6 +1097,13 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 
+<sc-if value="{{ pf.offline }}" hint-placeholder-val="{{ false }}">
+<div style="background:#fff;border:1px solid #DCE6F0;border-radius:16px;padding:26px 20px;text-align:left">
+<div style="font-weight:900;font-size:20px;line-height:1.15;text-transform:uppercase;color:#0C1B2E">Could not load the form</div>
+<p style="font-size:13.5px;line-height:1.65;color:#37475C;margin:10px 0 0">Check your connection and reload this page. If it keeps happening, ask the person who sent the link.</p>
+</div>
+</sc-if>
+
 <sc-if value="{{ pf.closed }}" hint-placeholder-val="{{ false }}">
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:16px;padding:26px 20px">
 <div style="font-weight:900;font-size:20px;line-height:1.15;text-transform:uppercase;color:#0C1B2E">This round has closed</div>
@@ -8211,15 +8218,23 @@ function peerKey(code,token){ return 'peer:'+code+':'+token; }
    including no answer at all, returns null so the round is not opened. */
 async function newPeerToken(){
   for(let i=0;i<3;i++){
-    const t=peerToken();
-    let r, j={};
-    try{ r=await withTimeout(fetch('/api/peer?t='+t,{cache:'no-store'}),8000); }
-    catch(e){ console.error('newPeerToken',e); return null; }
-    try{ j=await r.json(); }catch(e){}
-    if(r.status===404&&j.code==='missing') return t;
+    const t=peerToken(), r=await peerApi('GET',{t});
+    if(r.status===404&&r.code==='missing') return t;
     if(r.status!==200&&r.status!==409) return null;
   }
   return null;
+}
+/* /api/peer, for the people answering a link: no sign-in, no Firestore.
+   Returns the server's JSON plus status; ok only when the server said so.
+   No answer at all comes back as status 0, code 'offline'. */
+async function peerApi(method,body){
+  try{
+    const r=await withTimeout(method==='GET'
+      ?fetch('/api/peer?t='+encodeURIComponent(body.t),{cache:'no-store'})
+      :fetch('/api/peer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),12000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    return Object.assign({},j,{status:r.status,ok:r.ok&&j.ok===true});
+  }catch(e){ console.error('peerApi',e); return {ok:false,status:0,code:'offline'}; }
 }
 function peerAgg(doc){
   const rs=(doc&&doc.responses)||[];
@@ -9477,6 +9492,11 @@ class Component extends DCLogic {
        device cache — opens before then. The gate shows Continue with Google
        while nobody is signed in; the overlay stays out of the way. */
     _gateSignIn=true;
+    /* A peer or team link opens its form straight away: the people answering
+       are not members and never sign in. /api/peer is their only door. */
+    let rt=null;
+    try{ rt=new URLSearchParams(location.search).get('r'); }catch(e){}
+    if(rt) return this.openPeerForm(String(rt).trim().toUpperCase());
     const signedIn=authReady();
     await _authFirst;
     if(!_authUser) this.setState({booting:false,view:'gate',authChecked:true,authEmail:''});
@@ -9492,10 +9512,6 @@ class Component extends DCLogic {
     const me=String(currentUserEmail()||'').trim().toLowerCase();
     this.setState({authChecked:true,authEmail:me,gateSignInErr:'',gateSignInBusy:false,
       verifyEmail:'',verifyBusy:false,verifyMsg:'',verifyErr:''});
-    // A peer-review link lands here next: no session, no gate, just the form.
-    let rt=null;
-    try{ rt=new URLSearchParams(location.search).get('r'); }catch(e){}
-    if(rt) return this.openPeerForm(String(rt).trim().toUpperCase());
     let known=null;
     try{ known=JSON.parse(localStorage.getItem('jj_known_leader')||'null'); }catch(e){}
     let sess=null;
@@ -10353,17 +10369,17 @@ class Component extends DCLogic {
   // ---- Playbook Assessment (Peer-Review) ----
   async openPeerForm(token){
     this.setState({booting:true,view:'peer',peerTokenIn:token,peerErr:''});
-    // "Not valid" must mean the record is genuinely absent, never that the
-    // first read raced the SDK or dropped on a phone network. sgetStrict
-    // throws on a failed read instead of returning null, so a failure retries.
-    let doc=null;
+    // "Not valid" must mean /api/peer found no round, never that a phone
+    // network dropped the request. Only its own answers stop the retries.
+    let res=null;
     for(let i=0;i<4;i++){
-      try{ doc=await sgetStrict('peer:'+token); break; }
-      catch(e){ if(i===3){ doc=await sget('peer:'+token); break; }
-        await new Promise(r=>setTimeout(r,600*(i+1))); }
+      res=await peerApi('GET',{t:token});
+      if(res.ok||res.code==='missing'||res.code==='ambiguous') break;
+      await new Promise(r=>setTimeout(r,600*(i+1)));
     }
-    this.setState({booting:false,view:'peer',peerRound:doc||null,
-      peerErr:doc?(doc.closed?'closed':''):'missing'});
+    const doc=res.ok?{orgName:res.orgName||'',mode:res.mode,closed:!!res.closed}:null;
+    this.setState({booting:false,view:'peer',peerRound:doc,
+      peerErr:doc?(doc.closed?'closed':''):(res.code==='missing'?'missing':'offline')});
   }
   async submitPeer(){
     const d=this.state.peerDraft||{};
@@ -10371,16 +10387,14 @@ class Component extends DCLogic {
     if(missing.length) return this.toast('Score all '+ASSESS.length+' lines — '+missing.length+' left',true);
     if(this.state.peerSaving) return;
     this.setState({peerSaving:true});
-    const token=this.state.peerTokenIn;
-    // re-read so two people submitting at the same time don't overwrite each other
-    const doc=await sget('peer:'+token);
-    if(!doc||doc.closed){ return this.setState({peerSaving:false,peerErr:doc?'closed':'missing'}); }
-    doc.responses=(doc.responses||[]).concat([{ts:Date.now(),scores:Object.assign({},d),
-      keep:(this.state.peerKeep||'').slice(0,600),change:(this.state.peerChange||'').slice(0,600)}]);
-    const ok=await sset('peer:'+token,doc);
-    this.setState({peerSaving:false,peerDone:!!ok,peerRound:doc});
-    if(!ok) this.toast('Could not send that — try again',true);
-    else try{ window.scrollTo(0,0); }catch(e){}
+    // The server adds the answer in a transaction, so people sending at once all land.
+    // Not retried on its own: a send that did arrive must not count twice.
+    const res=await peerApi('POST',{t:this.state.peerTokenIn,scores:Object.assign({},d),
+      keep:(this.state.peerKeep||'').slice(0,600),change:(this.state.peerChange||'').slice(0,600)});
+    if(res.ok){ this.setState({peerSaving:false,peerDone:true}); try{ window.scrollTo(0,0); }catch(e){} return; }
+    if(res.code==='closed'||res.code==='missing') return this.setState({peerSaving:false,peerErr:res.code});
+    this.setState({peerSaving:false});
+    this.toast(res.error||'Could not send that — try again',true);
   }
   peerRoundList(){ const r=this.state.resp; return ((r&&r.peerRounds)||[]).slice().sort((a,b)=>b.openedAt-a.openedAt); }
   peerCurrent(){ const t=this.peerRoundList()[0]; return t?(this.state.peerDocs[t.token]||null):null; }
@@ -17084,7 +17098,7 @@ class Component extends DCLogic {
       const ready=answered===ASSESS.length&&!s.peerSaving;
       v.pf={
         valid:!!doc&&!s.peerErr&&!s.peerDone, done:!!s.peerDone,
-        bad:s.peerErr==='missing', closed:s.peerErr==='closed',
+        bad:s.peerErr==='missing', closed:s.peerErr==='closed', offline:s.peerErr==='offline',
         org:doc?(doc.orgName||''):'',
         isTeam:!!(doc&&doc.mode==='team'),
         title:(doc&&doc.mode==='team')?'Team Assessment':'Playbook Assessment (Peer-Review)',
