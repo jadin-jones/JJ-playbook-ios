@@ -9363,8 +9363,11 @@ const AB_ART='assets/twin-thieves.jpg';
    Paste your Firebase "Web Push certificate" key pair below — Firebase
    console > Project settings > Cloud Messaging > Web configuration >
    Generate key pair. Leave it blank and the Enable button politely says
-   push isn't set up yet. Full walkthrough in DEPLOY.md. */
-const PUSH_VAPID_KEY='BInNmntOmHghC66oeT2bi5pu3_vMrC0efRQwCu7apRAivuOQUkWscFZrY-V8xY06Y_1Fwj2a-rHcuUn_mZH-mG0';
+   push isn't set up yet. Full walkthrough in DEPLOY.md.
+   Each Firebase project has its own key pair, so the key is picked by host
+   the same way FIREBASE_CONFIG is: jj-playbook-dev on dev hosts, test-6b2ab
+   everywhere else. */
+const PUSH_VAPID_KEY=(location.hostname.indexOf("dev")>-1)?'BC6VSCl7r-b73VfY1RtwM97uV-i1YulwK7BULCAvod6F11yYqMPYA-9CuYrJU5FfKAHIKr67G8mlDNQpjqPZu9U':'BInNmntOmHghC66oeT2bi5pu3_vMrC0efRQwCu7apRAivuOQUkWscFZrY-V8xY06Y_1Fwj2a-rHcuUn_mZH-mG0';
 const BUILD_STAMP='2026.08.27-a';
 
 /* Desktop layout kicks in here. Below it the app is the phone column it
