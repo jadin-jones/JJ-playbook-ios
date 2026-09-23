@@ -8246,6 +8246,10 @@ let _authWait=null;
 let _authUser=null;
 let _authPending=null;
 let _authRes=null;
+/* Settles once Firebase has finished any Google redirect this page load came
+   back from; _authRedirectMsg then holds what went wrong, if anything. */
+let _authRedirect=Promise.resolve();
+let _authRedirectMsg='';
 /* The gate page owns sign-in: while _gateSignIn is set the overlay stays
    hidden and the gate shows Continue with Google instead. _authFirst settles
    once Firebase knows whether anyone is signed in (null if nobody, or if the
@@ -8266,6 +8270,7 @@ function authReady(){
           s.onload=ok; s.onerror=bad; document.head.appendChild(s); });
       }
       if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      _authRedirect=_checkGoogleRedirect();
       firebase.auth().onAuthStateChanged(user=>{
         /* The saved copy of the user can say "unverified" after the link was
            clicked in another tab or the mail app, so ask Firebase once. */
@@ -8341,12 +8346,35 @@ async function _doGoogleSignIn(onErr){
     if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     const provider=new firebase.auth.GoogleAuthProvider();
     const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if(isMobile){ await firebase.auth().signInWithRedirect(provider); }
+    if(isMobile){
+      try{ sessionStorage.setItem('jj_google_redirect',String(Date.now())); }catch(e){}
+      await firebase.auth().signInWithRedirect(provider);
+    }
     else{ await firebase.auth().signInWithPopup(provider); }
   }catch(e){
     console.error('signIn',e);
-    if(errEl) errEl.textContent='Sign-in failed. Please try again.';
-    if(typeof onErr==='function') onErr('Sign-in failed. Please try again.');
+    try{ sessionStorage.removeItem('jj_google_redirect'); }catch(x){}
+    const msg=authErrMsg(e);
+    if(errEl) errEl.textContent=msg;
+    if(typeof onErr==='function') onErr(msg);
+  }
+}
+/* Back from Google's page. An error from the redirect is reported. So is the
+   quiet failure: the browser blocked the cross-site handoff, so the redirect
+   ends with no error and nobody signed in. The mark set before leaving tells
+   that apart from an ordinary page load. */
+async function _checkGoogleRedirect(){
+  let left=0;
+  try{ left=Number(sessionStorage.getItem('jj_google_redirect')||0);
+    sessionStorage.removeItem('jj_google_redirect'); }catch(e){}
+  const wasRedirect=left>0&&Date.now()-left<15*60*1000;
+  try{
+    const r=await withTimeout(firebase.auth().getRedirectResult(),10000);
+    if(wasRedirect&&!(r&&r.user)&&!firebase.auth().currentUser)
+      _authRedirectMsg='Google sign-in did not finish in this browser. Try again, or use email and password below.';
+  }catch(e){
+    console.error('getRedirectResult',e);
+    if(wasRedirect) _authRedirectMsg=authErrMsg(e);
   }
 }
 /* Email and password. Each helper returns {ok:true,...} or {ok:false,error}
@@ -8369,7 +8397,14 @@ function authErrMsg(e){
     'auth/too-many-requests':'Too many tries. Wait a few minutes and try again.',
     'auth/network-request-failed':'Could not reach sign-in. Check your connection and try again.',
     'auth/user-disabled':'This account has been turned off. Check with your program lead.',
-    'auth/operation-not-allowed':'Email sign-in is not turned on yet. Use Continue with Google for now.'
+    'auth/operation-not-allowed':'Email sign-in is not turned on yet. Use Continue with Google for now.',
+    // Google (popup or redirect)
+    'auth/popup-closed-by-user':'Google sign-in was closed before it finished. Try again.',
+    'auth/cancelled-popup-request':'Google sign-in was closed before it finished. Try again.',
+    'auth/popup-blocked':'Your browser blocked the Google window. Allow pop-ups for this site, or use email and password.',
+    'auth/web-storage-unsupported':'This browser is blocking what sign-in needs to work. Try a normal (not private) window, or use email and password.',
+    'auth/unauthorized-domain':'Google sign-in is not set up for this address yet. Use email and password for now.',
+    'auth/account-exists-with-different-credential':'This email already signs in another way. Use email and password, or reset your password.'
   })[c]||'Sign-in failed. Please try again.';
 }
 function _authLoaded(){ return typeof firebase!=='undefined'&&!!firebase.auth&&firebase.apps.length>0; }
@@ -9407,6 +9442,9 @@ class Component extends DCLogic {
     const signedIn=authReady();
     await _authFirst;
     if(!_authUser) this.setState({booting:false,view:'gate',authChecked:true,authEmail:''});
+    // Back from a Google redirect that did not sign anyone in: say so on the gate.
+    _authRedirect.then(()=>{ if(_authRedirectMsg&&!_authUser&&!_authPending)
+      this.setState({gateSignInErr:_authRedirectMsg}); });
     // Signed in but the email link is not clicked yet: the gate asks for it.
     if(!_authUser&&_authPending) this.showVerify(_authPending.email);
     if(!(await signedIn)){
