@@ -656,7 +656,7 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 <sc-if value="{{ gateSignedIn }}" hint-placeholder-val="{{ false }}">
-<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:10px 0 0">Signed in as <span style="color:#FFFFFF;font-weight:700">{{ gateAuthEmail }}</span></p>
+<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:10px 0 0">Signed in as <span style="color:#FFFFFF;font-weight:700">{{ gateAuthEmail }}</span> · <button sc-camel-on-click="{{ onGateSwitchAccount }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Use a different account</button></p>
 </sc-if>
 <sc-if value="{{ gateWelcomeBack }}" hint-placeholder-val="{{ false }}">
 <div style="animation:jjIn .3s ease both">
@@ -8319,6 +8319,25 @@ async function _doGoogleSignIn(onErr){
     if(typeof onErr==='function') onErr('Sign-in failed. Please try again.');
   }
 }
+/* Sign out for real: Firebase first, then everything this device kept for
+   that person (record caches jjc:/jj:, the saved session, Firestore's
+   offline copy), then a fresh page so no listener, timer or in-memory record
+   survives. The gate then shows Continue with Google for whoever is next.
+   Device preferences such as the theme stay. Returns false, touching
+   nothing, if Firebase could not sign out. */
+async function authSignOut(){
+  try{ if(typeof firebase!=='undefined'&&firebase.auth) await firebase.auth().signOut(); }
+  catch(e){ console.error('authSignOut',e); return false; }
+  _authUser=null; _authWait=null;
+  try{ Object.keys(localStorage).forEach(k=>{
+    if(k.indexOf('jjc:')===0||k.indexOf('jj:')===0||k==='jj_session'||k==='jj_known_leader')
+      localStorage.removeItem(k); }); }catch(e){}
+  // Fails harmlessly if another tab still has the database open.
+  try{ if(_db){ await _db.terminate(); await _db.clearPersistence(); } }catch(e){ console.warn('clearPersistence',e); }
+  _db=null;
+  location.replace(location.pathname);
+  return true;
+}
 function withTimeout(p,ms){ let t; return Promise.race([
   Promise.resolve(p).then(v=>{ clearTimeout(t); return v; },e=>{ clearTimeout(t); throw e; }),
   new Promise((_,r)=>{ t=setTimeout(()=>r(new Error('timeout')),ms); })]); }
@@ -12378,6 +12397,16 @@ class Component extends DCLogic {
     this.setState({known:null,enterNewCode:true,joinCode:''});
     this.toast('Your access to '+(orgName||code)+' has ended. Check with your program lead.',true);
   }
+  /* The Sign out button: leave the app (signOut, which stops listeners and
+     timers), then sign out of Firebase and wipe this device's copy. Revocation
+     calls signOut() alone, so the person stays signed in and lands on the gate. */
+  async signOutAccount(){
+    if(this._signingOut) return;
+    this._signingOut=true;
+    this.signOut();
+    const ok=await authSignOut();
+    if(!ok){ this._signingOut=false; this.toast('Could not sign out. Try again.',true); }
+  }
   signOut(){ this._editUnlocked=false; this._mineSubscribed=undefined; try{ localStorage.removeItem('jj_session'); }catch(e){}
     this.stopFeedWatch(); this.stopChat(); this.stopReleaseWatch(); clearTimeout(this._fiveSTimer);
     /* The previous account's nudges must not fire for whoever signs in next. */
@@ -14703,7 +14732,7 @@ class Component extends DCLogic {
     v.onLiveEdit=()=>{ const on=!s.liveEdit;
       this.setState({liveEdit:on});
       this.toast(on?'Tap any label to rename it':'Text editing off'); };
-    v.onSignOut=()=>this.signOut();
+    v.onSignOut=()=>this.signOutAccount();
     v.signOutStyle=(s.role&&!s.booting)?'flex:none;white-space:nowrap;font-family:inherit;background:transparent;border:1px solid #C6D4E2;color:#7E8D9C;border-radius:7px;padding:7px 11px;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;min-height:34px':'display:none';
     // ---- consistency, read across every tool at once ----
     const allStamps=this.allToolStamps();
@@ -16294,6 +16323,7 @@ class Component extends DCLogic {
     v.gateNeedsSignIn=!!s.authChecked&&!s.authEmail;
     v.gateSignedIn=!!s.authEmail;
     v.gateAuthEmail=s.authEmail||'';
+    v.onGateSwitchAccount=()=>this.signOutAccount();
     v.gateSignInErr=s.gateSignInErr||'';
     v.gateHasSignInErr=!!s.gateSignInErr;
     v.gateGoogleCta=s.gateSignInBusy?'Opening Google…':'Continue with Google';
