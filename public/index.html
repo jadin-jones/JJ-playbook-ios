@@ -9301,12 +9301,12 @@ class Component extends DCLogic {
        and the gate only appears if they have never signed in here. */
     const saved=(sess&&sess.role==='leader'&&sess.code&&sess.idkey)?sess:((known&&known.code&&known.idkey)?known:null);
     if(saved){
-      try{
-        const t=await sgetStrict('rev:'+saved.code+':'+saved.idkey);
-        if(t){ this.setState({idkey:saved.idkey});
-          this.revokeAccess(saved.code,saved.code);
-          return this.setState({booting:false,view:'gate',known:null,enterNewCode:true}); }
-      }catch(e){}
+      const chk=await this.checkSavedMembership(saved);
+      if(chk==='revoked'){ this.setState({idkey:saved.idkey});
+        this.revokeAccess(saved.code,saved.code);
+        return this.setState({booting:false,view:'gate',known:null,enterNewCode:true}); }
+      if(chk!=='go'){ this.forgetSavedSession(); this.toast(chk,true);
+        return this.setState({booting:false,view:'gate',known:null,enterNewCode:true}); }
       const warm=this.warmStart(saved);
       if(!warm) this.setState({booting:false,view:'resuming',known});
       for(let ai=0;ai<24;ai++){
@@ -12356,7 +12356,35 @@ class Component extends DCLogic {
     }
     finally{ this._justJoined=false; }
   }
+  /* Before a saved session opens: has this person's access been revoked, and
+     can they still read this program? Someone who joined before /api/join
+     existed has records but no members/{email} entry, so the rules refuse
+     them. Only on that refusal — never on an ordinary launch — ask /api/join
+     once to add the program, which applies the same door checks as joining.
+     Returns 'go' to carry on (network trouble included, so the usual retries
+     take over), 'revoked', or the refusal message to show. */
+  async checkSavedMembership(saved){
+    let tomb=null, err=null;
+    try{ tomb=await sgetStrict('rev:'+saved.code+':'+saved.idkey); }catch(e){ err=e; }
+    if(tomb) return 'revoked';
+    if(!(err&&err.code==='permission-denied')) return 'go';
+    this._healTried=this._healTried||{};
+    if(this._healTried[saved.code]) return 'go';
+    this._healTried[saved.code]=true;
+    const mem=await ensureMember(saved.code);
+    if(mem.ok) return 'go';
+    if(mem.reason==='revoked') return 'revoked';
+    if(mem.status===403||mem.status===404) return mem.error;
+    return 'go';
+  }
+  forgetSavedSession(){
+    try{ localStorage.removeItem('jj_session'); localStorage.removeItem('jj_known_leader'); }catch(e){}
+  }
   async resume(){ const k=this.state.known; if(!k) return; this.setState({booting:true});
+    const chk=await this.checkSavedMembership(k);
+    if(chk==='revoked'){ this.setState({booting:false,idkey:k.idkey}); return this.revokeAccess(k.code,k.code); }
+    if(chk!=='go'){ this.forgetSavedSession(); this.setState({booting:false,known:null,enterNewCode:true});
+      return this.toast(chk,true); }
     const ok=await this.loadLeader(k.code,k.idkey,k.name,k.email);
     if(!ok){ this.setState({booting:false}); this.toast('Could not find that saved login',true); } }
   async enterStudio(name){
