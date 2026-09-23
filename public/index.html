@@ -8213,6 +8213,27 @@ function peerLink(t){ try{ return location.origin+location.pathname+'?r='+t; }ca
 /* Peer and team rounds live at peer:CODE:TOKEN, so the V3 rules can check the
    program. The link carries only the token; /api/peer finds the round from it. */
 function peerKey(code,token){ return 'peer:'+code+':'+token; }
+/* Until the migration has run, a round may still sit at its old key,
+   peer:TOKEN. Reads try the new key, then the old one, and remember which
+   held it, so a save or the live watch goes back to the same place. */
+const _peerSrc={};
+async function sgetPeer(code,token){
+  const nk=peerKey(code,token), ok='peer:'+token;
+  let d=await sget(nk); if(d){ _peerSrc[token]=nk; return d; }
+  d=await sget(ok); if(d){ _peerSrc[token]=ok; return d; }
+  return null;
+}
+function peerKeyOf(code,token){ return _peerSrc[token]||peerKey(code,token); }
+/* Deletes the round wherever it is: the new key always, the old key too when
+   the round was read from there or still exists there. False if any delete
+   was refused, so the caller keeps the round and says so. */
+async function sdelPeer(code,token){
+  const ok='peer:'+token, keys=[peerKey(code,token)];
+  if(_peerSrc[token]===ok||(await sget(ok))) keys.push(ok);
+  for(const k of keys) if(!(await sdel(k))) return false;
+  delete _peerSrc[token];
+  return true;
+}
 /* A token no round in any program uses yet. Only /api/peer can see every
    program, and only its "missing" answer counts as free. Anything else,
    including no answer at all, returns null so the round is not opened. */
@@ -10401,7 +10422,7 @@ class Component extends DCLogic {
   async loadPeerDocs(){
     const list=this.peerRoundList(); if(!list.length) return;
     const docs=Object.assign({},this.state.peerDocs);
-    for(const r of list){ const d=await sget(peerKey(this.state.code,r.token)); if(d) docs[r.token]=d; }
+    for(const r of list){ const d=await sgetPeer(this.state.code,r.token); if(d) docs[r.token]=d; }
     this.setState({peerDocs:docs});
   }
   async openPeerRound(){
@@ -10426,7 +10447,7 @@ class Component extends DCLogic {
     const cur=this.peerCurrent(); if(!cur||this.state.peerBusy) return;
     this.setState({peerBusy:true});
     cur.closed=true; cur.closedAt=Date.now();
-    const ok=await sset(peerKey(cur.code||this.state.code,cur.token),cur);
+    const ok=await sset(peerKeyOf(cur.code||this.state.code,cur.token),cur);
     const docs=Object.assign({},this.state.peerDocs); docs[cur.token]=cur;
     this.setState({peerDocs:docs,peerBusy:false});
     this.toast(ok?'Round closed':'Could not close the round',!ok);
@@ -10451,7 +10472,7 @@ class Component extends DCLogic {
     const t=this.peerRoundList()[0]; if(!t) return;
     const db=fb(); if(!db) return;
     let seen=null;
-    this._peerUnsub=db.collection(COLL).doc(peerKey(this.state.code,t.token)).onSnapshot(d=>{
+    this._peerUnsub=db.collection(COLL).doc(peerKeyOf(this.state.code,t.token)).onSnapshot(d=>{
       let doc=null; try{ doc=JSON.parse((d.data()||{}).value||'null'); }catch(e){}
       if(!doc) return;
       const n=((doc.responses)||[]).length;
@@ -10474,7 +10495,7 @@ class Component extends DCLogic {
     // Only rounds actually deleted leave the list; a refused delete stays put and is reported.
     const kept=[], docs=Object.assign({},this.state.peerDocs);
     for(const pr of ((r.peerRounds)||[])){
-      if(await sdel(peerKey(this.state.code,pr.token))) delete docs[pr.token]; else kept.push(pr); }
+      if(await sdelPeer(this.state.code,pr.token)) delete docs[pr.token]; else kept.push(pr); }
     this.stopPeerWatch();
     r.peerRounds=kept;
     this.setState({resp:r,peerDocs:docs,peerBusy:false,peerConfirmDelete:false});
@@ -10512,7 +10533,7 @@ class Component extends DCLogic {
   async loadTeamDocs(){
     const list=this.teamRoundList(); if(!list.length) return;
     const docs=Object.assign({},this.state.peerDocs);
-    for(const r of list){ const d=await sget(peerKey(this.state.code,r.token)); if(d) docs[r.token]=d; }
+    for(const r of list){ const d=await sgetPeer(this.state.code,r.token); if(d) docs[r.token]=d; }
     this.setState({peerDocs:docs});
   }
   async openTeamRound(){
@@ -10539,7 +10560,7 @@ class Component extends DCLogic {
     const cur=this.teamCurrent(); if(!cur||this.state.peerBusy) return;
     this.setState({peerBusy:true});
     cur.closed=true; cur.closedAt=Date.now();
-    const ok=await sset(peerKey(cur.code||this.state.code,cur.token),cur);
+    const ok=await sset(peerKeyOf(cur.code||this.state.code,cur.token),cur);
     const docs=Object.assign({},this.state.peerDocs); docs[cur.token]=cur;
     this.setState({peerDocs:docs,peerBusy:false});
     this.toast(ok?'Team round closed':'Could not close the round',!ok);
@@ -14312,7 +14333,7 @@ class Component extends DCLogic {
     for(const r of (this.state.members||[])){
       for(const pr of ((r.peerRounds)||[])){
         if(docs[pr.token]) continue;
-        const d=await sget(peerKey(r.code||this.state.code,pr.token)); if(d) docs[pr.token]=d;
+        const d=await sgetPeer(r.code||this.state.code,pr.token); if(d) docs[pr.token]=d;
       }
     }
     this.setState({peerDocs:docs});
@@ -14331,7 +14352,7 @@ class Component extends DCLogic {
     // pull every peer-review round this org's leaders have opened, so the
     // Scores tab can show the 360 alongside the self-scores
     const docs=Object.assign({},this.state.peerDocs);
-    for(const x of r){ for(const pr of (x.peerRounds||[])){ const d=await sget(peerKey(code,pr.token)); if(d) docs[pr.token]=d; } }
+    for(const x of r){ for(const pr of (x.peerRounds||[])){ const d=await sgetPeer(code,pr.token); if(d) docs[pr.token]=d; } }
     this.setState({peerDocs:docs});
     try{ const cds=await slistDocs('coach:'+code+':');
       const map={}; (cds||[]).forEach(d=>{ if(d&&d.idkey) map[d.idkey]=d; });
@@ -14402,14 +14423,14 @@ class Component extends DCLogic {
         .forEach(x=>pool.push({r:x,code:o.code,orgName:o.name}));
     }
     for(const p of pool){ for(const pr of (p.r.peerRounds||[]).concat(p.r.teamRounds||[])){
-      if(docs[pr.token]) continue; const d=await sget(peerKey(p.code,pr.token)); if(d) docs[pr.token]=d; } }
+      if(docs[pr.token]) continue; const d=await sgetPeer(p.code,pr.token); if(d) docs[pr.token]=d; } }
     const teams=[];
     for(const o of orgs){
       const tokens=[];
       if(o.teamRound&&o.teamRound.token) tokens.push(o.teamRound.token);
       pool.filter(p=>p.code===o.code).forEach(p=>((p.r.teamRounds)||[]).forEach(t=>{
         if(tokens.indexOf(t.token)<0) tokens.push(t.token); }));
-      for(const t of tokens){ if(!docs[t]){ const d=await sget(peerKey(o.code,t)); if(d) docs[t]=d; } }
+      for(const t of tokens){ if(!docs[t]){ const d=await sgetPeer(o.code,t); if(d) docs[t]=d; } }
       const best=tokens.map(t=>docs[t]).filter(Boolean)
         .sort((a,b)=>(b.openedAt||0)-(a.openedAt||0))[0];
       if(best) teams.push({orgName:o.name,code:o.code,doc:best});
@@ -14485,7 +14506,7 @@ class Component extends DCLogic {
     const org=this.state.orgList.find(o=>o.code===r.code);
     if(org&&org.teamRound&&org.teamRound.token) toks.push(org.teamRound.token);
     const docs=Object.assign({},this.state.peerDocs); let got=false;
-    for(const t of toks){ if(docs[t]) continue; const d=await sget(peerKey(r.code,t)); if(d){ docs[t]=d; got=true; } }
+    for(const t of toks){ if(docs[t]) continue; const d=await sgetPeer(r.code,t); if(d){ docs[t]=d; got=true; } }
     if(got) this.setState({peerDocs:docs});
     try{ const cd=await sget(this.coachKey(r.code,r.idkey));
       this.setState({ldCoach:(cd&&typeof cd==='object')?cd:null,ldPaste:''}); }
@@ -14509,7 +14530,7 @@ class Component extends DCLogic {
       }
     }catch(e){}
     if(!ok) return this.toast('Could not remove that leader',true);
-    for(const pr of ((r.peerRounds)||[]).concat((r.teamRounds)||[])) await sdel(peerKey(r.code,pr.token));
+    for(const pr of ((r.peerRounds)||[]).concat((r.teamRounds)||[])) await sdelPeer(r.code,pr.token);
     this.setState({roster:this.state.roster.filter(x=>x.idkey!==r.idkey),
       selectedLeader:this.state.selectedLeader&&this.state.selectedLeader.idkey===r.idkey?null:this.state.selectedLeader,
       scorePool:(this.state.scorePool||[]).filter(p=>!(p.r.idkey===r.idkey&&p.code===r.code))});
