@@ -681,7 +681,7 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ pwHasMsg }}" hint-placeholder-val="{{ false }}">
 <p style="color:#9FD7B5;font-size:13px;line-height:1.5;margin:14px 0 0">{{ pwMsg }}</p>
 </sc-if>
-<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:14px 0 0">{{ pwToggleLead }} <button sc-camel-on-click="{{ onPwToggle }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">{{ pwToggleCta }}</button></p>
+<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:14px 0 0">New account from your program lead? Type your email and tap Forgot password to set one.</p>
 </div>
 </sc-if>
 <sc-if value="{{ gateVerify }}" hint-placeholder-val="{{ false }}">
@@ -8554,7 +8554,8 @@ async function _checkGoogleRedirect(){
 }
 /* Email and password. Each helper returns {ok:true,...} or {ok:false,error}
    with a message fit for the gate. Messages never say whether an email has an
-   account, except on create, where Firebase itself reports it. */
+   account. There is no sign-up here: an admin creates email accounts in
+   Firebase, and the person sets a password with Forgot password. */
 function authErrMsg(e,kind){
   const c=(e&&e.code)||'';
   const bad='Email or password is incorrect.';
@@ -8583,12 +8584,11 @@ function authErrMsg(e,kind){
     'auth/invalid-login-credentials':bad,
     'auth/wrong-password':bad,
     'auth/user-not-found':bad,
-    'auth/email-already-in-use':'An account already exists for that email. Sign in instead, use Continue with Google or Microsoft if that is how you signed up, or reset your password.',
-    'auth/weak-password':'Choose a longer password — at least 8 characters.',
-    'auth/password-does-not-meet-requirements':'That password is too simple. Try a longer one with a mix of letters and numbers.',
     'auth/too-many-requests':'Too many tries. Wait a few minutes and try again.',
     'auth/network-request-failed':'Could not reach sign-in. Check your connection and try again.',
     'auth/user-disabled':'This account has been turned off. Check with your program lead.',
+    // Sign-up is off in Firebase: only accounts an admin created can sign in.
+    'auth/admin-restricted-operation':'There is no account for you yet. Ask your program lead to set one up.',
     'auth/operation-not-allowed':'Email sign-in is not turned on yet. Use Continue with Google for now.',
     // Google or Microsoft (popup or redirect)
     'auth/popup-closed-by-user':who+' sign-in was closed before it finished. Try again.',
@@ -8617,16 +8617,6 @@ async function authEmailSignIn(email,pw){
     const r=await firebase.auth().signInWithEmailAndPassword(String(email||'').trim(),String(pw||''));
     return {ok:true,verified:!!(r.user&&r.user.emailVerified)};
   }catch(e){ console.error('authEmailSignIn',e); return {ok:false,error:authErrMsg(e)}; }
-}
-/* Creating the account signs the person in, unverified, and sends the link. */
-async function authEmailCreate(email,pw){
-  if(!_authLoaded()) return _authNotLoaded;
-  if(String(pw||'').length<8) return {ok:false,error:'Choose a longer password — at least 8 characters.'};
-  let u;
-  try{ u=(await firebase.auth().createUserWithEmailAndPassword(String(email||'').trim(),String(pw))).user; }
-  catch(e){ console.error('authEmailCreate',e); return {ok:false,error:authErrMsg(e)}; }
-  try{ await _withContinueUrl(s=>u.sendEmailVerification(s)); return {ok:true,sent:true}; }
-  catch(e){ console.error('sendEmailVerification',e); return {ok:true,sent:false,error:authErrMsg(e)}; }
 }
 async function authResendVerify(){
   if(!_authLoaded()) return _authNotLoaded;
@@ -9341,7 +9331,7 @@ class Component extends DCLogic {
       joinCode:'', joinFirst:'', joinLast:'', joining:false, enterNewCode:false,
       authChecked:false, authEmail:'', gateSignInErr:'', gateSignInBusy:false,
       verifyEmail:'', verifyBusy:false, verifyMsg:'', verifyErr:'', verifySentAt:0,
-      pwEmail:'', pwPass:'', pwMode:'signin', pwBusy:false, pwErr:'', pwMsg:'', pwResetAt:0,
+      pwEmail:'', pwPass:'', pwBusy:false, pwErr:'', pwMsg:'', pwResetAt:0,
       gateStores:[], gateDepts:[], gateOrgName:'', joinStore:'', joinDept:'',
       odStore:'', odDept:'', odPerson:null, copyFrom:'', secOpen:{}, liveEdit:false,
       speedCode:'', speedN:75, speedBusy:false, speedResult:null, speedNote:'',
@@ -12833,26 +12823,25 @@ class Component extends DCLogic {
       &&!this.state.authEmail&&!this.state.verifyBusy) authCheckVerified(); };
     document.addEventListener('visibilitychange',this._verifyVis);
   }
-  /* The gate's email and password form. A verified sign-in needs nothing more:
-     Firebase reports the user and boot carries on. A new account, or one not
-     verified yet, goes to the Check your email panel. */
+  /* The gate's email and password form. Sign-in only: accounts are created
+     by an admin in Firebase, and the person sets a password with Forgot
+     password. A verified sign-in needs nothing more: Firebase reports the
+     user and boot carries on. One not verified yet goes to the Check your
+     email panel; an admin-made account has had no link yet, so the panel
+     says to send one. */
   async emailSubmit(){
     const s=this.state;
     if(s.pwBusy) return;
     const email=String(s.pwEmail||'').trim(), pw=s.pwPass||'';
     if(!email) return this.setState({pwErr:'Enter your email address.'});
     if(!pw) return this.setState({pwErr:'Enter your password.'});
-    const create=s.pwMode==='create';
     this.setState({pwBusy:true,pwErr:'',pwMsg:'',gateSignInErr:''});
-    const r=create?await authEmailCreate(email,pw):await authEmailSignIn(email,pw);
+    const r=await authEmailSignIn(email,pw);
     if(!r.ok) return this.setState({pwBusy:false,pwErr:r.error});
     this.setState({pwBusy:false,pwPass:''});
-    if(create){
+    if(!r.verified){
       this.showVerify(email);
-      if(!r.sent) this.setState({verifyErr:'Your account is set up, but the email did not send. Tap Resend the email.'});
-    }else if(!r.verified){
-      this.showVerify(email);
-      this.setState({verifyMsg:'This address is not verified yet. Can’t find the email? Tap Resend the email.'});
+      this.setState({verifyMsg:'This address is not verified yet. Tap Resend the email to get a link.'});
     }
   }
   /* Forgot password: uses the address typed above. The reply is the same
@@ -16930,21 +16919,18 @@ class Component extends DCLogic {
     v.gateSignInHint=inApp
       ?'Sign in with your email and password. Use the email your program lead approved.'
       :'Use the email your program lead approved.';
-    const pwCreate=s.pwMode==='create';
+    // Sign-in only; an admin creates email accounts (see emailSubmit).
     v.pwInpStyle=INP+';display:block;box-sizing:border-box;max-width:300px;margin:0 auto 10px';
     v.pwEmail=s.pwEmail||''; v.pwPass=s.pwPass||'';
     v.onPwEmail=e=>this.setState({pwEmail:e.target.value,pwErr:'',pwMsg:''});
     v.onPwPass=e=>this.setState({pwPass:e.target.value,pwErr:''});
     v.onPwSubmit=e=>{ if(e&&e.preventDefault) e.preventDefault(); this.emailSubmit(); };
-    v.pwPassAuto=pwCreate?'new-password':'current-password';
-    v.pwPassPh=pwCreate?'Choose a password (8+ characters)':'Password';
-    v.pwCta=s.pwBusy?(pwCreate?'Creating account…':'Signing in…'):(pwCreate?'Create account':'Sign in with email');
-    v.pwToggleLead=pwCreate?'Already have an account?':'New here?';
-    v.pwToggleCta=pwCreate?'Sign in':'Create an account';
-    v.onPwToggle=()=>{ if(!s.pwBusy) this.setState({pwMode:pwCreate?'signin':'create',pwErr:'',pwMsg:'',pwPass:''}); };
+    v.pwPassAuto='current-password';
+    v.pwPassPh='Password';
+    v.pwCta=s.pwBusy?'Signing in…':'Sign in with email';
     v.pwErr=s.pwErr||''; v.pwHasErr=!!s.pwErr;
     v.pwMsg=s.pwMsg||''; v.pwHasMsg=!!s.pwMsg;
-    v.pwShowForgot=!pwCreate;
+    v.pwShowForgot=true;
     v.onPwForgot=()=>this.emailReset();
     v.verifyEmail=s.verifyEmail||'';
     v.verifyCta=s.verifyBusy?'Checking…':'I’ve verified — continue';
