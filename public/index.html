@@ -703,22 +703,6 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 
-<sc-if value="{{ showAdminLogin }}" hint-placeholder-val="{{ false }}">
-<div style="padding:26px 18px 0;animation:jjIn .3s ease both">
-<div style="font-weight:800;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#00A3E0">Studio</div>
-<h1 style="font-weight:900;font-size:28px;line-height:1;margin:8px 0 0;text-transform:uppercase;color:#0C1B2E">Admin access</h1>
-<p style="color:#37475C;font-size:13.5px;line-height:1.6;margin:10px 0 20px">You'll be editing the live program every organization reads from.</p>
-<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:18px">
-<div style="font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-bottom:6px">Your name</div>
-<input type="text" value="{{ adminName }}" sc-camel-on-change="{{ onAdminName }}" placeholder="Jadin Jones" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:9px;padding:12px 13px;font-size:16px;font-weight:700;margin-bottom:14px">
-<div style="font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-bottom:6px">Access phrase</div>
-<input type="password" value="{{ adminPass }}" sc-camel-on-change="{{ onAdminPass }}" placeholder="••••••••" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:9px;padding:12px 13px;font-size:16px;font-weight:700;letter-spacing:.1em">
-<button sc-camel-on-click="{{ onAdminLogin }}" style="width:100%;background:#0C2647;color:#FFFFFF;border:2px solid #0C2647;border-radius:10px;padding:15px;font-weight:900;font-size:14px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;margin-top:16px">Enter studio</button>
-</div>
-<button sc-camel-on-click="{{ onBackToGate }}" style="display:block;width:100%;text-align:center;margin-top:18px;background:none;border:none;font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9DAAB8;cursor:pointer;padding:8px">← Leader sign-in</button>
-</div>
-</sc-if>
-
 <sc-if value="{{ showHome }}" hint-placeholder-val="{{ false }}">
 <div style="animation:jjIn .3s ease both">
 
@@ -8986,14 +8970,14 @@ class Component extends DCLogic {
       peerSaving:false, peerDone:false, peerErr:'', peerDocs:{}, peerBusy:false,
       splash:true, splashOut:false, peerConfirmDelete:false, newFunds:{},
       commitPick:null, commitTarget:null, openToolFund:null, openActivity:null,
-      joinCode:'', joinFirst:'', joinLast:'', joinEmail:'', joining:false, enterNewCode:false,
+      joinCode:'', joinFirst:'', joinLast:'', joining:false, enterNewCode:false,
       authChecked:false, authEmail:'', gateSignInErr:'', gateSignInBusy:false,
       gateStores:[], gateDepts:[], gateOrgName:'', joinStore:'', joinDept:'',
       odStore:'', odDept:'', odPerson:null, copyFrom:'', secOpen:{}, liveEdit:false,
       speedCode:'', speedN:75, speedBusy:false, speedResult:null, speedNote:'',
       actOrg:'', actRows:[], actLoading:false, actAt:0,
       bumpTestBusy:false, bumpTestSent:false,
-      adminName:'', adminPass:'', adminTab:'orgs', orgList:[], activeOrg:null, openOrg:null, masterKnow:[],
+      adminTab:'orgs', orgList:[], activeOrg:null, openOrg:null, masterKnow:[],
       storeFilter:'', storeSort:'name',
       scoreOrg:'', scoreSrc:'self', scorePool:[], scoreLoading:false, scoreTeams:[],
       leaderFolder:'', leaderQ:'', scorePerson:'', scoreActivity:'', scoreShowAll:false, scoreOpen:'',
@@ -14914,7 +14898,7 @@ class Component extends DCLogic {
     v.resumeName=(s.known&&s.known.name)?('Welcome back, '+String(s.known.name).split(' ')[0]+'.'):'Welcome back.';
     v.resumeSlow=!!s.resumeSlow;
     v.onResumeGate=()=>this.setState({view:'gate',joinCode:(s.known&&s.known.code)||''});
-    v.showGate=V('gate'); v.showAdminLogin=V('admin-login'); v.showHome=V('home'); v.showFund=V('fund');
+    v.showGate=V('gate'); v.showHome=V('home'); v.showFund=V('fund');
     v.showItem=V('item'); v.showToolkit=V('toolkit'); v.showTool=V('tool'); v.showProgress=V('progress');
     v.showMe=V('me'); v.showAdmin=V('admin'); v.showHub=V('hub'); v.showStreak=V('streak'); v.showAssess=V('assess'); v.showScore=V('score');
     v.showOrgDash=V('orgdash');
@@ -16334,19 +16318,12 @@ class Component extends DCLogic {
     v.gateWelcomeBack=v.gateSignedIn&&!!s.known&&!s.enterNewCode;
     v.gateShowForm=v.gateSignedIn&&(!s.known||!!s.enterNewCode);
     v.resumeCta=s.joining?'Signing in\u2026':'Continue';
-    v.onUseDifferentCode=()=>this.setState({enterNewCode:true,joinCode:'',joinFirst:'',joinLast:'',joinEmail:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
+    v.onUseDifferentCode=()=>this.setState({enterNewCode:true,joinCode:'',joinFirst:'',joinLast:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
     v.onResume=()=>this.resume();
     v.onGoStudio=()=>{ const me=currentUserEmail();
       if(!isAdminEmail(me)) return this.toast('Studio is for program admins. You are signed in as '+me+'.',true);
       this.setState({booting:true});
       this.enterStudio((firebase.auth().currentUser||{}).displayName||me); };
-    v.onBackToGate=()=>this.go('gate');
-    v.adminName=s.adminName; v.adminPass=s.adminPass;
-    v.onAdminName=e=>this.setState({adminName:e.target.value});
-    v.onAdminPass=e=>this.setState({adminPass:e.target.value});
-    v.onAdminLogin=()=>{ if(!s.adminName.trim()) return this.toast('Add your name',true);
-      if(s.adminPass.trim().toUpperCase()!==ADMIN_HINT) return this.toast('That access phrase is not right',true);
-      this.setState({booting:true}); this.enterStudio(s.adminName.trim()); };
 
     // pyramid + lists
     const allMods=this.modules().filter(m=>this.allItems(m).length>0);
