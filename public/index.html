@@ -516,13 +516,24 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:#00A3E0;box-sh
 @keyframes jjFall{0%{transform:translateY(-14vh) rotate(0)}100%{transform:translateY(112vh) rotate(760deg)}}
 @keyframes jjSpin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-/* Desktop only: the sign-in gate gets a wider page and card, and everything
-   in it scales up together (zoom), so it is not a thin strip on a big screen.
-   A fine pointer that can hover plus 1200px keeps phones and tablets,
-   iPads in landscape included, exactly as they are. */
+/* Desktop only: the sign-in gate is one wide card in two columns, the
+   playbook on the left and signing in on the right, sized to fit a laptop
+   screen (about 800px tall) without scrolling. The pyramid shrinks with the
+   window height. A fine pointer that can hover plus 1200px keeps phones and
+   tablets, iPads in landscape included, exactly as they are, and a browser
+   without :has() keeps the single column rather than squeezing two. */
+@supports selector(:has(a)){
 @media (min-width:1200px) and (hover:hover) and (pointer:fine){
-  [data-jj-shell]:has([data-jj-gate]){max-width:760px!important}
-  [data-jj-gate]{zoom:1.2}
+  [data-jj-shell]:has([data-jj-gate]){max-width:1120px!important}
+  [data-jj-shell]:has([data-jj-gate]) main{padding-bottom:16px!important}
+  [data-jj-gate]{padding:14px 12px 0!important}
+  [data-jj-gate-card]{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;align-items:center;padding:32px 52px!important}
+  [data-jj-gate-left] img[alt="Jadin Jones"]{height:40px!important;margin-bottom:14px!important}
+  [data-jj-gate-left] h1{font-size:34px!important}
+  [data-jj-gate-left] svg{width:auto!important;max-width:100%;height:clamp(190px,calc(100vh - 440px),300px)!important;margin:14px auto 0!important}
+  [data-jj-gate-right]{border-left:1px solid rgba(255,255,255,.12);padding-left:56px}
+  [data-jj-gate-right] [style*="max-width:300px"]{max-width:360px!important}
+}
 }
 @keyframes jjSplashIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
 /* Every tap answers. A button that gives nothing back on press reads as broken
@@ -623,7 +634,8 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 <sc-if value="{{ showGate }}" hint-placeholder-val="{{ false }}">
 <div data-jj-gate style="padding:18px 12px 0;animation:jjIn .3s ease both">
-<div style="background:#0C2647;border-radius:18px;padding:26px 18px 24px;text-align:center">
+<div data-jj-gate-card style="background:#0C2647;border-radius:18px;padding:26px 18px 24px;text-align:center">
+<div data-jj-gate-left>
 <img src="assets/6dab1893.png" alt="Jadin Jones" style="height:46px;width:auto;display:block;margin:0 auto 16px;filter:brightness(0) invert(1)">
 <h1 style="font-weight:900;font-size:30px;line-height:.98;margin:0;letter-spacing:-.5px;text-transform:uppercase;color:#FFFFFF">The <span style="color:#FADA01">Championship<br>Teams</span> Playbook</h1>
 <svg sc-camel-view-box="-62 4 364 256" style="width:100%;height:auto;display:block;margin:16px 0 2px;overflow:visible">
@@ -653,6 +665,8 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ gateNoSel }}" hint-placeholder-val="{{ true }}">
 <p style="text-align:center;font-size:13px;line-height:1.55;color:#7E8D9C;margin:10px 4px 14px">Nine fundamentals of leadership — learned for yourself, then led with your team. One block at a time, all the way to the top.</p>
 </sc-if>
+</div>
+<div data-jj-gate-right>
 <sc-if value="{{ gateNeedsSignIn }}" hint-placeholder-val="{{ false }}">
 <div style="animation:jjIn .3s ease both;text-align:center">
 <p style="font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 8px">Sign in to your playbook</p>
@@ -743,6 +757,7 @@ sc-if,sc-for{display:none!important}
 </div>
 </div>
 </sc-if>
+</div>
 </div>
 </div>
 </sc-if>
