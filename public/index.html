@@ -8206,9 +8206,15 @@ function fb(){ try{ if(_db) return _db; if(typeof firebase==='undefined') return
    authReady() does two jobs: it loads the Auth SDK, AND it does not resolve
    until a real signed-in user exists — showing a login overlay in the
    meantime. Every read/write below awaits this, so nothing touches Firestore
-   before someone is actually authenticated. */
+   before someone is actually authenticated.
+   A signed-in user whose email is not verified yet (a new email/password
+   account) does not count: they wait in _authPending, and authReady() only
+   resolves once authCheckVerified() sees the link was clicked. Google
+   accounts arrive verified. */
 let _authWait=null;
 let _authUser=null;
+let _authPending=null;
+let _authRes=null;
 /* The gate page owns sign-in: while _gateSignIn is set the overlay stays
    hidden and the gate shows Continue with Google instead. _authFirst settles
    once Firebase knows whether anyone is signed in (null if nobody, or if the
@@ -8220,6 +8226,7 @@ function authReady(){
   if(_authUser) return Promise.resolve(true);
   if(_authWait) return _authWait;
   _authWait=new Promise(async res=>{
+    _authRes=res;
     try{
       await fbReady();
       if(!firebase.auth){
@@ -8229,6 +8236,14 @@ function authReady(){
       }
       if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       firebase.auth().onAuthStateChanged(user=>{
+        /* The saved copy of the user can say "unverified" after the link was
+           clicked in another tab or the mail app, so ask Firebase once. */
+        if(user&&!user.emailVerified){
+          _authUser=null; _authPending=user;
+          authCheckVerified().then(ok=>{ if(!ok) _authFirstRes(user); });
+          return;
+        }
+        _authPending=null;
         _authUser=user;
         _authFirstRes(user);
         if(user){ _hideLoginOverlay(); res(true); }
@@ -8302,6 +8317,94 @@ async function _doGoogleSignIn(onErr){
     if(errEl) errEl.textContent='Sign-in failed. Please try again.';
     if(typeof onErr==='function') onErr('Sign-in failed. Please try again.');
   }
+}
+/* Email and password. Each helper returns {ok:true,...} or {ok:false,error}
+   with a message fit for the gate. Messages never say whether an email has an
+   account, except on create, where Firebase itself reports it. */
+function authErrMsg(e){
+  const c=(e&&e.code)||'';
+  const bad='Email or password is incorrect.';
+  return ({
+    'auth/invalid-email':'That email address does not look right.',
+    'auth/missing-email':'Enter your email address.',
+    'auth/missing-password':'Enter your password.',
+    'auth/invalid-credential':bad,
+    'auth/invalid-login-credentials':bad,
+    'auth/wrong-password':bad,
+    'auth/user-not-found':bad,
+    'auth/email-already-in-use':'An account already exists for that email. Sign in instead, use Continue with Google if that is how you signed up, or reset your password.',
+    'auth/weak-password':'Choose a longer password — at least 8 characters.',
+    'auth/password-does-not-meet-requirements':'That password is too simple. Try a longer one with a mix of letters and numbers.',
+    'auth/too-many-requests':'Too many tries. Wait a few minutes and try again.',
+    'auth/network-request-failed':'Could not reach sign-in. Check your connection and try again.',
+    'auth/user-disabled':'This account has been turned off. Check with your program lead.',
+    'auth/operation-not-allowed':'Email sign-in is not turned on yet. Use Continue with Google for now.'
+  })[c]||'Sign-in failed. Please try again.';
+}
+function _authLoaded(){ return typeof firebase!=='undefined'&&!!firebase.auth&&firebase.apps.length>0; }
+const _authNotLoaded={ok:false,error:'Sign-in is still loading. Try again in a moment.'};
+/* Links in Firebase's emails come back to this page. The iOS app's own
+   origin is not an authorized domain, so fall back to Firebase's default. */
+async function _withContinueUrl(send){
+  try{ await send({url:location.origin+location.pathname}); }
+  catch(e){
+    if(e&&(e.code==='auth/unauthorized-continue-uri'||e.code==='auth/invalid-continue-uri'
+      ||e.code==='auth/missing-continue-uri')) await send(undefined);
+    else throw e;
+  }
+}
+async function authEmailSignIn(email,pw){
+  if(!_authLoaded()) return _authNotLoaded;
+  try{
+    const r=await firebase.auth().signInWithEmailAndPassword(String(email||'').trim(),String(pw||''));
+    return {ok:true,verified:!!(r.user&&r.user.emailVerified)};
+  }catch(e){ console.error('authEmailSignIn',e); return {ok:false,error:authErrMsg(e)}; }
+}
+/* Creating the account signs the person in, unverified, and sends the link. */
+async function authEmailCreate(email,pw){
+  if(!_authLoaded()) return _authNotLoaded;
+  if(String(pw||'').length<8) return {ok:false,error:'Choose a longer password — at least 8 characters.'};
+  let u;
+  try{ u=(await firebase.auth().createUserWithEmailAndPassword(String(email||'').trim(),String(pw))).user; }
+  catch(e){ console.error('authEmailCreate',e); return {ok:false,error:authErrMsg(e)}; }
+  try{ await _withContinueUrl(s=>u.sendEmailVerification(s)); return {ok:true,sent:true}; }
+  catch(e){ console.error('sendEmailVerification',e); return {ok:true,sent:false,error:authErrMsg(e)}; }
+}
+async function authResendVerify(){
+  if(!_authLoaded()) return _authNotLoaded;
+  const u=_authPending||firebase.auth().currentUser;
+  if(!u) return {ok:false,error:'Sign in first.'};
+  try{ await _withContinueUrl(s=>u.sendEmailVerification(s)); return {ok:true}; }
+  catch(e){ console.error('authResendVerify',e); return {ok:false,error:authErrMsg(e)}; }
+}
+/* Asks Firebase whether the pending user has clicked the link. If so, a fresh
+   token carries email_verified to /api/join and the rules, and authReady()
+   resolves. Returns true once verified. */
+async function authCheckVerified(){
+  if(!_authLoaded()) return false;
+  const u=_authPending||firebase.auth().currentUser;
+  if(!u) return false;
+  try{ await u.reload(); }catch(e){ console.warn('authCheckVerified',e); return false; }
+  const fresh=firebase.auth().currentUser;
+  if(!fresh||fresh.uid!==u.uid||!fresh.emailVerified) return false;
+  try{ await fresh.getIdToken(true); }catch(e){ console.warn('authCheckVerified token',e); return false; }
+  _authPending=null; _authUser=fresh;
+  _authFirstRes(fresh); _hideLoginOverlay();
+  if(_authRes) _authRes(true);
+  return true;
+}
+/* Always reports success for a well-formed address, so the reply never
+   reveals whether that email has an account. */
+async function authSendReset(email){
+  if(!_authLoaded()) return _authNotLoaded;
+  const em=String(email||'').trim();
+  if(!em) return {ok:false,error:'Enter your email address.'};
+  try{ await _withContinueUrl(s=>firebase.auth().sendPasswordResetEmail(em,s)); }
+  catch(e){
+    if(e&&e.code==='auth/user-not-found') return {ok:true};
+    console.error('authSendReset',e); return {ok:false,error:authErrMsg(e)};
+  }
+  return {ok:true};
 }
 /* Sign out for real: Firebase first, then everything this device kept for
    that person (record caches jjc:/jj:, the saved session, Firestore's
