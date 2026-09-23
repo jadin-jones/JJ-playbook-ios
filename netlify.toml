@@ -14,6 +14,12 @@
   to = "/.netlify/functions/join"
   status = 200
 
+# People answering a peer or team link reach their round via /api/peer.
+[[redirects]]
+  from = "/api/peer"
+  to = "/.netlify/functions/peer"
+  status = 200
+
 # Firebase's Google sign-in helper, served from this site so Safari keeps
 # the handoff (netlify/functions/auth-proxy.js).
 [[redirects]]
