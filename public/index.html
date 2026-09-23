@@ -651,6 +651,7 @@ sc-if,sc-for{display:none!important}
 <p style="font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 18px">{{ gateSignInHint }}</p>
 <sc-if value="{{ gateShowGoogle }}" hint-placeholder-val="{{ true }}">
 <button sc-camel-on-click="{{ onGateGoogle }}" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:300px;margin:0 auto;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:999px;padding:14px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.25)"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 2.9-2.2 5.4-4.7 7.1l7.6 5.9c4.4-4.1 6.9-10.1 6.9-17.5z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>{{ gateGoogleCta }}</button>
+<button sc-camel-on-click="{{ onGateMicrosoft }}" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:300px;margin:12px auto 0;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:999px;padding:14px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.25)"><svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true"><path fill="#F25022" d="M1 1h9v9H1z"/><path fill="#7FBA00" d="M11 1h9v9h-9z"/><path fill="#00A4EF" d="M1 11h9v9H1z"/><path fill="#FFB900" d="M11 11h9v9h-9z"/></svg>{{ gateMicrosoftCta }}</button>
 </sc-if>
 <sc-if value="{{ gateHasSignInErr }}" hint-placeholder-val="{{ false }}">
 <p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ gateSignInErr }}</p>
@@ -7698,12 +7699,13 @@ Or upload an image
 </x-dc>
 <script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:940}}">
 const FIREBASE_CONFIG=(location.hostname.indexOf("dev")>-1)?{apiKey:"AIzaSyBuWZtJiL6Plizs6GkAtZvvipBy9Cs5KJY",authDomain:"jj-playbook-dev.firebaseapp.com",projectId:"jj-playbook-dev",storageBucket:"jj-playbook-dev.firebasestorage.app",messagingSenderId:"330195639799",appId:"1:330195639799:web:ebbfe5631dfe5ae0af22f2"}:{apiKey:"AIzaSyAgcRPj65snd_CxN-zs8v3EXiOsDcLaxI4",authDomain:"test-6b2ab.firebaseapp.com",projectId:"test-6b2ab",storageBucket:"test-6b2ab.firebasestorage.app",messagingSenderId:"468112905284",appId:"1:468112905284:web:5073dffaece8633bc9d811"};
-/* Google sign-in hands off through Firebase's helper at <authDomain>/__/auth.
-   On these hosts that helper is served from the site itself
-   (netlify/functions/auth-proxy.js), so the handoff is first-party and Safari
-   keeps it. A host goes on this list only once
+/* Google and Microsoft sign-in hand off through Firebase's helper at
+   <authDomain>/__/auth. On these hosts that helper is served from the site
+   itself (netlify/functions/auth-proxy.js), so the handoff is first-party and
+   Safari keeps it. A host goes on this list only once
    https://<host>/__/auth/handler is an authorized redirect URI on that
-   project's Google OAuth client; every other host keeps firebaseapp.com. */
+   project's Google OAuth client and on its Microsoft (Entra) app
+   registration; every other host keeps firebaseapp.com. */
 const AUTH_OWN_HOSTS=['jj-playbook-dev.netlify.app'];
 if(AUTH_OWN_HOSTS.indexOf(location.hostname)>=0) FIREBASE_CONFIG.authDomain=location.hostname;
 const COLL='jj_playbook';
@@ -8460,49 +8462,107 @@ function _hideLoginOverlay(){
   const el=document.getElementById('jj-login-gate');
   if(el) el.remove();
 }
-async function _doGoogleSignIn(onErr){
+function _doGoogleSignIn(onErr){ return _doOAuthSignIn('google',onErr); }
+/* Google or Microsoft, the same way: a redirect on phones, a popup elsewhere,
+   both through the authDomain above (this site's own /__/auth on
+   AUTH_OWN_HOSTS). Microsoft lets an organisation's admins put any address
+   on an account, so its email is not trusted until the person clicks our
+   verification link: an unverified Microsoft sign-in waits in _authPending
+   like a new email/password account. Resolves to {verify:email} when the gate
+   should show Check your email, otherwise undefined. */
+const OAUTH_NAME={google:'Google',microsoft:'Microsoft'};
+function _oauthProvider(kind){
+  if(kind==='microsoft'){
+    const p=new firebase.auth.OAuthProvider('microsoft.com');
+    p.setCustomParameters({prompt:'select_account'});
+    return p;
+  }
+  return new firebase.auth.GoogleAuthProvider();
+}
+/* After a Microsoft sign-in: no email means no way in, so sign straight out;
+   an unverified one is sent the link. Returns {verify, sent} or {error}. */
+async function _afterMicrosoft(u){
+  if(!u||u.emailVerified) return {};
+  if(!u.email){
+    try{ await firebase.auth().signOut(); }catch(e){}
+    return {error:'Your Microsoft account did not share an email address, so it cannot be used here. Use Google or email and password.'};
+  }
+  try{ await _withContinueUrl(s=>u.sendEmailVerification(s)); return {verify:u.email,sent:true}; }
+  catch(e){ console.error('sendEmailVerification',e); return {verify:u.email,sent:false}; }
+}
+async function _doOAuthSignIn(kind,onErr){
   const errEl=document.getElementById('jj-login-error');
   try{
     if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-    const provider=new firebase.auth.GoogleAuthProvider();
+    const provider=_oauthProvider(kind);
     const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if(isMobile){
-      try{ sessionStorage.setItem('jj_google_redirect',String(Date.now())); }catch(e){}
+      try{ sessionStorage.setItem('jj_oauth_redirect',kind+':'+Date.now()); }catch(e){}
       await firebase.auth().signInWithRedirect(provider);
+      return;
     }
-    else{ await firebase.auth().signInWithPopup(provider); }
+    const r=await firebase.auth().signInWithPopup(provider);
+    if(kind!=='microsoft') return;
+    const a=await _afterMicrosoft(r&&r.user);
+    if(a.error) throw {code:'jj/no-email',message:a.error};
+    return a.verify?a:undefined;
   }catch(e){
-    console.error('signIn',e);
-    try{ sessionStorage.removeItem('jj_google_redirect'); }catch(x){}
-    const msg=authErrMsg(e);
+    console.error('signIn',kind,e);
+    try{ sessionStorage.removeItem('jj_oauth_redirect'); }catch(x){}
+    const msg=(e&&e.code==='jj/no-email')?e.message:authErrMsg(e,kind);
     if(errEl) errEl.textContent=msg;
     if(typeof onErr==='function') onErr(msg);
   }
 }
-/* Back from Google's page. An error from the redirect is reported. So is the
-   quiet failure: the browser blocked the cross-site handoff, so the redirect
-   ends with no error and nobody signed in. The mark set before leaving tells
-   that apart from an ordinary page load. */
+/* Back from Google's or Microsoft's page. An error from the redirect is
+   reported. So is the quiet failure: the browser blocked the cross-site
+   handoff, so the redirect ends with no error and nobody signed in. The mark
+   set before leaving tells that apart from an ordinary page load, and says
+   which provider it was. An unverified Microsoft sign-in is sent the link
+   here; _authRedirectVerifyErr says if that email did not go. */
+let _authRedirectVerifyErr='';
 async function _checkGoogleRedirect(){
-  let left=0;
-  try{ left=Number(sessionStorage.getItem('jj_google_redirect')||0);
-    sessionStorage.removeItem('jj_google_redirect'); }catch(e){}
+  let mark='';
+  try{ mark=String(sessionStorage.getItem('jj_oauth_redirect')||'');
+    sessionStorage.removeItem('jj_oauth_redirect'); }catch(e){}
+  const kind=mark.split(':')[0]==='microsoft'?'microsoft':'google';
+  const left=Number(mark.split(':')[1]||0);
   const wasRedirect=left>0&&Date.now()-left<15*60*1000;
   try{
     const r=await withTimeout(firebase.auth().getRedirectResult(),10000);
+    const info=(r&&r.additionalUserInfo)||{};
+    if(r&&r.user&&(info.providerId==='microsoft.com'||kind==='microsoft')){
+      const a=await _afterMicrosoft(r.user);
+      if(a.error) _authRedirectMsg=a.error;
+      else if(a.verify&&!a.sent) _authRedirectVerifyErr='Signed in, but the verification email did not send. Tap Resend the email.';
+      return;
+    }
     if(wasRedirect&&!(r&&r.user)&&!firebase.auth().currentUser)
-      _authRedirectMsg='Google sign-in did not finish in this browser. Try again, or use email and password below.';
+      _authRedirectMsg=OAUTH_NAME[kind]+' sign-in did not finish in this browser. Try again, or use email and password below.';
   }catch(e){
     console.error('getRedirectResult',e);
-    if(wasRedirect) _authRedirectMsg=authErrMsg(e);
+    if(wasRedirect) _authRedirectMsg=authErrMsg(e,kind);
   }
 }
 /* Email and password. Each helper returns {ok:true,...} or {ok:false,error}
    with a message fit for the gate. Messages never say whether an email has an
    account, except on create, where Firebase itself reports it. */
-function authErrMsg(e){
+function authErrMsg(e,kind){
   const c=(e&&e.code)||'';
   const bad='Email or password is incorrect.';
+  if(kind==='microsoft'){
+    /* One account per email and no linking, so a Microsoft sign-in for an
+       address that already has a Google or email/password account is refused. */
+    if(c==='auth/account-exists-with-different-credential'||c==='auth/credential-already-in-use'||c==='auth/email-already-in-use')
+      return 'This email already has an account that signs in with Google or with email and password. Sign in that way instead — Microsoft cannot be added to an existing account.';
+    if(c==='auth/operation-not-allowed') return 'Microsoft sign-in is not turned on yet. Use Google or email and password for now.';
+    // Company tenants can refuse unverified or unapproved apps (Entra AADSTS errors).
+    if(/AADSTS/.test(String((e&&e.message)||'')))
+      return 'Your organisation’s Microsoft settings blocked this sign-in — an administrator may need to approve JJ Playbook. Use Google or email and password for now.';
+    if(c==='auth/invalid-credential'||c==='auth/internal-error')
+      return 'Microsoft sign-in did not work. Try again, or use Google or email and password.';
+  }
+  const who=OAUTH_NAME[kind]||'Google';
   return ({
     'auth/invalid-email':'That email address does not look right.',
     'auth/missing-email':'Enter your email address.',
@@ -8511,20 +8571,20 @@ function authErrMsg(e){
     'auth/invalid-login-credentials':bad,
     'auth/wrong-password':bad,
     'auth/user-not-found':bad,
-    'auth/email-already-in-use':'An account already exists for that email. Sign in instead, use Continue with Google if that is how you signed up, or reset your password.',
+    'auth/email-already-in-use':'An account already exists for that email. Sign in instead, use Continue with Google or Microsoft if that is how you signed up, or reset your password.',
     'auth/weak-password':'Choose a longer password — at least 8 characters.',
     'auth/password-does-not-meet-requirements':'That password is too simple. Try a longer one with a mix of letters and numbers.',
     'auth/too-many-requests':'Too many tries. Wait a few minutes and try again.',
     'auth/network-request-failed':'Could not reach sign-in. Check your connection and try again.',
     'auth/user-disabled':'This account has been turned off. Check with your program lead.',
     'auth/operation-not-allowed':'Email sign-in is not turned on yet. Use Continue with Google for now.',
-    // Google (popup or redirect)
-    'auth/popup-closed-by-user':'Google sign-in was closed before it finished. Try again.',
-    'auth/cancelled-popup-request':'Google sign-in was closed before it finished. Try again.',
-    'auth/popup-blocked':'Your browser blocked the Google window. Allow pop-ups for this site, or use email and password.',
+    // Google or Microsoft (popup or redirect)
+    'auth/popup-closed-by-user':who+' sign-in was closed before it finished. Try again.',
+    'auth/cancelled-popup-request':who+' sign-in was closed before it finished. Try again.',
+    'auth/popup-blocked':'Your browser blocked the '+who+' window. Allow pop-ups for this site, or use email and password.',
     'auth/web-storage-unsupported':'This browser is blocking what sign-in needs to work. Try a normal (not private) window, or use email and password.',
-    'auth/unauthorized-domain':'Google sign-in is not set up for this address yet. Use email and password for now.',
-    'auth/account-exists-with-different-credential':'This email already signs in another way. Use email and password, or reset your password.'
+    'auth/unauthorized-domain':who+' sign-in is not set up for this address yet. Use email and password for now.',
+    'auth/account-exists-with-different-credential':'This email already signs in another way — with email and password or with Microsoft. Use that instead, or reset your password.'
   })[c]||'Sign-in failed. Please try again.';
 }
 function _authLoaded(){ return typeof firebase!=='undefined'&&!!firebase.auth&&firebase.apps.length>0; }
@@ -9585,9 +9645,14 @@ class Component extends DCLogic {
     const signedIn=authReady();
     await _authFirst;
     if(!_authUser) this.setState({booting:false,view:'gate',authChecked:true,authEmail:''});
-    // Back from a Google redirect that did not sign anyone in: say so on the gate.
-    _authRedirect.then(()=>{ if(_authRedirectMsg&&!_authUser&&!_authPending)
-      this.setState({gateSignInErr:_authRedirectMsg}); });
+    /* Back from a Google or Microsoft redirect that did not sign anyone in (or
+       a Microsoft one signed straight out for having no email): say so on the
+       gate. An unverified Microsoft sign-in whose link did not send says so
+       on the Check your email panel. */
+    _authRedirect.then(()=>{
+      if(_authRedirectMsg&&!_authUser) this.setState({gateSignInErr:_authRedirectMsg});
+      if(_authRedirectVerifyErr&&_authPending) this.setState({verifyErr:_authRedirectVerifyErr});
+    });
     // Signed in but the email link is not clicked yet: the gate asks for it.
     if(!_authUser&&_authPending) this.showVerify(_authPending.email);
     if(!(await signedIn)){
@@ -16846,7 +16911,8 @@ class Component extends DCLogic {
     v.gateNeedsSignIn=!!s.authChecked&&!s.authEmail&&!s.verifyEmail;
     v.gateVerify=!s.authEmail&&!!s.verifyEmail;
     /* Google refuses sign-in inside an app's embedded web view (the iOS
-       app is one), so there the gate offers email and password only. */
+       app is one), so there the gate offers email and password only.
+       Microsoft is hidden there too. */
     const inApp=this.isNativeApp();
     v.gateShowGoogle=!inApp;
     v.gateSignInHint=inApp
@@ -16879,11 +16945,19 @@ class Component extends DCLogic {
     v.onGateSwitchAccount=()=>this.signOutAccount();
     v.gateSignInErr=s.gateSignInErr||'';
     v.gateHasSignInErr=!!s.gateSignInErr;
-    v.gateGoogleCta=s.gateSignInBusy?'Opening Google…':'Continue with Google';
-    v.onGateGoogle=()=>{ if(s.gateSignInBusy) return;
-      this.setState({gateSignInBusy:true,gateSignInErr:''});
-      _doGoogleSignIn(msg=>this.setState({gateSignInErr:msg}))
+    /* gateSignInBusy holds which provider is opening. An unverified
+       Microsoft sign-in goes to Check your email, as a new email account does. */
+    v.gateGoogleCta=s.gateSignInBusy==='google'?'Opening Google…':'Continue with Google';
+    v.gateMicrosoftCta=s.gateSignInBusy==='microsoft'?'Opening Microsoft…':'Continue with Microsoft';
+    const oauth=kind=>{ if(s.gateSignInBusy) return;
+      this.setState({gateSignInBusy:kind,gateSignInErr:''});
+      _doOAuthSignIn(kind,msg=>this.setState({gateSignInErr:msg}))
+        .then(r=>{ if(!(r&&r.verify)) return;
+          this.showVerify(r.verify);
+          if(!r.sent) this.setState({verifyErr:'Signed in, but the verification email did not send. Tap Resend the email.'}); })
         .finally(()=>this.setState({gateSignInBusy:false})); };
+    v.onGateGoogle=()=>oauth('google');
+    v.onGateMicrosoft=()=>oauth('microsoft');
     v.gateWelcomeBack=v.gateSignedIn&&!!s.known&&!s.enterNewCode;
     v.gateShowForm=v.gateSignedIn&&(!s.known||!!s.enterNewCode);
     v.resumeCta=s.joining?'Signing in\u2026':'Continue';
