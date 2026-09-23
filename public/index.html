@@ -773,6 +773,9 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 <button sc-camel-on-click="{{ onJoin }}" style="width:100%;background:#FADA01;color:#0C2647;border:2px solid #FADA01;border-radius:10px;padding:15px;font-weight:900;font-size:14px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:0 6px 18px rgba(250,218,1,.35);margin-top:4px">{{ joinCta }}</button>
 </div>
+<sc-if value="{{ gateBackToPick }}" hint-placeholder-val="{{ false }}">
+<p style="text-align:center;font-size:13px;color:#7E8D9C;margin:14px 0 0"><button sc-camel-on-click="{{ onBackToPick }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Back to my programs</button></p>
+</sc-if>
 </div>
 </sc-if>
 </div>
@@ -17158,6 +17161,9 @@ class Component extends DCLogic {
     v.gatePickBusy=!!s.gatePickBusy;
     v.gateWelcomeBack=v.gateSignedIn&&!v.gatePick&&!!s.known&&!s.enterNewCode;
     v.gateShowForm=v.gateSignedIn&&!v.gatePick&&(!s.known||!!s.enterNewCode);
+    // Left the picker for "Enter a code": offer the way back while it has programs.
+    v.gateBackToPick=v.gateShowForm&&picks.length>1&&!!s.enterNewCode;
+    v.onBackToPick=()=>this.setState({enterNewCode:false,joinCode:'',joinFirst:'',joinLast:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
     v.resumeCta=s.joining?'Signing in\u2026':'Continue';
     v.onUseDifferentCode=()=>this.setState({enterNewCode:true,joinCode:'',joinFirst:'',joinLast:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
     v.onResume=()=>this.resume();
