@@ -517,19 +517,21 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:#00A3E0;box-sh
 @keyframes jjSpin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* Desktop only: the sign-in gate is one wide card in two columns, the
-   playbook on the left and signing in on the right. The card fills the
-   window below the header (the shell is a full-height column and main
-   already takes the rest), each column centres its contents, and nothing
-   scrolls at about 800px tall. The pyramid grows and shrinks with the window
-   height. A fine pointer that can hover plus 1200px keeps phones and
-   tablets, iPads in landscape included, exactly as they are, and a browser
-   without :has() keeps the single column rather than squeezing two. */
+   playbook on the left and signing in on the right. The page is exactly one
+   window tall: the shell is a full-height column, main takes everything
+   below the header, and the gate fills main and centres the card in it,
+   with equal space above and below. The card keeps its own height, each
+   column centres its contents, and nothing scrolls at about 800px tall.
+   The pyramid grows and shrinks with the window height. A fine pointer that
+   can hover plus 1200px keeps phones and tablets, iPads in landscape
+   included, exactly as they are, and a browser without :has() keeps the
+   single column rather than squeezing two. */
 @supports selector(:has(a)){
 @media (min-width:1200px) and (hover:hover) and (pointer:fine){
   [data-jj-shell]:has([data-jj-gate]){max-width:1120px!important}
-  [data-jj-shell]:has([data-jj-gate]) main{padding-bottom:0!important;display:flex;flex-direction:column}
-  [data-jj-gate]{padding:14px 12px 16px!important;flex:1 0 auto;display:flex;flex-direction:column}
-  [data-jj-gate-card]{flex:1 0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;align-items:stretch;padding:32px 52px!important}
+  [data-jj-shell]:has([data-jj-gate]) main{padding-top:0!important;padding-bottom:0!important;display:flex;flex-direction:column}
+  [data-jj-gate]{padding:16px 12px!important;flex:1 0 auto;display:flex;flex-direction:column;justify-content:center}
+  [data-jj-gate-card]{flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;align-items:stretch;padding:32px 52px!important}
   [data-jj-gate-left],[data-jj-gate-right]{display:flex;flex-direction:column;justify-content:center}
   [data-jj-gate-left] img[alt="Jadin Jones"]{height:40px!important;margin-bottom:14px!important}
   [data-jj-gate-left] h1{font-size:34px!important}
