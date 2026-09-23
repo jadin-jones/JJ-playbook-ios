@@ -8784,10 +8784,12 @@ async function sgetStrict(key){
   const raw=localStorage.getItem('jj:'+key); return raw==null?null:JSON.parse(raw);
 }
 async function sset(key,val){ await fbReady(); await authReady(); try{ const s=JSON.stringify(val); const db=fb(); if(db){ cachePut(key,val);
-    /* Member records (resp:/coach:/gin:/chat:) carry a top-level ownerEmail so
-       Firestore rules can protect them. Owner = signed-in user if available,
-       else the email already inside the record. Shared/content keys are untouched. */
-    const _isMember=/^(resp|coach|gin|chat):/.test(key);
+    /* Member records (resp:/coach:/gin:/chat:/push:) carry a top-level
+       ownerEmail so Firestore rules can protect them; V3 lets a member create
+       or change their own push:CODE:idkey only when it names them. Owner =
+       signed-in user if available, else the email already inside the record.
+       Shared/content keys are untouched. */
+    const _isMember=/^(resp|coach|gin|chat|push):/.test(key);
     let _payload={value:s};
     if(_isMember){
       let _oe=null;
