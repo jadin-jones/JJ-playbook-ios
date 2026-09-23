@@ -20,6 +20,13 @@
   to = "/.netlify/functions/peer"
   status = 200
 
+# One-off, admins only: move old peer:TOKEN rounds to peer:CODE:TOKEN.
+# Remove with netlify/functions/migrate-peers.js once live is migrated.
+[[redirects]]
+  from = "/api/admin/migrate-peers"
+  to = "/.netlify/functions/migrate-peers"
+  status = 200
+
 # Firebase's Google sign-in helper, served from this site so Safari keeps
 # the handoff (netlify/functions/auth-proxy.js).
 [[redirects]]

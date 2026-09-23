@@ -5898,6 +5898,41 @@ Or upload a file — text, .vtt, .srt or an MP4
 <p style="font-size:12.5px;line-height:1.6;color:#8F2D13;margin:7px 0 0">{{ admin.speed.errorMsg }}</p>
 </div>
 </sc-if>
+
+<div style="height:2px;background:#DCE6F0;margin:20px 0 16px"></div>
+<div style="font-weight:900;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#0C1B2E;margin-bottom:4px">Peer round migration</div>
+<p style="font-size:11.5px;color:#9DAAB8;margin:0 0 12px">One-off. Moves old peer and team rounds to keys the new rules can check.</p>
+<div style="background:#fff;border:1px solid #DCE6F0;border-radius:16px;padding:17px;margin-bottom:12px">
+<p style="font-size:12.5px;line-height:1.6;color:#7E8D9C;margin:0 0 14px">Dry run lists every old round and what would happen to it, and changes nothing. Run for real moves only the rounds the dry run listed as ready; anything skipped is left where it is.</p>
+<div style="display:flex;gap:10px">
+<button sc-camel-on-click="{{ admin.mig.onDry }}" style="{{ admin.mig.dryStyle }}">{{ admin.mig.dryLabel }}</button>
+<button sc-camel-on-click="{{ admin.mig.onRun }}" style="{{ admin.mig.runStyle }}">{{ admin.mig.runLabel }}</button>
+</div>
+<sc-if value="{{ admin.mig.hasErr }}" hint-placeholder-val="{{ false }}">
+<p style="font-size:12.5px;line-height:1.6;color:#8F2D13;margin:12px 0 0">{{ admin.mig.err }}</p>
+</sc-if>
+<sc-if value="{{ admin.mig.has }}" hint-placeholder-val="{{ false }}">
+<p style="font-size:12.5px;line-height:1.6;color:#0C1B2E;font-weight:700;margin:14px 0 0">{{ admin.mig.summary }}</p>
+</sc-if>
+<sc-if value="{{ admin.mig.hasReady }}" hint-placeholder-val="{{ false }}">
+<div style="font-weight:900;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#2F7F55;margin:14px 0 6px">Ready to move</div>
+<sc-for list="{{ admin.mig.ready }}" as="mg" hint-placeholder-count="2">
+<div style="border-top:1px solid #EEF2F6;padding:7px 0"><div style="font-size:12px;font-weight:800;color:#0C1B2E;word-break:break-all">{{ mg.line }}</div><div style="font-size:11.5px;color:#7E8D9C;word-break:break-all">{{ mg.sub }}</div></div>
+</sc-for>
+</sc-if>
+<sc-if value="{{ admin.mig.hasSkipped }}" hint-placeholder-val="{{ false }}">
+<div style="font-weight:900;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8F2D13;margin:14px 0 6px">Skipped — left alone</div>
+<sc-for list="{{ admin.mig.skipped }}" as="ms" hint-placeholder-count="1">
+<div style="border-top:1px solid #EEF2F6;padding:7px 0"><div style="font-size:12px;font-weight:800;color:#0C1B2E;word-break:break-all">{{ ms.line }}</div><div style="font-size:11.5px;color:#7E8D9C;word-break:break-all">{{ ms.sub }}</div></div>
+</sc-for>
+</sc-if>
+<sc-if value="{{ admin.mig.hasResults }}" hint-placeholder-val="{{ false }}">
+<div style="font-weight:900;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#0C1B2E;margin:14px 0 6px">Results</div>
+<sc-for list="{{ admin.mig.results }}" as="mx" hint-placeholder-count="2">
+<div style="border-top:1px solid #EEF2F6;padding:7px 0"><div style="font-size:12px;font-weight:800;color:#0C1B2E;word-break:break-all">{{ mx.line }}</div><div style="font-size:11.5px;color:#7E8D9C">{{ mx.sub }}</div></div>
+</sc-for>
+</sc-if>
+</div>
 </div>
 </sc-if>
 
@@ -9220,6 +9255,7 @@ class Component extends DCLogic {
       gateStores:[], gateDepts:[], gateOrgName:'', joinStore:'', joinDept:'',
       odStore:'', odDept:'', odPerson:null, copyFrom:'', secOpen:{}, liveEdit:false,
       speedCode:'', speedN:75, speedBusy:false, speedResult:null, speedNote:'',
+      migBusy:false, migResult:null, migErr:'',
       actOrg:'', actRows:[], actLoading:false, actAt:0,
       bumpTestBusy:false, bumpTestSent:false,
       adminTab:'orgs', orgList:[], activeOrg:null, openOrg:null, masterKnow:[],
@@ -14369,6 +14405,34 @@ class Component extends DCLogic {
         .filter(x=>x&&x.name&&x.idkey!=='__preview__');
       this.setState({actRows:rows,actLoading:false,actAt:Date.now()});
     }catch(e){ console.error('activity',e); this.setState({actLoading:false}); }
+  }
+  /* One-off: move old peer:TOKEN rounds to peer:CODE:TOKEN through the
+     admin-only /api/admin/migrate-peers. A real run is offered only after a
+     dry run in this session listed rounds as ready. */
+  async runPeerMigration(run){
+    if(this.state.migBusy) return;
+    const last=this.state.migResult;
+    if(run){
+      const n=last&&!last.run?(last.ready||[]).length:0;
+      if(!n) return this.toast('Run the dry run first',true);
+      if(!window.confirm('Move '+n+' peer round'+(n===1?'':'s')+' to their new keys?\n\nEach old copy is deleted once its new copy is written. Rounds the dry run skipped are left alone.')) return;
+    }
+    this.setState({migBusy:true,migErr:''});
+    try{
+      await authReady();
+      const u=firebase.auth().currentUser;
+      if(!u) throw new Error('Sign in first');
+      const token=await u.getIdToken();
+      const r=await withTimeout(fetch('/api/admin/migrate-peers',{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body:JSON.stringify({run:!!run})}),60000);
+      let j={}; try{ j=await r.json(); }catch(e){}
+      if(!r.ok||!j.ok) throw new Error(j.error||('The server answered '+r.status));
+      this.setState({migBusy:false,migResult:j});
+    }catch(e){
+      console.error('runPeerMigration',e);
+      this.setState({migBusy:false,migErr:(e&&e.message)||'Could not reach the server'});
+    }
   }
   async runSpeedTest(){
     const s=this.state;
@@ -20273,6 +20337,29 @@ class Component extends DCLogic {
       };
     }
     if(A.isSettings){
+      const mr=s.migResult, mBtn='flex:1;min-width:0;border-radius:11px;padding:13px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer';
+      const canRun=!!mr&&!mr.run&&(mr.ready||[]).length>0&&!s.migBusy;
+      const moved=mr&&mr.run?(mr.results||[]).filter(x=>x.outcome==='moved').length:0;
+      A.mig={
+        onDry:()=>this.runPeerMigration(false), onRun:()=>this.runPeerMigration(true),
+        dryLabel:s.migBusy?'Working…':'Dry run',
+        dryStyle:mBtn+';background:#fff;color:#0C2647;border:2px solid #0C2647'+(s.migBusy?';opacity:.55':''),
+        runLabel:'Run for real',
+        runStyle:mBtn+';background:#FADA01;color:#0C2647;border:2px solid #FADA01'+(canRun?'':';opacity:.4'),
+        hasErr:!!s.migErr, err:s.migErr||'',
+        has:!!mr,
+        summary:!mr?'':(mr.run
+          ?('Ran. Moved '+moved+' of '+(mr.results||[]).length+'. Skipped '+(mr.skipped||[]).length+'.')
+          :('Dry run. Old rounds: '+mr.oldTotal+'. Ready to move: '+(mr.ready||[]).length+'. Skipped: '+(mr.skipped||[]).length+'. Already on new keys: '+mr.alreadyNew+'.'))
+          +(mr&&mr.more?' More than '+mr.checked+' old rounds: run again after this batch.':''),
+        ready:((mr&&mr.ready)||[]).map(x=>({line:x.from+' → '+x.to,
+          sub:(x.orgName||'')+' · '+(x.mode==='team'?'team':'peer')+' · '+x.owner+' · '+x.responses+' answer'+(x.responses===1?'':'s')+(x.closed?' · closed':'')})),
+        hasReady:!!(mr&&!mr.run&&(mr.ready||[]).length),
+        skipped:((mr&&mr.skipped)||[]).map(x=>({line:x.from+' — '+x.reason,sub:x.detail||''})),
+        hasSkipped:!!(mr&&(mr.skipped||[]).length),
+        results:((mr&&mr.run&&mr.results)||[]).map(x=>({line:x.from+' → '+x.to,sub:x.outcome})),
+        hasResults:!!(mr&&mr.run&&(mr.results||[]).length)
+      };
       const r=s.speedResult||{};
       A.speed={
         codeVal:s.speedCode||((s.orgList[0]||{}).code||''),
