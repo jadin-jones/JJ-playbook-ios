@@ -9539,13 +9539,23 @@ class Component extends DCLogic {
       if(Date.now()-(this._accessAt||0)<60000) return;
       this._accessAt=Date.now();
       let rec,tomb;
-      /* Strict: a dropout throws, and only a real absence signs anyone out. */
+      /* Strict: a dropout throws, and only a real absence signs anyone out.
+         A refusal is different: once Remove has taken the program out of
+         members/{email}, the rules refuse every read here. Ask /api/join
+         once — the 60-second gap above means once per return to the tab at
+         most — and only its "revoked" answer ends access. */
       try{
         [rec,tomb]=await Promise.all([
           sgetStrict('resp:'+s.code+':'+s.idkey),
           sgetStrict('rev:'+s.code+':'+s.idkey)
         ]);
-      }catch(e){ return; }
+      }catch(e){
+        if(!(e&&e.code==='permission-denied')) return;
+        const mem=await ensureMember(s.code);
+        if(mem.ok||mem.reason!=='revoked'||this._revoked) return;
+        if(this.state.code!==s.code||this.state.idkey!==s.idkey) return;
+        return this.revokeAccess(s.code,(s.org&&s.org.name)||s.code);
+      }
       if(rec&&!tomb) return;
       this.revokeAccess(s.code,(s.org&&s.org.name)||s.code);
     };
