@@ -8,6 +8,12 @@
   to = "/.netlify/functions/coach"
   status = 200
 
+# The app adds a signed-in member to a program's guest list via /api/join.
+[[redirects]]
+  from = "/api/join"
+  to = "/.netlify/functions/join"
+  status = 200
+
 # Granola posts finished meeting notes to /api/granola.
 [[redirects]]
   from = "/api/granola"
