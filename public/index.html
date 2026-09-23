@@ -655,6 +655,21 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 </div>
 </sc-if>
+<sc-if value="{{ gateVerify }}" hint-placeholder-val="{{ false }}">
+<div style="animation:jjIn .3s ease both;text-align:center">
+<p style="font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 8px">Check your email</p>
+<p style="font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 18px">We sent a link to <span style="color:#FFFFFF;font-weight:700">{{ verifyEmail }}</span>. Open it to confirm this address, then come back here.</p>
+<button sc-camel-on-click="{{ onVerifyCheck }}" style="display:block;width:100%;max-width:300px;margin:0 auto;background:#FADA01;color:#0C2647;border:2px solid #FADA01;border-radius:999px;padding:14px 18px;font-weight:900;font-size:14px;letter-spacing:.04em;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(250,218,1,.35)">{{ verifyCta }}</button>
+<button sc-camel-on-click="{{ onVerifyResend }}" style="display:block;width:100%;max-width:300px;margin:10px auto 0;background:transparent;color:#FFFFFF;border:1.5px solid rgba(255,255,255,.35);border-radius:999px;padding:12px 18px;font-weight:800;font-size:13px;font-family:inherit;cursor:pointer">Resend the email</button>
+<sc-if value="{{ verifyHasMsg }}" hint-placeholder-val="{{ false }}">
+<p style="color:#9FD7B5;font-size:13px;line-height:1.5;margin:14px 0 0">{{ verifyMsg }}</p>
+</sc-if>
+<sc-if value="{{ verifyHasErr }}" hint-placeholder-val="{{ false }}">
+<p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ verifyErr }}</p>
+</sc-if>
+<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:16px 0 0">Wrong address? <button sc-camel-on-click="{{ onGateSwitchAccount }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Use a different account</button></p>
+</div>
+</sc-if>
 <sc-if value="{{ gateSignedIn }}" hint-placeholder-val="{{ false }}">
 <p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:10px 0 0">Signed in as <span style="color:#FFFFFF;font-weight:700">{{ gateAuthEmail }}</span> · <button sc-camel-on-click="{{ onGateSwitchAccount }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Use a different account</button></p>
 </sc-if>
@@ -9075,6 +9090,7 @@ class Component extends DCLogic {
       commitPick:null, commitTarget:null, openToolFund:null, openActivity:null,
       joinCode:'', joinFirst:'', joinLast:'', joining:false, enterNewCode:false,
       authChecked:false, authEmail:'', gateSignInErr:'', gateSignInBusy:false,
+      verifyEmail:'', verifyBusy:false, verifyMsg:'', verifyErr:'', verifySentAt:0,
       gateStores:[], gateDepts:[], gateOrgName:'', joinStore:'', joinDept:'',
       odStore:'', odDept:'', odPerson:null, copyFrom:'', secOpen:{}, liveEdit:false,
       speedCode:'', speedN:75, speedBusy:false, speedResult:null, speedNote:'',
@@ -9274,6 +9290,7 @@ class Component extends DCLogic {
   }
   componentWillUnmount(){ clearTimeout(this._tt); clearTimeout(this._mid); clearTimeout(this._pushAskT);
     if(this._vis) document.removeEventListener('visibilitychange',this._vis);
+    this.stopVerifyWatch();
     (this._zoomLock||[]).forEach(([n,fn,opt])=>document.removeEventListener(n,fn,opt));
     this._zoomLock=null;
     this.stopChat(); this.stopPeerWatch(); }
@@ -9373,11 +9390,15 @@ class Component extends DCLogic {
     const signedIn=authReady();
     await _authFirst;
     if(!_authUser) this.setState({booting:false,view:'gate',authChecked:true,authEmail:''});
+    // Signed in but the email link is not clicked yet: the gate asks for it.
+    if(!_authUser&&_authPending) this.showVerify(_authPending.email);
     if(!(await signedIn)){
       return this.setState({booting:false,view:'gate',authChecked:true,
         gateSignInErr:'Could not load sign-in. Check your connection and reload.'}); }
+    this.stopVerifyWatch();
     const me=String(currentUserEmail()||'').trim().toLowerCase();
-    this.setState({authChecked:true,authEmail:me,gateSignInErr:'',gateSignInBusy:false});
+    this.setState({authChecked:true,authEmail:me,gateSignInErr:'',gateSignInBusy:false,
+      verifyEmail:'',verifyBusy:false,verifyMsg:'',verifyErr:''});
     // A peer-review link lands here next: no session, no gate, just the form.
     let rt=null;
     try{ rt=new URLSearchParams(location.search).get('r'); }catch(e){}
@@ -12511,6 +12532,36 @@ class Component extends DCLogic {
     this.signOut();
     this.setState({known:null,enterNewCode:true,joinCode:''});
     this.toast('Your access to '+(orgName||code)+' has ended. Check with your program lead.',true);
+  }
+  /* The gate's "verify your email" panel. Coming back to the tab (from the
+     mail app, or the tab the link opened) checks again on its own; once
+     authCheckVerified() succeeds, boot's authReady() resolves and carries on. */
+  showVerify(email){
+    this.setState({booting:false,view:'gate',authChecked:true,authEmail:'',
+      verifyEmail:String(email||'').trim().toLowerCase(),verifyMsg:'',verifyErr:''});
+    if(this._verifyVis) return;
+    this._verifyVis=()=>{ if(document.visibilityState==='visible'&&this.state.verifyEmail
+      &&!this.state.authEmail&&!this.state.verifyBusy) authCheckVerified(); };
+    document.addEventListener('visibilitychange',this._verifyVis);
+  }
+  stopVerifyWatch(){
+    if(this._verifyVis) document.removeEventListener('visibilitychange',this._verifyVis);
+    this._verifyVis=null;
+  }
+  async verifyCheck(){
+    if(this.state.verifyBusy) return;
+    this.setState({verifyBusy:true,verifyErr:'',verifyMsg:''});
+    const ok=await authCheckVerified();
+    this.setState({verifyBusy:false,
+      verifyErr:ok?'':'Not verified yet. Open the link in the email, then tap this again.'});
+  }
+  async verifyResend(){
+    const wait=60000-(Date.now()-(this.state.verifySentAt||0));
+    if(wait>0) return this.setState({verifyErr:'',verifyMsg:'Sent. You can send another in '+Math.ceil(wait/1000)+' seconds.'});
+    this.setState({verifySentAt:Date.now(),verifyErr:'',verifyMsg:'Sending…'});
+    const r=await authResendVerify();
+    this.setState(r.ok?{verifyMsg:'Sent again to '+this.state.verifyEmail+'. Check spam or junk too.'}
+      :{verifyMsg:'',verifyErr:r.error,verifySentAt:0});
   }
   /* The Sign out button: leave the app (signOut, which stops listeners and
      timers), then sign out of Firebase and wipe this device's copy. Revocation
@@ -16435,7 +16486,14 @@ class Component extends DCLogic {
     v.onJoin=()=>this.join();
     v.hasKnownLeader=!!s.known; v.knownLeaderName=s.known?((s.known.name||'').split(' ')[0]||'again'):'';
     // Nothing below the header shows until Firebase has said who (if anyone) is signed in.
-    v.gateNeedsSignIn=!!s.authChecked&&!s.authEmail;
+    v.gateNeedsSignIn=!!s.authChecked&&!s.authEmail&&!s.verifyEmail;
+    v.gateVerify=!s.authEmail&&!!s.verifyEmail;
+    v.verifyEmail=s.verifyEmail||'';
+    v.verifyCta=s.verifyBusy?'Checking…':'I’ve verified — continue';
+    v.onVerifyCheck=()=>this.verifyCheck();
+    v.onVerifyResend=()=>this.verifyResend();
+    v.verifyMsg=s.verifyMsg||''; v.verifyHasMsg=!!s.verifyMsg;
+    v.verifyErr=s.verifyErr||''; v.verifyHasErr=!!s.verifyErr;
     v.gateSignedIn=!!s.authEmail;
     v.gateAuthEmail=s.authEmail||'';
     v.onGateSwitchAccount=()=>this.signOutAccount();
