@@ -520,22 +520,23 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:#00A3E0;box-sh
    playbook on the left and signing in on the right. The page is exactly one
    window tall: the shell is a full-height column, main takes everything
    below the header, and the gate fills main and centres the card in it,
-   with equal space above and below. The card keeps its own height, each
-   column centres its contents, and nothing scrolls at about 800px tall.
-   The pyramid grows and shrinks with the window height. A fine pointer that
-   can hover plus 1200px keeps phones and tablets, iPads in landscape
+   with equal space above and below. The card is laid out at a fixed
+   1096px-wide design size and then zoomed as a whole by --jj-gz, which
+   fitGateZoom() sets from the window (about 88% of its height, up to 2x,
+   never more than fits); the page container widens with it. A fine pointer
+   that can hover plus 1200px keeps phones and tablets, iPads in landscape
    included, exactly as they are, and a browser without :has() keeps the
    single column rather than squeezing two. */
 @supports selector(:has(a)){
 @media (min-width:1200px) and (hover:hover) and (pointer:fine){
-  [data-jj-shell]:has([data-jj-gate]){max-width:1120px!important}
+  [data-jj-shell]:has([data-jj-gate]){max-width:calc(1096px * var(--jj-gz,1) + 24px)!important}
   [data-jj-shell]:has([data-jj-gate]) main{padding-top:0!important;padding-bottom:0!important;display:flex;flex-direction:column}
   [data-jj-gate]{padding:16px 12px!important;flex:1 0 auto;display:flex;flex-direction:column;justify-content:center}
-  [data-jj-gate-card]{flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;align-items:stretch;padding:32px 52px!important}
+  [data-jj-gate-card]{flex:0 0 auto;align-self:center;box-sizing:border-box;width:1096px;zoom:var(--jj-gz,1);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;align-items:stretch;padding:32px 52px!important}
   [data-jj-gate-left],[data-jj-gate-right]{display:flex;flex-direction:column;justify-content:center}
   [data-jj-gate-left] img[alt="Jadin Jones"]{height:40px!important;margin-bottom:14px!important}
   [data-jj-gate-left] h1{font-size:34px!important}
-  [data-jj-gate-left] svg{width:auto!important;max-width:100%;height:clamp(190px,calc(100vh - 470px),330px)!important;margin:14px auto 0!important}
+  [data-jj-gate-left] svg{width:auto!important;max-width:100%;height:300px!important;margin:14px auto 0!important}
   [data-jj-gate-right]{border-left:1px solid rgba(255,255,255,.12);padding-left:56px}
   [data-jj-gate-right] [style*="max-width:300px"]{max-width:360px!important}
 }
@@ -9372,6 +9373,40 @@ const BUILD_STAMP='2026.08.27-a';
    always was; above it the tab bar becomes a left sidebar and the content
    spreads into a real two-column page. */
 const WIDE_MQ='(min-width:900px)';
+/* Desktop sign-in gate: zoom the card as a whole to fit the window (see the
+   [data-jj-gate-card] rule). Measured at zoom 1, then the smallest of 2x,
+   88% of the window height, what fits below the header with 16px either
+   side, and what fits the window width. Re-fitted when the window resizes
+   or the gate's content changes (an error line, the verify panel, a
+   selected block); writing the factor on <html> is not a DOM change, so it
+   cannot set off the observer. Anywhere else --jj-gz is removed. */
+const GATE_DESK_MQ='(min-width:1200px) and (hover:hover) and (pointer:fine)';
+function fitGateZoom(){
+  const root=document.documentElement;
+  const card=document.querySelector('[data-jj-gate-card]');
+  let ok=false;
+  try{ ok=!!card&&window.matchMedia(GATE_DESK_MQ).matches
+    &&CSS.supports('selector(:has(a))')&&CSS.supports('zoom','2'); }catch(e){}
+  if(!ok){ root.style.removeProperty('--jj-gz'); return; }
+  root.style.setProperty('--jj-gz','1');
+  const h0=card.offsetHeight, w0=card.offsetWidth;
+  if(!h0||!w0) return;
+  const head=document.querySelector('[data-jj-shell] header');
+  const hh=head?head.getBoundingClientRect().height:0;
+  const H=window.innerHeight, W=root.clientWidth;
+  const z=Math.max(.5,Math.min(2,.88*H/h0,(H-hh-32)/h0,(W-48)/w0));
+  root.style.setProperty('--jj-gz',z.toFixed(3));
+}
+(function(){
+  let raf=0;
+  const soon=()=>{ if(!raf) raf=requestAnimationFrame(()=>{ raf=0; fitGateZoom(); }); };
+  const start=()=>{
+    window.addEventListener('resize',soon);
+    try{ new MutationObserver(soon).observe(document.body,{childList:true,subtree:true,characterData:true}); }catch(e){}
+    soon();
+  };
+  if(document.body) start(); else document.addEventListener('DOMContentLoaded',start);
+})();
 const BLANK_IMG='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 const BTN_GOLD='background:#FADA01;color:#0C2647;border:2px solid #FADA01;border-radius:10px;padding:13px 22px;font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:0 6px 18px rgba(250,218,1,.35)';
 const BTN_GHOST='background:transparent;color:#0C1B2E;border:2px solid #C6D4E2;border-radius:8px;padding:10px 18px;font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer';
