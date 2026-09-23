@@ -9273,7 +9273,7 @@ class Component extends DCLogic {
       gateStores:[], gateDepts:[], gateOrgName:'', joinStore:'', joinDept:'',
       odStore:'', odDept:'', odPerson:null, copyFrom:'', secOpen:{}, liveEdit:false,
       speedCode:'', speedN:75, speedBusy:false, speedResult:null, speedNote:'',
-      migBusy:false, migResult:null, migErr:'',
+      migBusy:false, migResult:null, migErr:'', migNote:'',
       actOrg:'', actRows:[], actLoading:false, actAt:0,
       bumpTestBusy:false, bumpTestSent:false,
       adminTab:'orgs', orgList:[], activeOrg:null, openOrg:null, masterKnow:[],
@@ -14452,18 +14452,48 @@ class Component extends DCLogic {
       if(!n) return this.toast('Run the dry run first',true);
       if(!window.confirm('Move the '+n+' peer round'+(n===1?'':'s')+' this dry run listed as ready?\n\nEach old copy is deleted once its new copy is written. Nothing else is moved.')) return;
     }
-    this.setState({migBusy:true,migErr:''});
+    this.setState({migBusy:true,migErr:'',migNote:''});
     try{
       await authReady();
       const u=firebase.auth().currentUser;
       if(!u) throw new Error('Sign in first');
-      const token=await u.getIdToken();
-      const r=await withTimeout(fetch('/api/admin/migrate-peers',{method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-        body:JSON.stringify(run?{run:true,tokens}:{run:false})}),60000);
-      let j={}; try{ j=await r.json(); }catch(e){}
-      if(!r.ok||!j.ok) throw new Error(j.error||('The server answered '+r.status));
-      this.setState({migBusy:false,migResult:j});
+      const call=async body=>{
+        const r=await withTimeout(fetch('/api/admin/migrate-peers',{method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
+          body:JSON.stringify(body)}),30000);
+        let j={}; try{ j=await r.json(); }catch(e){}
+        if(!r.ok||!j.ok) throw new Error(j.error||('The server answered '+r.status));
+        return j;
+      };
+      /* The server checks 50 old rounds a call. Page from where the last call
+         stopped until it says done; 200 pages is a safety stop, not a limit
+         anyone should reach. */
+      const dryAll=async label=>{
+        const out={run:false,oldTotal:0,alreadyNew:0,ready:[],skipped:[],more:false};
+        let after='';
+        for(let pg=0;;pg++){
+          if(pg>=200){ out.more=true; break; }
+          const j=await call(after?{run:false,after}:{run:false});
+          out.oldTotal+=j.oldTotal; out.alreadyNew+=j.alreadyNew;
+          out.ready=out.ready.concat(j.ready||[]); out.skipped=out.skipped.concat(j.skipped||[]);
+          this.setState({migNote:label+' '+out.oldTotal+' old rounds…'});
+          if(j.done) break;
+          after=j.next;
+        }
+        return out;
+      };
+      if(!run){ const res=await dryAll('Checked'); this.setState({migBusy:false,migNote:'',migResult:res}); return; }
+      const res={run:true,results:[],skipped:[],leftover:[]};
+      for(let i=0;i<tokens.length;i+=50){
+        const j=await call({run:true,tokens:tokens.slice(i,i+50)});
+        res.results=res.results.concat(j.results||[]); res.skipped=res.skipped.concat(j.skipped||[]);
+        this.setState({migNote:'Moved '+res.results.filter(x=>x.outcome==='moved').length+' of '+tokens.length+'…'});
+      }
+      // Anything still ready was not in the dry run: report it, do not move it.
+      const after=await dryAll('Re-checked');
+      res.leftover=after.ready.map(x=>({from:x.from,to:x.to,reason:'not-in-dry-run',detail:'not in dry run — run again'}));
+      res.more=after.more;
+      this.setState({migBusy:false,migNote:'',migResult:res});
     }catch(e){
       console.error('runPeerMigration',e);
       this.setState({migBusy:false,migErr:(e&&e.message)||'Could not reach the server'});
@@ -20393,21 +20423,22 @@ class Component extends DCLogic {
       const moved=mr&&mr.run?(mr.results||[]).filter(x=>x.outcome==='moved').length:0;
       A.mig={
         onDry:()=>this.runPeerMigration(false), onRun:()=>this.runPeerMigration(true),
-        dryLabel:s.migBusy?'Working…':'Dry run',
+        dryLabel:s.migBusy?(s.migNote||'Working…'):'Dry run',
         dryStyle:mBtn+';background:#fff;color:#0C2647;border:2px solid #0C2647'+(s.migBusy?';opacity:.55':''),
         runLabel:'Run for real',
         runStyle:mBtn+';background:#FADA01;color:#0C2647;border:2px solid #FADA01'+(canRun?'':';opacity:.4'),
         hasErr:!!s.migErr, err:s.migErr||'',
         has:!!mr,
         summary:!mr?'':(mr.run
-          ?('Ran. Moved '+moved+' of '+(mr.results||[]).length+'. Skipped '+(mr.skipped||[]).length+'.')
+          ?('Ran. Moved '+moved+' of '+(mr.results||[]).length+' listed. Skipped '+(mr.skipped||[]).length+'.'
+            +((mr.leftover||[]).length?' '+mr.leftover.length+' more now ready were not in the dry run — run the dry run again.':' Nothing else is waiting.'))
           :('Dry run. Old rounds: '+mr.oldTotal+'. Ready to move: '+(mr.ready||[]).length+'. Skipped: '+(mr.skipped||[]).length+'. Already on new keys: '+mr.alreadyNew+'.'))
-          +(mr&&mr.more?' More than '+mr.checked+' old rounds: run again after this batch.':''),
+          +(mr&&mr.more?' Stopped after 10,000 old rounds — run the dry run again for the rest.':''),
         ready:((mr&&mr.ready)||[]).map(x=>({line:x.from+' → '+x.to,
           sub:(x.orgName||'')+' · '+(x.mode==='team'?'team':'peer')+' · '+x.owner+' · '+x.responses+' answer'+(x.responses===1?'':'s')+(x.closed?' · closed':'')})),
         hasReady:!!(mr&&!mr.run&&(mr.ready||[]).length),
-        skipped:((mr&&mr.skipped)||[]).map(x=>({line:x.from+' — '+x.reason,sub:x.detail||''})),
-        hasSkipped:!!(mr&&(mr.skipped||[]).length),
+        skipped:((mr&&mr.skipped)||[]).concat((mr&&mr.leftover)||[]).map(x=>({line:x.from+' — '+x.reason,sub:x.detail||''})),
+        hasSkipped:!!(mr&&((mr.skipped||[]).length||(mr.leftover||[]).length)),
         results:((mr&&mr.run&&mr.results)||[]).map(x=>({line:x.from+' → '+x.to,sub:x.outcome})),
         hasResults:!!(mr&&mr.run&&(mr.results||[]).length)
       };

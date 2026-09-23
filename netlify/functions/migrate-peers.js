@@ -7,9 +7,13 @@
  *
  * POST /api/admin/migrate-peers
  *   Authorization: Bearer <Firebase ID token of an admin>
- *   { run: false }                  dry run (the default): reports, changes nothing
- *   { run: true, tokens: [...] }    moves only these tokens, the ones the dry
- *                                   run listed as ready
+ *   { run: false, after }           dry run (the default), one page: checks up
+ *                                   to 50 old rounds after the id `after` and
+ *                                   changes nothing. Returns `next` and `done`;
+ *                                   the Studio card pages until done.
+ *   { run: true, tokens: [...] }    moves only these tokens (1-50 a call), the
+ *                                   ones the dry run listed as ready. A run
+ *                                   scans nothing else.
  *
  * Each round is checked, not guessed. It is skipped and reported when:
  *   - its record is unreadable, or names no program code   (no-code)
@@ -17,9 +21,9 @@
  *   - no owner email can be found from the leader's record (no-owner)
  *   - peer:CODE:TOKEN already exists                       (target-exists)
  *   - another round already carries that peerToken         (token-in-use)
- * On a run, every check is made again. A round that is ready now but was not
- * in the dry run's list is reported (not-in-dry-run), not moved; a listed
- * token no longer at an old key is reported too (gone).
+ * On a run, every check is made again for each listed token; a listed token
+ * no longer at an old key is reported (gone). The card then dry-runs once more
+ * and reports anything still ready as not in the dry run: run again.
  * A ready round is copied and the old copy deleted in one transaction, which
  * re-reads the old copy so an answer arriving mid-run is not lost. Running it
  * again is harmless: moved rounds are no longer at an old key.
@@ -31,7 +35,9 @@ const { admin, db, auth, missingEnv } = require('../lib/firebase-admin');
 
 const COLL = 'jj_playbook';
 const ADMINS = ['charlie@jadin-jones.com', 'lucas@jadin-jones.com', 'review@jadin-jones.com'];
-const MAX_ROUNDS = 400;   // one call's worth; run again for more
+const PAGE = 50;     // old rounds checked or moved per call, well inside the time limit
+const SCAN = 500;    // ids read per page while looking for old (two-part) keys
+const AT_ONCE = 8;   // rounds checked or moved in parallel
 
 const JSON_HDR = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
 const reply = (statusCode, body) => ({ statusCode, headers: JSON_HDR, body: JSON.stringify(body) });
@@ -84,6 +90,15 @@ async function plan(snap) {
   return Object.assign(base, { ready: true });
 }
 
+// fn over items, at most n at a time, results in order.
+async function mapLimit(items, n, fn) {
+  const out = new Array(items.length); let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (i < items.length) { const k = i++; out[k] = await fn(items[k]); }
+  }));
+  return out;
+}
+
 async function move(p) {
   const col = db().collection(COLL);
   const from = col.doc(p.from), to = col.doc(p.to);
@@ -122,58 +137,61 @@ exports.handler = async function (event) {
   let body;
   try { body = JSON.parse(event.body || '{}'); } catch (e) { return reply(400, { error: 'Bad JSON' }); }
   const run = body.run === true;
-  // A run moves only what the dry run showed; without that list, nothing.
-  let listed = null;
-  if (run) {
-    const t = body.tokens;
-    if (!Array.isArray(t) || !t.length || t.length > MAX_ROUNDS
-      || !t.every(x => typeof x === 'string' && /^[A-Z0-9]{4,16}$/.test(x))) {
-      return reply(400, { error: 'Run the dry run first: a run needs its list of ready rounds' });
-    }
-    listed = new Set(t);
-  }
+  const validToken = x => typeof x === 'string' && /^[A-Z0-9]{4,16}$/.test(x);
+  const col = db().collection(COLL);
 
   try {
-    const FP = admin.firestore.FieldPath.documentId();
-    // Every id from "peer:" up to "peer;" (the next character after ':').
-    const snap = await db().collection(COLL).where(FP, '>=', 'peer:').where(FP, '<', 'peer;').get();
-    const old = snap.docs.filter(d => d.id.split(':').length === 2);
-    const batch = old.slice(0, MAX_ROUNDS);
-
-    const plans = [];
-    for (const d of batch) plans.push(await plan(d));
-    if (listed) {
-      plans.forEach(p => { if (p.ready && !listed.has(p.token)) {
-        p.ready = false; p.skip = 'not-in-dry-run'; p.detail = 'not in dry run — run again';
-      } });
-      const seen = new Set(plans.map(p => p.token));
-      listed.forEach(t => { if (!seen.has(t)) plans.push({ from: 'peer:' + t, token: t,
-        skip: 'gone', detail: 'listed in the dry run, but no longer at an old key' }); });
-    }
-    const ready = plans.filter(p => p.ready);
-    const skipped = plans.filter(p => !p.ready);
-
-    const results = [];
     if (run) {
-      for (const p of ready) {
+      // A run moves only what the dry run showed; without that list, nothing.
+      const t = body.tokens;
+      if (!Array.isArray(t) || !t.length || t.length > PAGE || !t.every(validToken)) {
+        return reply(400, { error: 'Run the dry run first: a run needs its list of ready rounds (up to ' + PAGE + ' a call)' });
+      }
+      const tokens = Array.from(new Set(t));
+      const plans = await mapLimit(tokens, AT_ONCE, async tk => {
+        const snap = await col.doc('peer:' + tk).get();
+        if (!snap.exists) return { from: 'peer:' + tk, token: tk, skip: 'gone', detail: 'listed in the dry run, but no longer at an old key' };
+        return plan(snap);
+      });
+      const ready = plans.filter(p => p.ready);
+      const results = await mapLimit(ready, AT_ONCE, async p => {
         let outcome;
         try { outcome = await move(p); }
         catch (e) { console.error('migrate-peers', p.from, e); outcome = 'error'; }
-        results.push({ from: p.from, to: p.to, outcome });
-      }
+        return { from: p.from, to: p.to, outcome };
+      });
+      const skipped = plans.filter(p => !p.ready);
+      console.log('migrate-peers RUN by', email, 'listed', tokens.length,
+        'moved', results.filter(r => r.outcome === 'moved').length, 'skipped', skipped.length);
+      return reply(200, { ok: true, run: true, by: email, results,
+        skipped: skipped.map(p => ({ from: p.from, to: p.to || '', reason: p.skip, detail: p.detail })) });
     }
-    console.log('migrate-peers', run ? 'RUN' : 'dry run', 'by', email, 'old', old.length,
-      'ready', ready.length, 'skipped', skipped.length,
-      run ? 'moved ' + results.filter(r => r.outcome === 'moved').length : '');
+
+    // Dry run, one page. Ids from after `after` (or "peer:") up to "peer;",
+    // the next character after ':'. New three-part keys are counted, not checked.
+    const after = typeof body.after === 'string' && body.after.indexOf('peer:') === 0 ? body.after : 'peer:';
+    const FP = admin.firestore.FieldPath.documentId();
+    const snap = await col.where(FP, '>', after).where(FP, '<', 'peer;').orderBy(FP).limit(SCAN).get();
+    const old = [];
+    let next = after, alreadyNew = 0, full = false;
+    for (const d of snap.docs) {
+      if (old.length >= PAGE) { full = true; break; }
+      next = d.id;
+      if (d.id.split(':').length === 2) old.push(d); else alreadyNew++;
+    }
+    const done = !full && snap.docs.length < SCAN;
+    const plans = await mapLimit(old, AT_ONCE, plan);
+    const ready = plans.filter(p => p.ready);
+    const skipped = plans.filter(p => !p.ready);
+    console.log('migrate-peers dry run page by', email, 'after', after, 'old', old.length,
+      'ready', ready.length, 'skipped', skipped.length, done ? 'done' : 'next ' + next);
 
     return reply(200, {
-      ok: true, run, by: email,
-      oldTotal: old.length, checked: batch.length, more: old.length > batch.length,
-      alreadyNew: snap.docs.length - old.length,
+      ok: true, run: false, by: email, next, done,
+      oldTotal: old.length, alreadyNew,
       ready: ready.map(p => ({ token: p.token, from: p.from, to: p.to, orgName: p.orgName, mode: p.mode,
         owner: p.owner, responses: p.responses, closed: p.closed })),
-      skipped: skipped.map(p => ({ from: p.from, to: p.to || '', reason: p.skip, detail: p.detail })),
-      results
+      skipped: skipped.map(p => ({ from: p.from, to: p.to || '', reason: p.skip, detail: p.detail }))
     });
   } catch (e) {
     console.error('migrate-peers', e);
