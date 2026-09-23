@@ -8402,6 +8402,14 @@ function authReady(){
       if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       _authRedirect=_checkGoogleRedirect();
       firebase.auth().onAuthStateChanged(user=>{
+        /* Every sign-in passes here, a saved one included: an admin address
+           signed in through Microsoft is never let in (see _msAdmin). */
+        if(_msAdmin(user)){
+          _authUser=null; _authPending=null; _authBlockMsg=ADMIN_MS_MSG;
+          _authFirstRes(null);
+          firebase.auth().signOut().catch(e=>console.error('signOut msAdmin',e));
+          return;
+        }
         /* The saved copy of the user can say "unverified" after the link was
            clicked in another tab or the mail app, so ask Firebase once. */
         if(user&&!user.emailVerified){
@@ -8516,9 +8524,26 @@ function _oauthProvider(kind){
   }
   return new firebase.auth.GoogleAuthProvider();
 }
-/* After a Microsoft sign-in: no email means no way in, so sign straight out;
-   an unverified one is sent the link. Returns {verify, sent} or {error}. */
+/* Admin access goes by email, and any Microsoft tenant can put any address on
+   an account, so an admin address signed in through Microsoft is never
+   treated as admin: it is signed straight out. (The rules fix refuses admin
+   for microsoft.com sign-ins too; this is the app's half.) */
+const ADMIN_MS_MSG='Admins must sign in with Google or email and password.';
+let _authBlockMsg='';
+function _msAdmin(u){
+  if(!u) return false;
+  const pd=(u.providerData||[]).filter(Boolean);
+  return pd.some(p=>p.providerId==='microsoft.com')
+    &&(isAdminEmail(u.email)||pd.some(p=>isAdminEmail(p.email)));
+}
+/* After a Microsoft sign-in: an admin address, or no email, means no way in,
+   so sign straight out; an unverified one is sent the link. Returns
+   {verify, sent} or {error}. */
 async function _afterMicrosoft(u){
+  if(_msAdmin(u)){
+    try{ await firebase.auth().signOut(); }catch(e){}
+    return {error:ADMIN_MS_MSG};
+  }
   if(!u||u.emailVerified) return {};
   if(!u.email){
     try{ await firebase.auth().signOut(); }catch(e){}
@@ -8541,12 +8566,12 @@ async function _doOAuthSignIn(kind,onErr){
     const r=await firebase.auth().signInWithPopup(provider);
     if(kind!=='microsoft') return;
     const a=await _afterMicrosoft(r&&r.user);
-    if(a.error) throw {code:'jj/no-email',message:a.error};
+    if(a.error) throw {code:'jj/refused',message:a.error};
     return a.verify?a:undefined;
   }catch(e){
     console.error('signIn',kind,e);
     try{ sessionStorage.removeItem('jj_oauth_redirect'); }catch(x){}
-    const msg=(e&&e.code==='jj/no-email')?e.message:authErrMsg(e,kind);
+    const msg=(e&&e.code==='jj/refused')?e.message:authErrMsg(e,kind);
     if(errEl) errEl.textContent=msg;
     if(typeof onErr==='function') onErr(msg);
   }
@@ -9684,6 +9709,8 @@ class Component extends DCLogic {
     const signedIn=authReady();
     await _authFirst;
     if(!_authUser) this.setState({booting:false,view:'gate',authChecked:true,authEmail:''});
+    // A saved Microsoft sign-in for an admin address was just signed out.
+    if(!_authUser&&_authBlockMsg) this.setState({gateSignInErr:_authBlockMsg});
     /* Back from a Google or Microsoft redirect that did not sign anyone in (or
        a Microsoft one signed straight out for having no email): say so on the
        gate. An unverified Microsoft sign-in whose link did not send says so
