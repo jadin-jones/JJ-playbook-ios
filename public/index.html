@@ -653,6 +653,16 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ gateHasSignInErr }}" hint-placeholder-val="{{ false }}">
 <p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ gateSignInErr }}</p>
 </sc-if>
+<div style="display:flex;align-items:center;gap:12px;max-width:300px;margin:20px auto 16px;color:#7E8D9C;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase"><span style="flex:1;height:1px;background:rgba(255,255,255,.18)"></span>or<span style="flex:1;height:1px;background:rgba(255,255,255,.18)"></span></div>
+<form sc-camel-on-submit="{{ onPwSubmit }}" style="margin:0">
+<input type="email" name="email" value="{{ pwEmail }}" sc-camel-on-change="{{ onPwEmail }}" sc-camel-auto-complete="email" sc-camel-auto-capitalize="none" sc-camel-spell-check="false" placeholder="Email address" style="{{ pwInpStyle }}">
+<input type="password" name="password" value="{{ pwPass }}" sc-camel-on-change="{{ onPwPass }}" sc-camel-auto-complete="{{ pwPassAuto }}" placeholder="{{ pwPassPh }}" style="{{ pwInpStyle }}">
+<button type="submit" style="display:block;width:100%;max-width:300px;margin:4px auto 0;background:transparent;color:#FFFFFF;border:2px solid #FFFFFF;border-radius:999px;padding:13px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer">{{ pwCta }}</button>
+</form>
+<sc-if value="{{ pwHasErr }}" hint-placeholder-val="{{ false }}">
+<p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ pwErr }}</p>
+</sc-if>
+<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:14px 0 0">{{ pwToggleLead }} <button sc-camel-on-click="{{ onPwToggle }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">{{ pwToggleCta }}</button></p>
 </div>
 </sc-if>
 <sc-if value="{{ gateVerify }}" hint-placeholder-val="{{ false }}">
@@ -9091,6 +9101,7 @@ class Component extends DCLogic {
       joinCode:'', joinFirst:'', joinLast:'', joining:false, enterNewCode:false,
       authChecked:false, authEmail:'', gateSignInErr:'', gateSignInBusy:false,
       verifyEmail:'', verifyBusy:false, verifyMsg:'', verifyErr:'', verifySentAt:0,
+      pwEmail:'', pwPass:'', pwMode:'signin', pwBusy:false, pwErr:'',
       gateStores:[], gateDepts:[], gateOrgName:'', joinStore:'', joinDept:'',
       odStore:'', odDept:'', odPerson:null, copyFrom:'', secOpen:{}, liveEdit:false,
       speedCode:'', speedN:75, speedBusy:false, speedResult:null, speedNote:'',
@@ -12543,6 +12554,28 @@ class Component extends DCLogic {
     this._verifyVis=()=>{ if(document.visibilityState==='visible'&&this.state.verifyEmail
       &&!this.state.authEmail&&!this.state.verifyBusy) authCheckVerified(); };
     document.addEventListener('visibilitychange',this._verifyVis);
+  }
+  /* The gate's email and password form. A verified sign-in needs nothing more:
+     Firebase reports the user and boot carries on. A new account, or one not
+     verified yet, goes to the Check your email panel. */
+  async emailSubmit(){
+    const s=this.state;
+    if(s.pwBusy) return;
+    const email=String(s.pwEmail||'').trim(), pw=s.pwPass||'';
+    if(!email) return this.setState({pwErr:'Enter your email address.'});
+    if(!pw) return this.setState({pwErr:'Enter your password.'});
+    const create=s.pwMode==='create';
+    this.setState({pwBusy:true,pwErr:'',gateSignInErr:''});
+    const r=create?await authEmailCreate(email,pw):await authEmailSignIn(email,pw);
+    if(!r.ok) return this.setState({pwBusy:false,pwErr:r.error});
+    this.setState({pwBusy:false,pwPass:''});
+    if(create){
+      this.showVerify(email);
+      if(!r.sent) this.setState({verifyErr:'Your account is set up, but the email did not send. Tap Resend the email.'});
+    }else if(!r.verified){
+      this.showVerify(email);
+      this.setState({verifyMsg:'This address is not verified yet. Can’t find the email? Tap Resend the email.'});
+    }
   }
   stopVerifyWatch(){
     if(this._verifyVis) document.removeEventListener('visibilitychange',this._verifyVis);
@@ -16488,6 +16521,19 @@ class Component extends DCLogic {
     // Nothing below the header shows until Firebase has said who (if anyone) is signed in.
     v.gateNeedsSignIn=!!s.authChecked&&!s.authEmail&&!s.verifyEmail;
     v.gateVerify=!s.authEmail&&!!s.verifyEmail;
+    const pwCreate=s.pwMode==='create';
+    v.pwInpStyle=INP+';display:block;box-sizing:border-box;max-width:300px;margin:0 auto 10px';
+    v.pwEmail=s.pwEmail||''; v.pwPass=s.pwPass||'';
+    v.onPwEmail=e=>this.setState({pwEmail:e.target.value,pwErr:''});
+    v.onPwPass=e=>this.setState({pwPass:e.target.value,pwErr:''});
+    v.onPwSubmit=e=>{ if(e&&e.preventDefault) e.preventDefault(); this.emailSubmit(); };
+    v.pwPassAuto=pwCreate?'new-password':'current-password';
+    v.pwPassPh=pwCreate?'Choose a password (8+ characters)':'Password';
+    v.pwCta=s.pwBusy?(pwCreate?'Creating account…':'Signing in…'):(pwCreate?'Create account':'Sign in with email');
+    v.pwToggleLead=pwCreate?'Already have an account?':'New here?';
+    v.pwToggleCta=pwCreate?'Sign in':'Create an account';
+    v.onPwToggle=()=>{ if(!s.pwBusy) this.setState({pwMode:pwCreate?'signin':'create',pwErr:'',pwPass:''}); };
+    v.pwErr=s.pwErr||''; v.pwHasErr=!!s.pwErr;
     v.verifyEmail=s.verifyEmail||'';
     v.verifyCta=s.verifyBusy?'Checking…':'I’ve verified — continue';
     v.onVerifyCheck=()=>this.verifyCheck();
