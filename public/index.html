@@ -645,6 +645,19 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ gateNoSel }}" hint-placeholder-val="{{ true }}">
 <p style="text-align:center;font-size:13px;line-height:1.55;color:#7E8D9C;margin:10px 4px 14px">Nine fundamentals of leadership — learned for yourself, then led with your team. One block at a time, all the way to the top.</p>
 </sc-if>
+<sc-if value="{{ gateNeedsSignIn }}" hint-placeholder-val="{{ false }}">
+<div style="animation:jjIn .3s ease both;text-align:center">
+<p style="font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 8px">Sign in to your playbook</p>
+<p style="font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 18px">Use the email your program lead approved.</p>
+<button sc-camel-on-click="{{ onGateGoogle }}" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:300px;margin:0 auto;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:999px;padding:14px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.25)"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 2.9-2.2 5.4-4.7 7.1l7.6 5.9c4.4-4.1 6.9-10.1 6.9-17.5z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>{{ gateGoogleCta }}</button>
+<sc-if value="{{ gateHasSignInErr }}" hint-placeholder-val="{{ false }}">
+<p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ gateSignInErr }}</p>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ gateSignedIn }}" hint-placeholder-val="{{ false }}">
+<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:10px 0 0">Signed in as <span style="color:#FFFFFF;font-weight:700">{{ gateAuthEmail }}</span></p>
+</sc-if>
 <sc-if value="{{ gateWelcomeBack }}" hint-placeholder-val="{{ false }}">
 <div style="animation:jjIn .3s ease both">
 <p style="text-align:center;font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 16px">Hey! Welcome back, {{ knownLeaderName }}.</p>
@@ -8212,6 +8225,13 @@ function fb(){ try{ if(_db) return _db; if(typeof firebase==='undefined') return
    before someone is actually authenticated. */
 let _authWait=null;
 let _authUser=null;
+/* The gate page owns sign-in: while _gateSignIn is set the overlay stays
+   hidden and the gate shows Continue with Google instead. _authFirst settles
+   once Firebase knows whether anyone is signed in (null if nobody, or if the
+   Auth SDK failed to load), so boot can tell "signed out" from "still checking". */
+let _gateSignIn=false;
+let _authFirstRes;
+const _authFirst=new Promise(r=>{ _authFirstRes=r; });
 function authReady(){
   if(_authUser) return Promise.resolve(true);
   if(_authWait) return _authWait;
@@ -8226,10 +8246,11 @@ function authReady(){
       if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       firebase.auth().onAuthStateChanged(user=>{
         _authUser=user;
+        _authFirstRes(user);
         if(user){ _hideLoginOverlay(); res(true); }
         else{ _showLoginOverlay(); }
       });
-    }catch(e){ console.error("authReady",e); _authWait=null; res(false); }
+    }catch(e){ console.error("authReady",e); _authWait=null; _authFirstRes(null); res(false); }
   });
   return _authWait;
 }
@@ -8261,6 +8282,7 @@ async function ensureMember(code){
   }
 }
 function _showLoginOverlay(){
+  if(_gateSignIn) return;
   if(document.getElementById('jj-login-gate')) return;
   const div=document.createElement('div');
   div.id='jj-login-gate';
@@ -8283,7 +8305,7 @@ function _hideLoginOverlay(){
   const el=document.getElementById('jj-login-gate');
   if(el) el.remove();
 }
-async function _doGoogleSignIn(){
+async function _doGoogleSignIn(onErr){
   const errEl=document.getElementById('jj-login-error');
   try{
     if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
@@ -8294,6 +8316,7 @@ async function _doGoogleSignIn(){
   }catch(e){
     console.error('signIn',e);
     if(errEl) errEl.textContent='Sign-in failed. Please try again.';
+    if(typeof onErr==='function') onErr('Sign-in failed. Please try again.');
   }
 }
 function withTimeout(p,ms){ let t; return Promise.race([
@@ -8945,6 +8968,7 @@ class Component extends DCLogic {
       splash:true, splashOut:false, peerConfirmDelete:false, newFunds:{},
       commitPick:null, commitTarget:null, openToolFund:null, openActivity:null,
       joinCode:'', joinFirst:'', joinLast:'', joinEmail:'', joining:false, enterNewCode:false,
+      authChecked:false, authEmail:'', gateSignInErr:'', gateSignInBusy:false,
       gateStores:[], gateDepts:[], gateOrgName:'', joinStore:'', joinDept:'',
       odStore:'', odDept:'', odPerson:null, copyFrom:'', secOpen:{}, liveEdit:false,
       speedCode:'', speedN:75, speedBusy:false, speedResult:null, speedNote:'',
@@ -9235,11 +9259,19 @@ class Component extends DCLogic {
     document.addEventListener('visibilitychange',this._vis);
   }
   async boot(){
-    /* Sign-in comes first. authReady() shows the sign-in screen and does not
-       resolve until Firebase has a signed-in user, so nothing below — no
-       Firestore read, not even the device cache — opens before then. */
-    await authReady();
+    /* Sign-in comes first. authReady() does not resolve until Firebase has a
+       signed-in user, so nothing below — no Firestore read, not even the
+       device cache — opens before then. The gate shows Continue with Google
+       while nobody is signed in; the overlay stays out of the way. */
+    _gateSignIn=true;
+    const signedIn=authReady();
+    await _authFirst;
+    if(!_authUser) this.setState({booting:false,view:'gate',authChecked:true,authEmail:''});
+    if(!(await signedIn)){
+      return this.setState({booting:false,view:'gate',authChecked:true,
+        gateSignInErr:'Could not load sign-in. Check your connection and reload.'}); }
     const me=String(currentUserEmail()||'').trim().toLowerCase();
+    this.setState({authChecked:true,authEmail:me,gateSignInErr:'',gateSignInBusy:false});
     // A peer-review link lands here next: no session, no gate, just the form.
     let rt=null;
     try{ rt=new URLSearchParams(location.search).get('r'); }catch(e){}
@@ -16263,8 +16295,19 @@ class Component extends DCLogic {
     v.joinCta=s.joining?'Signing in…':'Enter my playbook';
     v.onJoin=()=>this.join();
     v.hasKnownLeader=!!s.known; v.knownLeaderName=s.known?((s.known.name||'').split(' ')[0]||'again'):'';
-    v.gateWelcomeBack=!!s.known&&!s.enterNewCode;
-    v.gateShowForm=!s.known||!!s.enterNewCode;
+    // Nothing below the header shows until Firebase has said who (if anyone) is signed in.
+    v.gateNeedsSignIn=!!s.authChecked&&!s.authEmail;
+    v.gateSignedIn=!!s.authEmail;
+    v.gateAuthEmail=s.authEmail||'';
+    v.gateSignInErr=s.gateSignInErr||'';
+    v.gateHasSignInErr=!!s.gateSignInErr;
+    v.gateGoogleCta=s.gateSignInBusy?'Opening Google…':'Continue with Google';
+    v.onGateGoogle=()=>{ if(s.gateSignInBusy) return;
+      this.setState({gateSignInBusy:true,gateSignInErr:''});
+      _doGoogleSignIn(msg=>this.setState({gateSignInErr:msg}))
+        .finally(()=>this.setState({gateSignInBusy:false})); };
+    v.gateWelcomeBack=v.gateSignedIn&&!!s.known&&!s.enterNewCode;
+    v.gateShowForm=v.gateSignedIn&&(!s.known||!!s.enterNewCode);
     v.resumeCta=s.joining?'Signing in\u2026':'Continue';
     v.onUseDifferentCode=()=>this.setState({enterNewCode:true,joinCode:'',joinFirst:'',joinLast:'',joinEmail:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
     v.onResume=()=>this.resume();
