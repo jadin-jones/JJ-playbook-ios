@@ -516,6 +516,14 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:#00A3E0;box-sh
 @keyframes jjFall{0%{transform:translateY(-14vh) rotate(0)}100%{transform:translateY(112vh) rotate(760deg)}}
 @keyframes jjSpin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* Desktop only: the sign-in gate gets a wider page and card, and everything
+   in it scales up together (zoom), so it is not a thin strip on a big screen.
+   A fine pointer that can hover plus 1200px keeps phones and tablets,
+   iPads in landscape included, exactly as they are. */
+@media (min-width:1200px) and (hover:hover) and (pointer:fine){
+  [data-jj-shell]:has([data-jj-gate]){max-width:760px!important}
+  [data-jj-gate]{zoom:1.2}
+}
 @keyframes jjSplashIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
 /* Every tap answers. A button that gives nothing back on press reads as broken
    on a phone, and the whole app is buttons — so the feedback is global rather
@@ -564,7 +572,7 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 <div style="{{ shellOuterStyle }}">
-<div style="{{ shellStyle }}">
+<div data-jj-shell style="{{ shellStyle }}">
 
 <header style="{{ headerStyle }}">
 <div style="display:flex;align-items:center;gap:9px;min-width:0;flex:1 1 auto;overflow:hidden">
@@ -614,7 +622,7 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 <sc-if value="{{ showGate }}" hint-placeholder-val="{{ false }}">
-<div style="padding:18px 12px 0;animation:jjIn .3s ease both">
+<div data-jj-gate style="padding:18px 12px 0;animation:jjIn .3s ease both">
 <div style="background:#0C2647;border-radius:18px;padding:26px 18px 24px;text-align:center">
 <img src="assets/6dab1893.png" alt="Jadin Jones" style="height:46px;width:auto;display:block;margin:0 auto 16px;filter:brightness(0) invert(1)">
 <h1 style="font-weight:900;font-size:30px;line-height:.98;margin:0;letter-spacing:-.5px;text-transform:uppercase;color:#FFFFFF">The <span style="color:#FADA01">Championship<br>Teams</span> Playbook</h1>
