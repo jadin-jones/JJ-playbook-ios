@@ -7,8 +7,9 @@
  *
  * POST /api/admin/migrate-peers
  *   Authorization: Bearer <Firebase ID token of an admin>
- *   { run: false }   dry run (the default): reports, changes nothing
- *   { run: true }    migrates what the dry run lists as ready
+ *   { run: false }                  dry run (the default): reports, changes nothing
+ *   { run: true, tokens: [...] }    moves only these tokens, the ones the dry
+ *                                   run listed as ready
  *
  * Each round is checked, not guessed. It is skipped and reported when:
  *   - its record is unreadable, or names no program code   (no-code)
@@ -16,6 +17,9 @@
  *   - no owner email can be found from the leader's record (no-owner)
  *   - peer:CODE:TOKEN already exists                       (target-exists)
  *   - another round already carries that peerToken         (token-in-use)
+ * On a run, every check is made again. A round that is ready now but was not
+ * in the dry run's list is reported (not-in-dry-run), not moved; a listed
+ * token no longer at an old key is reported too (gone).
  * A ready round is copied and the old copy deleted in one transaction, which
  * re-reads the old copy so an answer arriving mid-run is not lost. Running it
  * again is harmless: moved rounds are no longer at an old key.
@@ -118,6 +122,16 @@ exports.handler = async function (event) {
   let body;
   try { body = JSON.parse(event.body || '{}'); } catch (e) { return reply(400, { error: 'Bad JSON' }); }
   const run = body.run === true;
+  // A run moves only what the dry run showed; without that list, nothing.
+  let listed = null;
+  if (run) {
+    const t = body.tokens;
+    if (!Array.isArray(t) || !t.length || t.length > MAX_ROUNDS
+      || !t.every(x => typeof x === 'string' && /^[A-Z0-9]{4,16}$/.test(x))) {
+      return reply(400, { error: 'Run the dry run first: a run needs its list of ready rounds' });
+    }
+    listed = new Set(t);
+  }
 
   try {
     const FP = admin.firestore.FieldPath.documentId();
@@ -128,6 +142,14 @@ exports.handler = async function (event) {
 
     const plans = [];
     for (const d of batch) plans.push(await plan(d));
+    if (listed) {
+      plans.forEach(p => { if (p.ready && !listed.has(p.token)) {
+        p.ready = false; p.skip = 'not-in-dry-run'; p.detail = 'not in dry run — run again';
+      } });
+      const seen = new Set(plans.map(p => p.token));
+      listed.forEach(t => { if (!seen.has(t)) plans.push({ from: 'peer:' + t, token: t,
+        skip: 'gone', detail: 'listed in the dry run, but no longer at an old key' }); });
+    }
     const ready = plans.filter(p => p.ready);
     const skipped = plans.filter(p => !p.ready);
 
@@ -148,7 +170,7 @@ exports.handler = async function (event) {
       ok: true, run, by: email,
       oldTotal: old.length, checked: batch.length, more: old.length > batch.length,
       alreadyNew: snap.docs.length - old.length,
-      ready: ready.map(p => ({ from: p.from, to: p.to, orgName: p.orgName, mode: p.mode,
+      ready: ready.map(p => ({ token: p.token, from: p.from, to: p.to, orgName: p.orgName, mode: p.mode,
         owner: p.owner, responses: p.responses, closed: p.closed })),
       skipped: skipped.map(p => ({ from: p.from, to: p.to || '', reason: p.skip, detail: p.detail })),
       results
