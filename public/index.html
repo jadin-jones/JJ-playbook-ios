@@ -12145,7 +12145,7 @@ class Component extends DCLogic {
   async joinByCode(){
     const raw=String(this.state.addCode||'').trim().toUpperCase();
     if(!raw) return this.toast('Enter the code first',true);
-    const email=String(this.state.email||'').trim().toLowerCase();
+    const email=String(currentUserEmail()||'').trim().toLowerCase();
     const name=String((this.state.resp&&this.state.resp.name)||'').trim();
     if(!email||!name) return this.toast('Could not read your account details',true);
     if((this.state.myGroups||[]).some(g=>g.code===raw))
@@ -12256,33 +12256,27 @@ class Component extends DCLogic {
     if(this._pendingGo){ const g=this._pendingGo; this._pendingGo=null;
       setTimeout(()=>this.handleDeepLink(g),60); }
   }
-  /* The code is the only thing that knows which stores exist, so the moment it
-     looks complete we fetch the organization and let the store list appear
-     underneath it. Debounced — nobody needs a lookup per keystroke. */
+  /* No lookup while the code is typed: the rules hide a program until
+     /api/join has added the member, so join() fetches the stores and
+     departments after that instead. Pickers shown for one code are cleared
+     if the code is changed, so a store is never picked from the wrong program. */
   gateCodeTyped(val){
     this.setState({joinCode:val});
-    const code=cleanCode(val);
-    clearTimeout(this._gateT);
-    if(code.length<4){ if(this.state.gateStores.length) this.setState({gateStores:[],gateOrgName:'',joinStore:''}); return; }
-    this._gateT=setTimeout(async()=>{
-      const org=await sget('org:'+code).catch(()=>null);
-      const list=this.orgStores(org), depts=this.orgDepts(org);
-      if(org&&org.code){
-        this._warm={code, org, program:this.loadProgramFor(code).catch(()=>null)};
-      }
-      this.setState({gateStores:list, gateDepts:depts, gateOrgName:(org&&org.name)||'',
-        joinStore:list.indexOf(this.state.joinStore)<0?'':this.state.joinStore,
-        joinDept:depts.indexOf(this.state.joinDept)<0?'':this.state.joinDept});
-    },450);
+    if(cleanCode(val)!==this._gateOrgCode&&(this.state.gateStores.length||this.state.gateDepts.length)){
+      this._gateOrgCode=null;
+      this.setState({gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
+    }
   }
   async join(){
     const code=cleanCode(this.state.joinCode);
-    const first=this.state.joinFirst.trim(), last=this.state.joinLast.trim(), email=this.state.joinEmail.trim();
+    const first=this.state.joinFirst.trim(), last=this.state.joinLast.trim();
+    // The record is keyed by the signed-in account's email, never a typed one.
+    const email=String(currentUserEmail()||'').trim().toLowerCase();
+    if(!email) return this.toast('Sign in first',true);
     if(!code) return this.toast('Enter your organization code',true);
     if(!first||!last) return this.toast('Enter your first and last name',true);
     if(this.state.gateStores.length&&!this.state.joinStore) return this.toast('Pick your store',true);
     if(this.state.gateDepts.length&&!this.state.joinDept) return this.toast('Pick your department',true);
-    if(!/.+@.+\..+/.test(email)) return this.toast('Enter a valid email so you can resume anywhere',true);
     this.setState({joining:true});
     const mem=await ensureMember(code);
     if(!mem.ok){ this.setState({joining:false}); return this.toast(mem.error,true); }
@@ -12301,6 +12295,7 @@ class Component extends DCLogic {
        list its stores or departments. Now that it can, ask for them first. */
     const stores=this.orgStores(org), depts=this.orgDepts(org);
     if((stores.length&&!this.state.joinStore)||(depts.length&&!this.state.joinDept)){
+      this._gateOrgCode=code;
       this.setState({joining:false,gateStores:stores,gateDepts:depts,gateOrgName:org.name||''});
       return this.toast(stores.length&&!this.state.joinStore?'Pick your store':'Pick your department',true);
     }
@@ -16290,7 +16285,7 @@ class Component extends DCLogic {
     v.gateStoreValue=s.joinStore||'';
     v.onGateStore=e=>this.setState({joinStore:e.target.value});
     v.gateStoreLabel=s.gateOrgName?(s.gateOrgName+' · your store'):'Your store';
-    v.joinFields=[jf('Organization code','joinCode','Enter your team code',true),jf('First name','joinFirst','Enter your first name'),jf('Last name','joinLast','Enter your last name'),jf('Email','joinEmail','Enter your email address')];
+    v.joinFields=[jf('Organization code','joinCode','Enter your team code',true),jf('First name','joinFirst','Enter your first name'),jf('Last name','joinLast','Enter your last name')];
     v.joinFields[0].onChange=e=>this.gateCodeTyped(e.target.value);
     v.joinCta=s.joining?'Signing in…':'Enter my playbook';
     v.onJoin=()=>this.join();
