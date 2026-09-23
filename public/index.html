@@ -14646,24 +14646,68 @@ class Component extends DCLogic {
     try{ navigator.clipboard.writeText(text).then(done,()=>this.toast('Could not copy',true)); }
     catch(e){ this.toast('Could not copy',true); }
   }
+  /* Remove a leader from a program, in the order that keeps them locked out
+     if anything stops part-way:
+       1. find every address their access could be held under (read only);
+       2. take CODE out of members/{email}.orgs and check with the server that
+          it is gone, so the rules stop letting them read the program;
+       3. write rev:CODE:idkey and take them off the approved list, so
+          /api/join refuses them;
+       4. only then delete their peer/team rounds, push token and, last, their
+          record. Until the record is gone, Remove can simply be run again.
+     Any failure stops at that step and says what is left; nothing after it runs. */
   async removeLeader(r){
-    if(!window.confirm('Remove '+(r.name||'this leader')+' from '+r.code+'?\n\nTheir assessment scores, written answers and tool history are deleted and they will have to sign up again with the code.')) return;
-    const ok=await sdel('resp:'+r.code+':'+r.idkey);
-    try{ await sdel('push:'+r.code+':'+r.idkey); }catch(e){}
-    try{ await sset('rev:'+r.code+':'+r.idkey,{at:Date.now(),email:r.email||''}); }catch(e){}
-    try{
-      const o=this.state.orgList.find(x=>x.code===r.code);
-      const mail=String(r.email||'').toLowerCase();
-      if(o&&mail&&Array.isArray(o.allowlist)&&o.allowlist.indexOf(mail)>=0){
-        await this.saveOrg(r.code,{allowlist:o.allowlist.filter(x=>x!==mail)});
-      }
-    }catch(e){}
-    if(!ok) return this.toast('Could not remove that leader',true);
-    for(const pr of ((r.peerRounds)||[]).concat((r.teamRounds)||[])) await sdelPeer(r.code,pr.token);
+    const name=r.name||'this leader', code=r.code;
+    if(!window.confirm('Remove '+name+' from '+code+'?\n\nThey lose access to '+code+'. Their assessment scores, written answers and tool history are deleted and they will have to sign up again with the code.')) return;
+    const stop=msg=>{ this.toast(msg,true); return false; };
+    const unchanged='Could not remove access for '+name+' — nothing was changed. Try again.';
+    await fbReady(); await authReady();
+    const db=fb(); if(!db) return stop(unchanged);
+    // 1. Every address their membership could be under: the account that saved
+    //    the record (ownerEmail), the email inside it, and the roster's.
+    let snap;
+    try{ snap=await withTimeout(db.collection(COLL).doc('resp:'+code+':'+r.idkey).get({source:'server'}),9000); }
+    catch(e){ console.error('removeLeader read',e); return stop('Could not remove access for '+name+' — their record could not be read. Nothing was changed.'); }
+    let inner=null; try{ inner=snap.exists?JSON.parse(snap.get('value')||'null'):null; }catch(e){}
+    const emails=Array.from(new Set([snap.exists?snap.get('ownerEmail'):'',inner&&inner.email,r.email]
+      .map(e=>String(e||'').trim().toLowerCase()).filter(e=>e.indexOf('@')>0)));
+    if(!emails.length) return stop('Could not remove access for '+name+' — their record has no email. Nothing was changed.');
+    // 2. Membership out, then confirmed by the server. No members doc means no membership.
+    //    arrayRemove takes out only this code; their other programs stay.
+    //    Once any address has been updated, a later failure has still deleted nothing.
+    const FV=firebase.firestore.FieldValue;
+    let done=0;
+    const partial=()=>stop('Could not finish removing access for '+name+' — nothing was deleted. Tap Remove again.');
+    for(const em of emails){
+      const ref=db.collection('members').doc(em);
+      try{ await withTimeout(ref.update({orgs:FV.arrayRemove(code),updatedAt:FV.serverTimestamp()}),9000); done++; }
+      catch(e){ if(!(e&&e.code==='not-found')){ console.error('removeLeader members',em,e); return done?partial():stop(unchanged); } }
+      try{
+        const m=await withTimeout(ref.get({source:'server'}),9000);
+        const orgs=m.exists?m.get('orgs'):null;
+        if(Array.isArray(orgs)&&orgs.indexOf(code)>=0) return done?partial():stop(unchanged);
+      }catch(e){ console.error('removeLeader check',em,e); return done?partial():stop(unchanged); }
+    }
+    // 3. Lock the door before touching their data: the tombstone, then the approved list.
+    if(!(await sset('rev:'+code+':'+r.idkey,{at:Date.now(),email:emails[0],emails})))
+      return stop('Access to '+code+' is removed, but the revocation was not recorded — tap Remove again. Their record was not deleted.');
+    const o=this.state.orgList.find(x=>x.code===code);
+    if(o&&Array.isArray(o.allowlist)&&o.allowlist.some(x=>emails.indexOf(x)>=0)){
+      if(!(await this.saveOrg(code,{allowlist:o.allowlist.filter(x=>emails.indexOf(x)<0)})))
+        return stop('Access to '+code+' is removed, but '+name+' is still on the approved list — tap Remove again. Their record was not deleted.');
+    }
+    // 4. Their data, record last.
+    let roundsLeft=0;
+    for(const pr of ((r.peerRounds)||[]).concat((r.teamRounds)||[])) if(!(await sdelPeer(code,pr.token))) roundsLeft++;
+    if(roundsLeft) return stop(name+' has lost access, but '+roundsLeft+' peer or team round'+(roundsLeft===1?'':'s')+' could not be deleted — tap Remove again.');
+    try{ await sdel('push:'+code+':'+r.idkey); }catch(e){}
+    if(!(await sdel('resp:'+code+':'+r.idkey)))
+      return stop(name+' has lost access, but their record could not be deleted — tap Remove again.');
     this.setState({roster:this.state.roster.filter(x=>x.idkey!==r.idkey),
       selectedLeader:this.state.selectedLeader&&this.state.selectedLeader.idkey===r.idkey?null:this.state.selectedLeader,
       scorePool:(this.state.scorePool||[]).filter(p=>!(p.r.idkey===r.idkey&&p.code===r.code))});
     this.toast((r.name||'Leader')+' removed — access revoked');
+    return true;
   }
   async deleteOrg(code){
     if(!window.confirm('Delete '+code+'? Leaders keep their records but can no longer sign in with this code.')) return;
