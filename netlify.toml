@@ -20,6 +20,12 @@
   to = "/.netlify/functions/peer"
   status = 200
 
+# First join by a Microsoft sign-in: send and confirm a one-time email link.
+[[redirects]]
+  from = "/api/ms-verify"
+  to = "/.netlify/functions/ms-verify"
+  status = 200
+
 # One-off, admins only: move old peer:TOKEN rounds to peer:CODE:TOKEN.
 # Remove with netlify/functions/migrate-peers.js once live is migrated.
 [[redirects]]

@@ -13,6 +13,8 @@
  * The gate mirrors the app's join():
  *   - no org:CODE              → 404, no program with that code
  *   - rev:CODE:<slug(email)>   → 403, access was ended by the program lead
+ *   - a Microsoft sign-in whose mailbox has not been confirmed once through
+ *     /api/ms-verify → 403 code 'ms-verify' (see netlify/lib/ms-verify.js)
  *   - allowlist non-empty and the email is not on it → 403
  *   - allowlist empty          → anyone with the code may join
  * On success CODE is added to members/{email}.orgs with arrayUnion, so
@@ -22,6 +24,7 @@
  * (see netlify/lib/firebase-admin.js).
  */
 const { admin, db, auth, missingEnv } = require('../lib/firebase-admin');
+const { isMicrosoft, isConfirmed } = require('../lib/ms-verify');
 
 const COLL = 'jj_playbook';
 const ADMINS = ['charlie@jadin-jones.com', 'lucas@jadin-jones.com', 'review@jadin-jones.com'];
@@ -89,6 +92,15 @@ exports.handler = async function (event) {
     if (revoked) {
       return reply(403, { error: 'Your access to ' + orgName + ' has ended. Ask your program lead to restore it.',
         code: 'revoked' });
+    }
+
+    /* Microsoft's own "verified" is not trusted (nOAuth): the first join by a
+       Microsoft sign-in needs our emailed link confirmed. Checked after
+       "revoked", so a revoked person still hears that, and before the
+       approved list, so this answer says nothing about who is on it. */
+    if (isMicrosoft(tok) && !(await isConfirmed(tok.uid, email))) {
+      return reply(403, { error: 'Confirm your email address first: enter your code and join to get a link at ' + email + '.',
+        code: 'ms-verify' });
     }
 
     /* The app reads `org.allowlist||[]`: empty means the code is the only

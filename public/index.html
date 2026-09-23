@@ -8427,7 +8427,11 @@ function currentUserEmail(){ return _authUser?_authUser.email:null; }
    everything already, so they skip the round trip. */
 const ADMIN_EMAILS=['charlie@jadin-jones.com','lucas@jadin-jones.com','review@jadin-jones.com'];
 const isAdminEmail=e=>ADMIN_EMAILS.indexOf(String(e||'').trim().toLowerCase())>=0;
-async function ensureMember(code){
+/* A Microsoft sign-in's first join needs its mailbox confirmed once
+   (/api/join answers 'ms-verify'). With sendLink — a join the person just
+   tapped — the link is sent straight away and the message says what to do;
+   background checks only report it. */
+async function ensureMember(code,opts){
   await authReady();
   const u=firebase.auth().currentUser;
   if(!u) return {ok:false,error:'Sign in first'};
@@ -8439,11 +8443,36 @@ async function ensureMember(code){
       body:JSON.stringify({code})}),15000);
     let j={}; try{ j=await r.json(); }catch(e){}
     if(r.ok&&j.ok) return j;
-    return {ok:false,status:r.status,reason:j.code||'',
+    const out={ok:false,status:r.status,reason:j.code||'',
       error:j.error||'Could not join — check your connection and try again'};
+    if(out.reason==='ms-verify'&&opts&&opts.sendLink){
+      const s=await msVerifyApi({action:'send'});
+      const how=' Open it, tap Continue on the page it opens, then join again.';
+      if(s.ok&&s.verified) return ensureMember(code);
+      out.error=s.ok?'Check your email — we sent a link to '+u.email+' to confirm it is yours.'+how
+        :(s.code==='wait'?s.error+how:s.error);
+    }
+    return out;
   }catch(e){
     console.error('ensureMember',e);
     return {ok:false,error:'Could not join — check your connection and try again'};
+  }
+}
+/* /api/ms-verify: {action:'send'} emails the one-time link, {action:'confirm',t}
+   checks the secret the link carried. Returns the server's JSON plus ok. */
+async function msVerifyApi(body){
+  try{
+    await authReady();
+    const u=firebase.auth().currentUser;
+    if(!u) return {ok:false,error:'Sign in first'};
+    const r=await withTimeout(fetch('/api/ms-verify',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
+      body:JSON.stringify(body)}),15000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    return Object.assign({},j,{ok:!!(r.ok&&j.ok),error:j.error||'Could not reach the server — check your connection and try again'});
+  }catch(e){
+    console.error('msVerifyApi',e);
+    return {ok:false,error:'Could not reach the server — check your connection and try again'};
   }
 }
 function _showLoginOverlay(){
@@ -9644,6 +9673,14 @@ class Component extends DCLogic {
     let rt=null;
     try{ rt=new URLSearchParams(location.search).get('r'); }catch(e){}
     if(rt) return this.openPeerForm(String(rt).trim().toUpperCase());
+    /* Back from the Microsoft confirmation email (?msv=secret). Kept for this
+       tab until sign-in, and taken out of the address bar so it is not shared
+       or bookmarked. */
+    try{
+      const q=new URLSearchParams(location.search), t=q.get('msv');
+      if(t){ sessionStorage.setItem('jj_msv',t); q.delete('msv');
+        history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash); }
+    }catch(e){}
     const signedIn=authReady();
     await _authFirst;
     if(!_authUser) this.setState({booting:false,view:'gate',authChecked:true,authEmail:''});
@@ -9664,6 +9701,7 @@ class Component extends DCLogic {
     const me=String(currentUserEmail()||'').trim().toLowerCase();
     this.setState({authChecked:true,authEmail:me,gateSignInErr:'',gateSignInBusy:false,
       verifyEmail:'',verifyBusy:false,verifyMsg:'',verifyErr:''});
+    await this.confirmMsLink();
     let known=null;
     try{ known=JSON.parse(localStorage.getItem('jj_known_leader')||'null'); }catch(e){}
     let sess=null;
@@ -9730,8 +9768,10 @@ class Component extends DCLogic {
   }
   toast(msg,err,go){ clearTimeout(this._tt);
     this.setState({toast:msg,toastErr:!!err,toastGo:go||''});
-    // A toast you can act on gets longer to reach than one that just informs.
-    this._tt=setTimeout(()=>this.setState({toast:'',toastGo:''}),go?6500:2800); }
+    // A toast you can act on gets longer to reach than one that just informs,
+    // and a long one (instructions) stays up long enough to read.
+    const len=String(msg||'').length;
+    this._tt=setTimeout(()=>this.setState({toast:'',toastGo:''}),Math.max(go?6500:2800,len>90?9000:0)); }
 
   async loadProgramFor(code){
     const org=this.state.org&&this.state.org.code===code
@@ -12558,7 +12598,7 @@ class Component extends DCLogic {
       return this.toast('You are already in that group',true);
     this.setState({addBusy:true});
     const idkey=slug(email);
-    const mem=await ensureMember(raw);
+    const mem=await ensureMember(raw,{sendLink:true});
     if(!mem.ok){ this.setState({addBusy:false}); return this.toast(mem.error,true); }
     try{
       const [org,revoked]=await Promise.all([
@@ -12684,7 +12724,7 @@ class Component extends DCLogic {
     if(this.state.gateStores.length&&!this.state.joinStore) return this.toast('Pick your store',true);
     if(this.state.gateDepts.length&&!this.state.joinDept) return this.toast('Pick your department',true);
     this.setState({joining:true});
-    const mem=await ensureMember(code);
+    const mem=await ensureMember(code,{sendLink:true});
     if(!mem.ok){ this.setState({joining:false}); return this.toast(mem.error,true); }
     const idkeyEarly=slug(email);
     const warm=(this._warm&&this._warm.code===code)?this._warm:null;
@@ -12811,6 +12851,18 @@ class Component extends DCLogic {
     this.signOut();
     this.setState({known:null,enterNewCode:true,joinCode:''});
     this.toast('Your access to '+(orgName||code)+' has ended. Check with your program lead.',true);
+  }
+  /* The Microsoft confirmation link, once someone is signed in: the server
+     checks the secret and, if it matches, never asks this account again.
+     Tried once per page load; the email's link can be opened again. */
+  async confirmMsLink(){
+    let t=null;
+    try{ t=sessionStorage.getItem('jj_msv'); sessionStorage.removeItem('jj_msv'); }catch(e){}
+    if(!t) return;
+    const r=await msVerifyApi({action:'confirm',t});
+    if(r.ok) return this.toast('Email confirmed — enter your code to join.');
+    if(r.code==='not-microsoft') return this.toast('That link is for a Microsoft sign-in. Sign in with Microsoft, then open the link again.',true);
+    this.toast(r.error,true);
   }
   /* The gate's "verify your email" panel. Coming back to the tab (from the
      mail app, or the tab the link opened) checks again on its own; once
