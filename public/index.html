@@ -9235,7 +9235,12 @@ class Component extends DCLogic {
     document.addEventListener('visibilitychange',this._vis);
   }
   async boot(){
-    // A peer-review link lands here first: no session, no gate, just the form.
+    /* Sign-in comes first. authReady() shows the sign-in screen and does not
+       resolve until Firebase has a signed-in user, so nothing below — no
+       Firestore read, not even the device cache — opens before then. */
+    await authReady();
+    const me=String(currentUserEmail()||'').trim().toLowerCase();
+    // A peer-review link lands here next: no session, no gate, just the form.
     let rt=null;
     try{ rt=new URLSearchParams(location.search).get('r'); }catch(e){}
     if(rt) return this.openPeerForm(String(rt).trim().toUpperCase());
@@ -9243,10 +9248,16 @@ class Component extends DCLogic {
     try{ known=JSON.parse(localStorage.getItem('jj_known_leader')||'null'); }catch(e){}
     let sess=null;
     try{ sess=JSON.parse(localStorage.getItem('jj_session')||'null'); }catch(e){}
-    if(this._studioLink&&!(sess&&sess.role==='admin')){
-      return this.setState({booting:false,view:'admin-login'});
-    }
-    if(sess&&sess.role==='admin'){ const ok=await this.enterStudio(sess.name||'Admin'); if(ok) return; }
+    /* A saved session belongs to whoever last used this device. If that is not
+       the person signed in now, forget it rather than open their records. */
+    const mine=x=>!!x&&String(x.email||'').trim().toLowerCase()===me&&x.idkey===slug(me);
+    if(known&&!mine(known)){ known=null; try{ localStorage.removeItem('jj_known_leader'); }catch(e){} }
+    if(sess&&(sess.role==='admin'?!isAdminEmail(me):!mine(sess))){
+      sess=null; try{ localStorage.removeItem('jj_session'); }catch(e){} }
+    // Studio is decided by the signed-in account, not an access phrase.
+    if(this._studioLink&&!isAdminEmail(me)) this.toast('Studio is for program admins. You are signed in as '+me+'.',true);
+    if(isAdminEmail(me)&&(this._studioLink||(sess&&sess.role==='admin'))){
+      const ok=await this.enterStudio((firebase.auth().currentUser||{}).displayName||me); if(ok) return; }
     /* A cold launch from the Home Screen icon often races the first Firestore
        read — the network is still waking up. Dropping to the sign-in screen
        there reads as "the app logged me out", which is the single most
@@ -16257,7 +16268,10 @@ class Component extends DCLogic {
     v.resumeCta=s.joining?'Signing in\u2026':'Continue';
     v.onUseDifferentCode=()=>this.setState({enterNewCode:true,joinCode:'',joinFirst:'',joinLast:'',joinEmail:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
     v.onResume=()=>this.resume();
-    v.onGoStudio=()=>this.go('admin-login');
+    v.onGoStudio=()=>{ const me=currentUserEmail();
+      if(!isAdminEmail(me)) return this.toast('Studio is for program admins. You are signed in as '+me+'.',true);
+      this.setState({booting:true});
+      this.enterStudio((firebase.auth().currentUser||{}).displayName||me); };
     v.onBackToGate=()=>this.go('gate');
     v.adminName=s.adminName; v.adminPass=s.adminPass;
     v.onAdminName=e=>this.setState({adminName:e.target.value});
