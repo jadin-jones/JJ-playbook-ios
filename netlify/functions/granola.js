@@ -9,6 +9,9 @@
  *   GRANOLA_SECRET          required: the shared secret Granola sends. With it
  *                           unset every request is refused (503); there is no
  *                           built-in fallback.
+ *   GRANOLA_SECRET_OLD      optional, only while rotating: the previous secret,
+ *                           still accepted so notes keep landing until the
+ *                           Zapier/Make step has the new one. Delete it after.
  *   FIREBASE_PROJECT_ID,
  *   FIREBASE_CLIENT_EMAIL,
  *   FIREBASE_PRIVATE_KEY    the service account (see netlify/lib/firebase-admin.js)
@@ -95,9 +98,15 @@ exports.handler = async function (event) {
   try { body = JSON.parse(event.body || '{}'); }
   catch (e) { return reply(400, { error: 'Bad JSON' }); }
 
+  /* During a rotation the previous secret is accepted too. It never stands
+     in for GRANOLA_SECRET: with that unset, the 503 above already refused. */
+  const old = process.env.GRANOLA_SECRET_OLD || '';
   const h = event.headers || {};
   const got = String(body.secret || h['x-granola-secret'] || h['X-Granola-Secret'] || '');
-  if (!got || !sameSecret(got, want)) return reply(401, { error: 'Bad secret' });
+  const okNew = !!got && sameSecret(got, want);
+  const okOld = !!got && !!old && sameSecret(got, old);
+  if (!okNew && !okOld) return reply(401, { error: 'Bad secret' });
+  if (okOld && !okNew) console.warn('granola: note sent with GRANOLA_SECRET_OLD — update the Zapier/Make step, then delete GRANOLA_SECRET_OLD');
 
   const notes = String(body.notes || body.text || body.transcript ||
     body['body-plain'] || body.plain || '').trim();
