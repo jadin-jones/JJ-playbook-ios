@@ -731,6 +731,16 @@ sc-if,sc-for{display:none!important}
 <p style="text-align:center;font-size:13px;color:#7E8D9C;margin:14px 0 0">Not you? <button sc-camel-on-click="{{ onUseDifferentCode }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Enter a different code</button></p>
 </div>
 </sc-if>
+<sc-if value="{{ gatePick }}" hint-placeholder-val="{{ false }}">
+<div style="animation:jjIn .3s ease both">
+<p style="text-align:center;font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 6px">Choose a program</p>
+<p style="text-align:center;font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 14px">You are in more than one. Pick where to start — you can switch later.</p>
+<sc-for list="{{ gatePickList }}" as="gp" hint-placeholder-count="2">
+<button sc-camel-on-click="{{ gp.onPick }}" style="display:block;width:100%;max-width:300px;margin:0 auto 10px;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:14px;padding:12px 16px;font-family:inherit;cursor:pointer;text-align:left;box-shadow:0 6px 22px rgba(0,0,0,.25)"><span style="display:block;font-weight:900;font-size:15px;line-height:1.2">{{ gp.label }}</span><span style="display:block;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-top:3px">{{ gp.sub }}</span></button>
+</sc-for>
+<p style="text-align:center;font-size:13px;color:#7E8D9C;margin:6px 0 0">Joining another program? <button sc-camel-on-click="{{ onUseDifferentCode }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Enter a code</button></p>
+</div>
+</sc-if>
 <sc-if value="{{ gateShowForm }}" hint-placeholder-val="{{ true }}">
 <div>
 <p style="color:#7E8D9C;font-size:13.5px;line-height:1.6;margin:14px 0 18px">Sign in with the code from your organization. Your progress syncs with the web playbook automatically.</p>
@@ -9453,7 +9463,7 @@ class Component extends DCLogic {
       storeFilter:'', storeSort:'name',
       scoreOrg:'', scoreSrc:'self', scorePool:[], scoreLoading:false, scoreTeams:[],
       leaderFolder:'', leaderQ:'', scorePerson:'', scoreActivity:'', scoreShowAll:false, scoreOpen:'',
-      roster:[], selectedLeader:null, myGroups:[], addOpen:false, addCode:'', addBusy:false, groupsOpen:false, coachDoc:null, coachDocs:{}, ldCoach:null, ldPaste:'', ldSessOpen:'', noteSel:'',
+      roster:[], selectedLeader:null, myGroups:[], gatePrograms:[], gatePickBusy:false, addOpen:false, addCode:'', addBusy:false, groupsOpen:false, coachDoc:null, coachDocs:{}, ldCoach:null, ldPaste:'', ldSessOpen:'', noteSel:'',
       cvList:[], cvClient:'', cvDoc:null, cvSess:'', cvPaste:'', cvDirty:false, ginItems:[], cvView:'call', cvMemberOn:false,
       members:[], membersLoading:false, openMember:null, bambooStoryOpen:false, vidOn:{},
       newOrgName:'', newOrgCode:'', newOrgCohort:'', newOrgStart:'',
@@ -9825,6 +9835,21 @@ class Component extends DCLogic {
            throwing a "taking longer than usual" banner over a working screen. */
         if(!warm) this.setState({resumeSlow:ai>=3});
         await new Promise(r=>setTimeout(r,Math.min(600+ai*250,2500)));
+      }
+    }
+    /* Nothing saved on this device: a returning member is recognised by the
+       signed-in email and skips the code. One program opens straight away;
+       several get a picker on the gate; none (or a list that could not be
+       read) leaves code entry as it was. Admins keep their own routing. */
+    if(!saved&&!isAdminEmail(me)){
+      this.setState({booting:true});
+      const progs=await this.myPrograms(me).catch(()=>null);
+      if(progs&&progs.length===1){
+        const g=progs[0];
+        if(await this.loadLeader(g.code,g.idkey,g.name,me)) return;
+        if(this._revoked) return;
+      }else if(progs&&progs.length>1){
+        return this.setState({booting:false,view:'gate',known:null,gatePrograms:progs,enterNewCode:false});
       }
     }
     this.setState({booting:false,view:'gate',known,joinCode:known?known.code:''});
@@ -12652,25 +12677,41 @@ class Component extends DCLogic {
       fr.readAsDataURL(file);
     });
   }
-  async loadMyGroups(email){
+  /* The programs this person can open, from their own members/{email}.orgs
+     (the one list V3 lets them read). A program counts only when its org
+     exists, their record there exists, and no rev: tombstone does. Every
+     failed read leaves that program out: a revoked person may not read their
+     own tombstone, so a refusal means revoked. Returns [{code,idkey,name,
+     orgName}] sorted by name, or null if the members doc could not be read. */
+  async myPrograms(email){
     const em=String(email||'').trim().toLowerCase();
-    if(!em) return this.setState({myGroups:[]});
+    if(!em) return [];
+    await fbReady(); await authReady();
+    const db=fb(); if(!db) return null;
+    let orgs;
     try{
-      const rows=(await slistDocs('resp:'))
-        .filter(x=>x&&x.code&&x.idkey&&x.idkey!=='__preview__'
-          &&String(x.email||'').trim().toLowerCase()===em
-          &&(x.joinedAt||x.lastSeenAt||Number(x.visits)>0));
-      const seen={}, out=[];
-      rows.forEach(x=>{ if(seen[x.code]) return; seen[x.code]=1;
-        out.push({code:x.code,idkey:x.idkey,name:x.name||''}); });
-      // A single membership is not a choice; only offer the switch when it is one.
-      if(out.length<2) return this.setState({myGroups:[]});
-      const named=await Promise.all(out.map(async g=>{
-        let o=null; try{ o=await sget('org:'+g.code); }catch(e){}
-        return Object.assign({},g,{orgName:(o&&o.name)||g.code}); }));
-      named.sort((x,y)=>(x.orgName||'').localeCompare(y.orgName||''));
-      this.setState({myGroups:named},()=>this.watchOtherGroups());
-    }catch(e){ this.setState({myGroups:[]}); }
+      const m=await withTimeout(db.collection('members').doc(em).get(),9000);
+      orgs=(m.exists&&Array.isArray(m.get('orgs')))?m.get('orgs'):[];
+    }catch(e){ console.warn('myPrograms',e); return null; }
+    const idkey=slug(em);
+    const codes=Array.from(new Set(orgs.filter(c=>typeof c==='string'&&c)));
+    const rows=await Promise.all(codes.map(async code=>{
+      try{
+        const [rev,resp,org]=await Promise.all([
+          sgetStrict('rev:'+code+':'+idkey),
+          sgetStrict('resp:'+code+':'+idkey),
+          sgetStrict('org:'+code)]);
+        if(rev||!resp||!org) return null;
+        return {code,idkey,name:resp.name||'',orgName:org.name||code};
+      }catch(e){ return null; }
+    }));
+    return rows.filter(Boolean).sort((x,y)=>(x.orgName||'').localeCompare(y.orgName||''));
+  }
+  async loadMyGroups(email){
+    const out=await this.myPrograms(email).catch(()=>null);
+    // A single membership is not a choice; only offer the switch when it is one.
+    if(!out||out.length<2) return this.setState({myGroups:[]});
+    this.setState({myGroups:out},()=>this.watchOtherGroups());
   }
   async joinByCode(){
     const raw=String(this.state.addCode||'').trim().toUpperCase();
@@ -12711,6 +12752,13 @@ class Component extends DCLogic {
       this.setState({addBusy:false});
       this.toast('Could not join — check your connection and try again',true);
     }
+  }
+  /* The gate's program picker. loadLeader checks the tombstone again, so a
+     program revoked since the list was read still ends in the revoked screen. */
+  async pickProgram(g){
+    this.setState({gatePickBusy:true});
+    const ok=await this.loadLeader(g.code,g.idkey,g.name,currentUserEmail());
+    this.setState(ok?{gatePickBusy:false,gatePrograms:[]}:{gatePickBusy:false,booting:false});
   }
   async switchGroup(g){
     if(!g||g.code===this.state.code) return;
@@ -17101,8 +17149,15 @@ class Component extends DCLogic {
         .finally(()=>this.setState({gateSignInBusy:false})); };
     v.onGateGoogle=()=>oauth('google');
     v.onGateMicrosoft=()=>oauth('microsoft');
-    v.gateWelcomeBack=v.gateSignedIn&&!!s.known&&!s.enterNewCode;
-    v.gateShowForm=v.gateSignedIn&&(!s.known||!!s.enterNewCode);
+    /* A returning member in several programs picks one (boot found them in
+       members/{email}.orgs); "Enter a different code" drops to the form. */
+    const picks=(s.gatePrograms||[]);
+    v.gatePick=v.gateSignedIn&&picks.length>1&&!s.enterNewCode;
+    v.gatePickList=picks.map(g=>({label:g.orgName||g.code,sub:g.code,
+      onPick:()=>{ if(s.gatePickBusy) return; this.pickProgram(g); }}));
+    v.gatePickBusy=!!s.gatePickBusy;
+    v.gateWelcomeBack=v.gateSignedIn&&!v.gatePick&&!!s.known&&!s.enterNewCode;
+    v.gateShowForm=v.gateSignedIn&&!v.gatePick&&(!s.known||!!s.enterNewCode);
     v.resumeCta=s.joining?'Signing in\u2026':'Continue';
     v.onUseDifferentCode=()=>this.setState({enterNewCode:true,joinCode:'',joinFirst:'',joinLast:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
     v.onResume=()=>this.resume();
