@@ -14778,6 +14778,15 @@ class Component extends DCLogic {
       avatarStyle:'flex:none;width:52px;height:52px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:'+(i.me?'#FADA01':'#EAF1F8')+';color:#0C1B2E;font-weight:900;font-size:16px'}; }
   clearLocation(){ const s=this.state; if(!s.resp||!s.resp.loc) return;
     delete s.resp.loc; this.setState({resp:s.resp}); this.saveResp(); this.toast('Your pin is off the map'); }
+  async fetchMembers(code){
+    await authReady();
+    const u=firebase.auth().currentUser; if(!u) throw new Error('not signed in');
+    const r=await withTimeout(fetch('/api/members?code='+encodeURIComponent(code),
+      {headers:{'Authorization':'Bearer '+(await u.getIdToken())}}),15000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    if(!r.ok||!j.ok||!Array.isArray(j.members)) throw new Error(j.error||('members '+r.status));
+    return j.members;
+  }
   async loadMembers(code,force){
     code=code||this.state.code; if(!code) return;
     const fresh=this._membersAt&&this._membersCode===code&&(Date.now()-this._membersAt<120000);
@@ -14786,7 +14795,11 @@ class Component extends DCLogic {
     this.setState({membersLoading:true});
     this._membersInFlight=(async()=>{
       try{
-        const rows=await slistDocs('resp:'+code+':');
+        /* Admins may list resp: records themselves; everyone else asks
+           /api/members, which checks they are in the program and returns
+           only what these views use. */
+        const me=String(currentUserEmail()||'').trim().toLowerCase();
+        const rows=isAdminEmail(me)?await slistDocs('resp:'+code+':'):await this.fetchMembers(code);
         const out=rows.filter(x=>x&&x.name&&x.idkey!=='__preview__'&&x.idkey!==this.state.idkey);
         out.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
         this._membersAt=Date.now(); this._membersCode=code;
@@ -14910,6 +14923,7 @@ class Component extends DCLogic {
     if(!this.isOrgLeadHere()) return;
     const docs=Object.assign({},this.state.peerDocs);
     for(const r of (this.state.members||[])){
+      if(r.peerAgg!==undefined) continue;   // /api/members already summed it
       for(const pr of ((r.peerRounds)||[])){
         if(docs[pr.token]) continue;
         const d=await sgetPeer(r.code||this.state.code,pr.token); if(d) docs[pr.token]=d;
@@ -18387,6 +18401,13 @@ class Component extends DCLogic {
         // peer review across the org, aggregate only
         const peerAll=all.map(r=>{
           const list=((r.peerRounds)||[]).slice().sort((a,b)=>b.openedAt-a.openedAt);
+          /* Colleagues' rounds are owner-only, so /api/members sends their
+             score averages instead (peerAgg); your own is read directly. */
+          const pa=r.peerAgg;
+          if(pa&&list.length&&pa.token===list[0].token){
+            const avg=pa.avg||{};
+            return {r,ag:{n:pa.n||0,avg,total:Math.round(ASSESS.reduce((n,a)=>n+(avg[a.k]||0),0)),open:[]}};
+          }
           const doc=list.length?s.peerDocs[list[0].token]:null;
           return doc?{r,ag:peerAgg(doc)}:null;
         }).filter(Boolean);
