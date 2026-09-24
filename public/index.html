@@ -684,7 +684,9 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 <sc-if value="{{ gateShowGoogle }}" hint-placeholder-val="{{ true }}">
 <button sc-camel-on-click="{{ onGateGoogle }}" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:300px;margin:0 auto;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:999px;padding:14px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.25)"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 2.9-2.2 5.4-4.7 7.1l7.6 5.9c4.4-4.1 6.9-10.1 6.9-17.5z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>{{ gateGoogleCta }}</button>
+<sc-if value="{{ gateShowMicrosoft }}" hint-placeholder-val="{{ true }}">
 <button sc-camel-on-click="{{ onGateMicrosoft }}" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:300px;margin:12px auto 0;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:999px;padding:14px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.25)"><svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true"><path fill="#F25022" d="M1 1h9v9H1z"/><path fill="#7FBA00" d="M11 1h9v9h-9z"/><path fill="#00A4EF" d="M1 11h9v9H1z"/><path fill="#FFB900" d="M11 11h9v9h-9z"/></svg>{{ gateMicrosoftCta }}</button>
+</sc-if>
 </sc-if>
 <sc-if value="{{ gateHasSignInErr }}" hint-placeholder-val="{{ false }}">
 <p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ gateSignInErr }}</p>
@@ -7726,9 +7728,16 @@ const FIREBASE_CONFIG=(location.hostname.indexOf("dev")>-1)?{apiKey:"AIzaSyBuWZt
    itself (netlify/functions/auth-proxy.js), so the handoff is first-party and
    Safari keeps it. A host goes on this list only once
    https://<host>/__/auth/handler is an authorized redirect URI on that
-   project's Google OAuth client and on its Microsoft (Entra) app
-   registration; every other host keeps firebaseapp.com. */
-const AUTH_OWN_HOSTS=['jj-playbook-dev.netlify.app'];
+   project's Google OAuth client (and, where Microsoft sign-in is offered, on
+   its Microsoft (Entra) app registration); every other host keeps
+   firebaseapp.com. jjplaybook.netlify.app needs that URI on test-6b2ab's
+   Google OAuth client before this reaches live (docs/GO-LIVE.md). */
+const AUTH_OWN_HOSTS=['jj-playbook-dev.netlify.app','jjplaybook.netlify.app'];
+/* Microsoft sign-in is offered only where its Entra app and the provider are
+   set up. Live launches without it (a publisher-verified app in the
+   JadinJones tenant comes later). */
+const MS_SIGNIN_HOSTS=['jj-playbook-dev.netlify.app'];
+const msSignInHere=()=>MS_SIGNIN_HOSTS.indexOf(location.hostname)>=0;
 if(AUTH_OWN_HOSTS.indexOf(location.hostname)>=0) FIREBASE_CONFIG.authDomain=location.hostname;
 const COLL='jj_playbook';
 // Two editions of the same nine-fundamental format. Y1 keeps the original
@@ -17399,6 +17408,7 @@ class Component extends DCLogic {
        Microsoft is hidden there too. */
     const inApp=this.isNativeApp();
     v.gateShowGoogle=!inApp;
+    v.gateShowMicrosoft=!inApp&&msSignInHere();
     v.gateSignInHint=inApp
       ?'Sign in with your email and password. Use the email your program lead approved.'
       :'Use the email your program lead approved.';
@@ -17431,6 +17441,7 @@ class Component extends DCLogic {
     v.gateGoogleCta=s.gateSignInBusy==='google'?'Opening Google…':'Continue with Google';
     v.gateMicrosoftCta=s.gateSignInBusy==='microsoft'?'Opening Microsoft…':'Continue with Microsoft';
     const oauth=kind=>{ if(s.gateSignInBusy) return;
+      if(kind==='microsoft'&&!msSignInHere()) return this.setState({gateSignInErr:'Microsoft sign-in is not available here yet. Use Google or email and password.'});
       this.setState({gateSignInBusy:kind,gateSignInErr:''});
       _doOAuthSignIn(kind,msg=>this.setState({gateSignInErr:msg}))
         .then(r=>{ if(!(r&&r.verify)) return;
