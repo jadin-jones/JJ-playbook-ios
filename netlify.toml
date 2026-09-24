@@ -1,5 +1,9 @@
 [build]
-  publish = "."
+  # Only the app is served. The repo root holds scripts/, functions source,
+  # fix-*.js, READ-ME-FIRST.md and more that must never be public. Every
+  # path in the app, manifests and service worker already assumes public/
+  # is the site root.
+  publish = "public"
   functions = "netlify/functions"
 
 # The app calls /api/coach; Netlify runs netlify/functions/coach.js.
