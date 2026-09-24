@@ -107,6 +107,7 @@ service cloud.firestore {
     // Written and read only by the Netlify functions (Admin SDK).
     match /msVerified/{uid}      { allow read, write: if false; }
     match /msVerifyPending/{uid} { allow read, write: if false; }
+    match /rateLimits/{id}       { allow read, write: if false; }
 
     // Nothing in this app uses these two; they were open to every member.
     // Closed to admins until whatever uses them is known.

@@ -31,6 +31,7 @@ const V=o=>({value:JSON.stringify(o)});
     await setDoc(J('knowledge:master'),V({items:[]}));
     await setDoc(J('knowledge:misses'),V({items:[{q:'a member question'}]}));
     await setDoc(J('demo:ann-a-com:1'),V({token:'t'}));
+    await setDoc(doc(d,'rateLimits','x'),{count:1});
   });
   const who=(uid,email,prov)=>env.authenticatedContext(uid,{email,email_verified:true,firebase:{sign_in_provider:prov||'google.com'}}).firestore();
   const ann=who('uid-ann','ann@a.com'), bob=who('uid-bob','bob@a.com'), adm=who('uid-c','charlie@jadin-jones.com'),
@@ -79,6 +80,10 @@ const V=o=>({value:JSON.stringify(o)});
    ['member reads demo:',false,()=>getDoc(J(ann,'demo:ann-a-com:1'))],
    ['member writes knowledge:misses',false,()=>setDoc(J(ann,'knowledge:misses'),V({items:[]}),{merge:true})],
    ['member creates demo:',false,()=>setDoc(J(ann,'demo:ann-a-com:2'),V({token:'t'}))],
+   ['member reads rateLimits',false,()=>getDoc(doc(ann,'rateLimits','x'))],
+   ['admin writes rateLimits',false,()=>setDoc(doc(adm,'rateLimits','y'),{count:0})],
+   ['member writes members doc',false,()=>setDoc(doc(ann,'members','ann@a.com'),{orgs:['T1','T2']})],
+   ['member reads another members doc',false,()=>getDoc(doc(ann,'members','bob@a.com'))],
   ];
   let bad=0;
   for(const [name,ok,fn] of tests){ try{ await (ok?assertSucceeds:assertFails)(fn()); console.log('PASS',name); }catch(e){ bad++; console.log('FAIL',name,'expected',ok?'allowed':'refused', String(e.message).slice(0,150)); } }
