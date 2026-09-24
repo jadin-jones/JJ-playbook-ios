@@ -84,7 +84,9 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
       getVal('org:' + code),
       getVal('rev:' + code + ':' + slug(email))
     ]);
-    if (!org) return reply(404, { error: 'No program found for ' + code, code: 'no-program' });
+    /* Twin Thieves programs are joined only with their own code through
+       /api/tt-join, never by their program id here. */
+    if (!org || org.product === 'tt') return reply(404, { error: 'No program found for ' + code, code: 'no-program' });
     const orgName = org.name || code;
 
     if (revoked) {

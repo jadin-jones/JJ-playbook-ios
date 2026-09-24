@@ -30,6 +30,12 @@
   to = "/.netlify/functions/members"
   status = 200
 
+# Twin Thieves Leadership: join with its code (TWINTHIEVES36 / TWINTHIEVES10).
+[[redirects]]
+  from = "/api/tt-join"
+  to = "/.netlify/functions/tt-join"
+  status = 200
+
 # People answering a peer or team link reach their round via /api/peer.
 [[redirects]]
   from = "/api/peer"
