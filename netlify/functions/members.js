@@ -39,16 +39,14 @@
  */
 const { admin, db, auth, missingEnv } = require('../lib/firebase-admin');
 const { isMicrosoft, isConfirmed } = require('../lib/ms-verify');
+const { withCors } = require('../lib/http');
+const { ADMINS } = require('../lib/admins');
 
 const COLL = 'jj_playbook';
-const ADMINS = ['charlie@jadin-jones.com', 'lucas@jadin-jones.com', 'review@jadin-jones.com'];
 
 const HDR = {
   'Content-Type': 'application/json',
-  'Cache-Control': 'no-store',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+  'Cache-Control': 'no-store'
 };
 const reply = (statusCode, body) => ({ statusCode, headers: HDR, body: JSON.stringify(body) });
 
@@ -251,7 +249,7 @@ async function setTeamRound(c, code, body) {
   });
 }
 
-exports.handler = async function (event) {
+exports.handler = withCors('GET, POST, OPTIONS', 'Content-Type, Authorization', async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: HDR, body: '' };
   if (event.httpMethod !== 'GET' && event.httpMethod !== 'POST') return reply(405, { error: 'GET or POST only' });
 
@@ -274,4 +272,4 @@ exports.handler = async function (event) {
     console.error('members', code, e);
     return reply(500, { error: 'Could not reach the program right now. Try again in a moment.' });
   }
-};
+});

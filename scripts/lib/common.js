@@ -24,7 +24,7 @@ const { admin, db, missingEnv } = require('../../netlify/lib/firebase-admin');
 
 const COLL = 'jj_playbook';
 const LIVE_PROJECT = 'test-6b2ab';
-const ADMINS = ['charlie@jadin-jones.com', 'lucas@jadin-jones.com', 'review@jadin-jones.com'];
+const { ADMINS } = require('../../netlify/lib/admins');   // one list with the functions
 const OUT_DIR = path.join(__dirname, '..', 'out');
 
 // Same helpers as the app and /api/join, character for character.

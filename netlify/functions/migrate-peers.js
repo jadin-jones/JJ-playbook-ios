@@ -32,9 +32,11 @@
  * migrated.
  */
 const { admin, db, auth, missingEnv } = require('../lib/firebase-admin');
+const { isMicrosoft } = require('../lib/ms-verify');
+const { withCors } = require('../lib/http');
+const { ADMINS } = require('../lib/admins');
 
 const COLL = 'jj_playbook';
-const ADMINS = ['charlie@jadin-jones.com', 'lucas@jadin-jones.com', 'review@jadin-jones.com'];
 const PAGE = 50;     // old rounds checked or moved per call, well inside the time limit
 const SCAN = 500;    // ids read per page while looking for old (two-part) keys
 const AT_ONCE = 8;   // rounds checked or moved in parallel
@@ -124,7 +126,7 @@ async function move(p) {
   });
 }
 
-exports.handler = async function (event) {
+exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async function (event) {
   if (event.httpMethod !== 'POST') return reply(405, { error: 'POST only' });
   const missing = missingEnv();
   if (missing.length) return reply(500, { error: 'Server is not configured (' + missing.join(', ') + ')' });
@@ -136,7 +138,7 @@ exports.handler = async function (event) {
   try { tok = await auth().verifyIdToken(m[1], true); }
   catch (e) { return reply(401, { error: 'Your sign-in has expired. Sign in again.' }); }
   const email = String(tok.email || '').trim().toLowerCase();
-  if (tok.email_verified !== true || ADMINS.indexOf(email) < 0) return reply(403, { error: 'Admins only' });
+  if (tok.email_verified !== true || ADMINS.indexOf(email) < 0 || isMicrosoft(tok)) return reply(403, { error: 'Admins only' });
 
   let body;
   try { body = JSON.parse(event.body || '{}'); } catch (e) { return reply(400, { error: 'Bad JSON' }); }
@@ -199,6 +201,6 @@ exports.handler = async function (event) {
     });
   } catch (e) {
     console.error('migrate-peers', e);
-    return reply(500, { error: 'Migration check failed: ' + (e && e.message || 'unknown error') });
+    return reply(500, { error: 'Migration check failed. See the function log for details.' });
   }
-};
+});

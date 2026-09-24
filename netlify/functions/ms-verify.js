@@ -22,6 +22,8 @@
 const crypto = require('crypto');
 const { db, auth, missingEnv } = require('../lib/firebase-admin');
 const { isMicrosoft, isConfirmed } = require('../lib/ms-verify');
+const { withCors } = require('../lib/http');
+const { allow, clientIp, HOUR } = require('../lib/rate-limit');
 
 // The same public web API keys the app ships with, per project.
 const WEB_KEYS = {
@@ -35,10 +37,7 @@ const MAX_SENDS = 5;
 const MAX_FAILS = 10;
 
 const CORS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  'Content-Type': 'application/json'
 };
 const reply = (statusCode, body) => ({ statusCode, headers: CORS, body: JSON.stringify(body) });
 const sha = s => crypto.createHash('sha256').update(String(s)).digest('hex');
@@ -51,11 +50,15 @@ function siteUrl() {
   return /^https:\/\/[a-z0-9.-]+$/i.test(u) ? u : '';
 }
 
-exports.handler = async function (event) {
+exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
   if (event.httpMethod !== 'POST') return reply(405, { error: 'POST only' });
   const missing = missingEnv();
   if (missing.length) return reply(500, { error: 'Server is not configured (' + missing.join(', ') + ')' });
+  if ((event.body || '').length > 2000) return reply(413, { error: 'Too long' });
+  // Per address, on top of the per-account limits below.
+  if (!(await allow('ms-verify', clientIp(event), 30, HOUR)))
+    return reply(429, { error: 'Too many tries from here. Wait an hour and try again.', code: 'wait' });
 
   const h = event.headers || {};
   const m = /^Bearer\s+(.+)$/i.exec(h.authorization || h.Authorization || '');
@@ -129,4 +132,4 @@ exports.handler = async function (event) {
     console.error('ms-verify', tok.uid, e);
     return reply(500, { error: 'Could not check your email right now. Try again in a moment.' });
   }
-};
+});

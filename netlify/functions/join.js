@@ -24,16 +24,14 @@
  * (see netlify/lib/firebase-admin.js).
  */
 const { admin, db, auth, missingEnv } = require('../lib/firebase-admin');
+const { withCors } = require('../lib/http');
+const { ADMINS } = require('../lib/admins');
 const { isMicrosoft, isConfirmed } = require('../lib/ms-verify');
 
 const COLL = 'jj_playbook';
-const ADMINS = ['charlie@jadin-jones.com', 'lucas@jadin-jones.com', 'review@jadin-jones.com'];
 
 const CORS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  'Content-Type': 'application/json'
 };
 
 // Same helpers as the app, character for character.
@@ -52,7 +50,7 @@ async function getVal(id) {
   try { return JSON.parse(raw); } catch (e) { return null; }
 }
 
-exports.handler = async function (event) {
+exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
   if (event.httpMethod !== 'POST') return reply(405, { error: 'POST only' });
 
@@ -127,4 +125,4 @@ exports.handler = async function (event) {
     console.error('join', code, email, e);
     return reply(500, { error: 'Could not join right now. Try again in a moment.' });
   }
-};
+});

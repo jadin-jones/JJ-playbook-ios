@@ -25,14 +25,13 @@
  */
 const crypto = require('crypto');
 const { db, missingEnv } = require('../lib/firebase-admin');
+const { withCors } = require('../lib/http');
+const { allow, clientIp, HOUR } = require('../lib/rate-limit');
 
 const COLL = 'jj_playbook';
 
 const CORS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Granola-Secret',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  'Content-Type': 'application/json'
 };
 const reply = (statusCode, body) => ({ statusCode, headers: CORS, body: JSON.stringify(body) });
 
@@ -84,7 +83,7 @@ async function findByEmail(email) {
   return out;
 }
 
-exports.handler = async function (event) {
+exports.handler = withCors('POST, OPTIONS', 'Content-Type, X-Granola-Secret', async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
   if (event.httpMethod !== 'POST') return reply(405, { error: 'POST only' });
 
@@ -94,6 +93,9 @@ exports.handler = async function (event) {
   const missing = missingEnv();
   if (missing.length) return reply(500, { error: 'Server is not configured (' + missing.join(', ') + ')' });
 
+  // Guessing the secret gets 60 tries an hour per address.
+  if (!(await allow('granola', clientIp(event), 60, HOUR))) return reply(429, { error: 'Too many requests' });
+  if ((event.body || '').length > 200000) return reply(413, { error: 'Too long' });
   let body;
   try { body = JSON.parse(event.body || '{}'); }
   catch (e) { return reply(400, { error: 'Bad JSON' }); }
@@ -167,4 +169,4 @@ exports.handler = async function (event) {
     console.error('granola', e);
     return reply(500, { error: 'Could not file the note right now. Try again in a moment.' });
   }
-};
+});

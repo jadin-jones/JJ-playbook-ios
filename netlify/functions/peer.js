@@ -19,6 +19,8 @@
  * (see netlify/lib/firebase-admin.js).
  */
 const { db, missingEnv } = require('../lib/firebase-admin');
+const { withCors } = require('../lib/http');
+const { allow, clientIp, HOUR } = require('../lib/rate-limit');
 
 const COLL = 'jj_playbook';
 // Same as the app's ASSESS keys and ASSESS_SCALE (there is no 7).
@@ -27,6 +29,9 @@ const SCALE = [1, 2, 3, 4, 5, 6, 8, 9, 10];
 const MAX_TEXT = 600;          // the form's own limit
 const MAX_RESPONSES = 500;     // a leaked link cannot grow a round without end
 const MAX_BODY = 10000;
+/* No sign-in here, so calls are capped per address: generous enough for a
+   whole team answering from one office connection. */
+const GETS_PER_HOUR = 300, POSTS_PER_HOUR = 60;
 
 const JSON_HDR = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
 const reply = (statusCode, body) => ({ statusCode, headers: JSON_HDR, body: JSON.stringify(body) });
@@ -71,7 +76,7 @@ function cleanScores(s) {
 }
 const cleanText = s => String(s == null ? '' : s).slice(0, MAX_TEXT);
 
-exports.handler = async function (event) {
+exports.handler = withCors('GET, POST, OPTIONS', 'Content-Type', async function (event) {
   const method = event.httpMethod;
   if (method !== 'GET' && method !== 'POST') return reply(405, { error: 'GET or POST only' });
 
@@ -86,6 +91,9 @@ exports.handler = async function (event) {
   }
   const token = cleanToken(method === 'GET' ? (event.queryStringParameters || {}).t : body.t);
   if (!validToken(token)) return reply(404, { error: 'This link is not valid', code: 'missing' });
+  const ip = clientIp(event);
+  if (!(await allow(method === 'GET' ? 'peer-get' : 'peer-post', ip, method === 'GET' ? GETS_PER_HOUR : POSTS_PER_HOUR, HOUR)))
+    return reply(429, { error: 'Too many answers from this connection. Try again in an hour.', code: 'wait' });
 
   try {
     const ref = await findRound(token);
@@ -119,4 +127,4 @@ exports.handler = async function (event) {
     if (e && e.ambiguous) return reply(409, { error: 'This link points at a damaged round. Ask the person who sent it.', code: 'ambiguous' });
     return reply(500, { error: 'Could not reach the form right now. Try again in a moment.' });
   }
-};
+});
