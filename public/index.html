@@ -741,7 +741,10 @@ sc-if,sc-for{display:none!important}
 <p style="text-align:center;font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 6px">My groups</p>
 <p style="text-align:center;font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 14px">Tap a group to open it.</p>
 <sc-for list="{{ gatePickList }}" as="gp" hint-placeholder-count="2">
+<sc-if value="{{ gp.isHead }}" hint-placeholder-val="{{ false }}"><p style="text-align:center;font-weight:900;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#FADA01;margin:16px 0 8px">{{ gp.text }}</p></sc-if>
+<sc-if value="{{ gp.isPick }}" hint-placeholder-val="{{ true }}">
 <button sc-camel-on-click="{{ gp.onPick }}" style="{{ gp.style }}"><span style="display:block;font-weight:900;font-size:15px;line-height:1.2">{{ gp.label }}</span><span style="display:block;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-top:3px">{{ gp.sub }}</span></button>
+</sc-if>
 </sc-for>
 <p style="text-align:center;font-weight:900;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#6FC0EA;margin:18px 0 8px">Have a new code?</p>
 <form sc-camel-on-submit="{{ onGateAddSubmit }}" style="display:flex;gap:8px;max-width:300px;margin:0 auto">
@@ -5437,6 +5440,23 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 
+<sc-if value="{{ showTTMe }}" hint-placeholder-val="{{ false }}">
+<div style="padding:18px 14px 8px;animation:jjIn .28s ease both">
+<p style="margin:0;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#00A3E0">{{ ttKicker }}</p>
+<h1 style="font-weight:900;font-size:clamp(26px,6vw,34px);line-height:1.05;letter-spacing:-.3px;text-transform:uppercase;color:#0C1B2E;margin:6px 0 12px">My profile</h1>
+<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:16px">
+<p style="margin:0;font-weight:900;font-size:17px;color:#0C1B2E">{{ ttMeName }}</p>
+<p style="margin:4px 0 0;font-size:13px;color:#37475C">{{ ttMeEmail }}</p>
+<p style="margin:10px 0 0;font-weight:800;font-size:13px;color:#0C1B2E">{{ ttProgressText }}</p>
+</div>
+<button sc-camel-on-click="{{ onTTMyGroups }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;margin-top:12px;background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:14px 16px;cursor:pointer;font-family:inherit">
+<span><span style="display:block;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#7E8D9C">My groups</span><span style="display:block;font-weight:700;font-size:14px;color:#0C1B2E;margin-top:3px">{{ ttMeGroups }}</span></span>
+<span style="color:#9DAAB8;font-size:18px">›</span>
+</button>
+<p style="margin:14px 4px 0;font-size:12px;line-height:1.55;color:#7E8D9C">Twin Thieves Leadership keeps only your name, your email and which lessons you've completed. Nobody else in the program can see you or your progress.</p>
+</div>
+</sc-if>
+
 <sc-if value="{{ showAdminTT }}" hint-placeholder-val="{{ false }}">
 <div style="padding:16px 14px 0;animation:jjIn .28s ease both">
 <div style="display:flex;gap:4px;background:#fff;border:1px solid #DCE6F0;padding:4px;border-radius:10px;margin-bottom:12px">
@@ -5450,10 +5470,59 @@ sc-if,sc-for{display:none!important}
 <div style="display:flex;flex-wrap:wrap;gap:6px;margin:12px 0">
 <sc-for list="{{ ttStudioTabs }}" as="st" hint-placeholder-count="4"><button sc-camel-on-click="{{ st.onTap }}" style="{{ st.style }}">{{ st.label }}</button></sc-for>
 </div>
-<sc-if value="{{ ttStudioIsLater }}" hint-placeholder-val="{{ false }}">
-<div style="background:#fff;border:1px dashed #C6D4E2;border-radius:14px;padding:16px;font-size:13px;line-height:1.5;color:#37475C">{{ ttStudioLaterText }} <b>Coming in the next build.</b></div>
+<sc-if value="{{ ttLibUnsaved }}" hint-placeholder-val="{{ false }}">
+<p style="margin:0 0 10px;background:#FFF7CC;border:1px solid #F1DC6B;border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.45;color:#5C4B00">The lesson library hasn't been saved yet. These are the 36 seeded titles; saving any lesson or version saves the whole library.</p>
 </sc-if>
+
 <sc-if value="{{ ttStudioIsLessons }}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{ ttEditing }}" hint-placeholder-val="{{ false }}">
+<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:16px">
+<p style="margin:0 0 12px;font-weight:900;font-size:16px;text-transform:uppercase;color:#0C1B2E">{{ ttEdHeading }}</p>
+<div style="{{ ttK }}">Title</div>
+<input type="text" value="{{ ttEdTitle }}" sc-camel-on-change="{{ onTTEdTitle }}" style="{{ ttInp }};margin:6px 0 12px">
+<sc-if value="{{ ttEdIsLesson }}" hint-placeholder-val="{{ true }}">
+<div style="{{ ttK }}">Fundamental</div>
+<sc-raw-select value="{{ ttEdFund }}" sc-camel-on-change="{{ onTTEdFund }}" style="{{ ttInp }};margin:6px 0 12px">
+<sc-for list="{{ ttFundOptions }}" as="fo" hint-placeholder-count="10"><option value="{{ fo.value }}">{{ fo.label }}</option></sc-for>
+</sc-raw-select>
+<div style="{{ ttK }}">Video URL</div>
+<input type="url" value="{{ ttEdVideo }}" sc-camel-on-change="{{ onTTEdVideo }}" placeholder="https://www.youtube.com/watch?v=…" style="{{ ttInp }};margin:6px 0 4px">
+<p style="margin:0 0 12px;font-size:12px;color:#7E8D9C">{{ ttEdVideoNote }}</p>
+</sc-if>
+<div style="{{ ttK }}">Summary (optional)</div>
+<textarea value="{{ ttEdSummary }}" sc-camel-on-change="{{ onTTEdSummary }}" style="{{ ttTextArea }};margin:6px 0 12px"></textarea>
+<sc-if value="{{ ttEdIsLesson }}" hint-placeholder-val="{{ true }}">
+<div style="{{ ttK }}">Chapters (optional): time and title</div>
+<sc-for list="{{ ttEdChap }}" as="ec" hint-placeholder-count="2">
+<div style="display:flex;gap:6px;margin-top:6px"><input type="text" value="{{ ec.t }}" sc-camel-on-change="{{ ec.onT }}" placeholder="0:00" style="{{ ttInp }};width:78px;flex:none"><input type="text" value="{{ ec.label }}" sc-camel-on-change="{{ ec.onLabel }}" placeholder="Chapter title" style="{{ ttInp }}"><button sc-camel-on-click="{{ ec.onRemove }}" style="{{ ttBtnMini }}">✕</button></div>
+</sc-for>
+<button sc-camel-on-click="{{ onTTAddChap }}" style="{{ ttBtnMini }};margin:8px 0 14px">+ Add chapter</button>
+<div style="{{ ttK }}">Discussion questions</div>
+<sc-for list="{{ ttEdDisc }}" as="eq" hint-placeholder-count="1">
+<div style="display:flex;gap:6px;margin-top:6px"><textarea value="{{ eq.value }}" sc-camel-on-change="{{ eq.onChange }}" placeholder="{{ eq.ph }}" style="{{ ttTextArea }};min-height:48px"></textarea><button sc-camel-on-click="{{ eq.onRemove }}" style="{{ ttBtnMini }};align-self:flex-start">✕</button></div>
+</sc-for>
+<button sc-camel-on-click="{{ onTTAddDisc }}" style="{{ ttBtnMini }};margin:8px 0 14px">+ Add discussion question</button>
+<div style="{{ ttK }}">Additional questions</div>
+<sc-for list="{{ ttEdAdd }}" as="eq" hint-placeholder-count="1">
+<div style="display:flex;gap:6px;margin-top:6px"><textarea value="{{ eq.value }}" sc-camel-on-change="{{ eq.onChange }}" placeholder="{{ eq.ph }}" style="{{ ttTextArea }};min-height:48px"></textarea><button sc-camel-on-click="{{ eq.onRemove }}" style="{{ ttBtnMini }};align-self:flex-start">✕</button></div>
+</sc-for>
+<button sc-camel-on-click="{{ onTTAddAdd }}" style="{{ ttBtnMini }};margin:8px 0 14px">+ Add additional question</button>
+<div style="{{ ttK }}">Handouts: label and link (e.g. a Google Drive PDF)</div>
+<sc-for list="{{ ttEdHand }}" as="eh" hint-placeholder-count="1">
+<div style="display:flex;gap:6px;margin-top:6px"><input type="text" value="{{ eh.label }}" sc-camel-on-change="{{ eh.onLabel }}" placeholder="Printable PDF" style="{{ ttInp }};width:150px;flex:none"><input type="url" value="{{ eh.url }}" sc-camel-on-change="{{ eh.onUrl }}" placeholder="https://drive.google.com/…" style="{{ ttInp }}"><button sc-camel-on-click="{{ eh.onRemove }}" style="{{ ttBtnMini }}">✕</button></div>
+</sc-for>
+<button sc-camel-on-click="{{ onTTAddHand }}" style="{{ ttBtnMini }};margin:8px 0 14px">+ Add handout</button>
+<div style="{{ ttK }}">Transcript (optional)</div>
+<textarea value="{{ ttEdTranscript }}" sc-camel-on-change="{{ onTTEdTranscript }}" style="{{ ttTextArea }};min-height:120px;margin:6px 0 14px"></textarea>
+</sc-if>
+<div style="display:flex;flex-wrap:wrap;gap:8px">
+<button sc-camel-on-click="{{ onTTEdSave }}" style="{{ ttBtnNavy }}">Save</button>
+<button sc-camel-on-click="{{ onTTEdPreview }}" style="{{ ttBtnLine }}">Preview as a member</button>
+<button sc-camel-on-click="{{ onTTEdCancel }}" style="{{ ttBtnMini }}">Cancel</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ ttNotEditing }}" hint-placeholder-val="{{ true }}">
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:6px 12px 10px">
 <p style="margin:10px 4px 6px;font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C">{{ ttStudioSummary }}</p>
 <sc-for list="{{ ttStudioRows }}" as="lr" hint-placeholder-count="8">
@@ -5461,10 +5530,76 @@ sc-if,sc-for{display:none!important}
 <span style="flex:none;width:28px;text-align:center;font-weight:900;font-size:13px;color:#0C2647">{{ lr.num }}</span>
 <span style="min-width:0;flex:1"><span style="display:block;font-weight:800;font-size:9px;letter-spacing:.14em;color:#00A3E0">{{ lr.fund }}</span><span style="display:block;font-weight:700;font-size:13.5px;color:#0C1B2E;margin:2px 0 4px">{{ lr.title }}</span>
 <sc-for list="{{ lr.chips }}" as="cp" hint-placeholder-count="2"><sc-if value="{{ cp.ok }}" hint-placeholder-val="{{ false }}"><span style="{{ lr.okStyle }}">{{ cp.text }}</span></sc-if><sc-if value="{{ cp.miss }}" hint-placeholder-val="{{ true }}"><span style="{{ lr.chipStyle }}">{{ cp.text }}</span></sc-if></sc-for></span>
-<button sc-camel-on-click="{{ lr.onPreview }}" style="flex:none;background:transparent;border:2px solid #00A3E0;color:#0C2647;border-radius:9px;padding:7px 10px;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Preview</button>
+<button sc-camel-on-click="{{ lr.onEdit }}" style="flex:none;background:#0C2647;color:#fff;border:0;border-radius:9px;padding:8px 10px;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Edit</button>
+<button sc-camel-on-click="{{ lr.onPreview }}" style="flex:none;background:transparent;border:2px solid #00A3E0;color:#0C2647;border-radius:9px;padding:6px 10px;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Preview</button>
 </div>
 </sc-for>
 </div>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{ ttStudioIsVersions }}" hint-placeholder-val="{{ false }}">
+<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:14px 12px;margin-bottom:12px">
+<p style="margin:0 4px 4px;font-weight:900;font-size:14px;text-transform:uppercase;color:#0C1B2E">10-lesson version</p>
+<p style="margin:0 4px 10px;font-size:12.5px;color:#7E8D9C">{{ ttV10Count }}. Tick "Include in 10-lesson version" below, then set the order here. Editing a lesson changes it in both versions.</p>
+<sc-if value="{{ ttV10Empty }}" hint-placeholder-val="{{ false }}"><p style="margin:0 4px 6px;font-size:13px;color:#8F2D13">No lessons chosen yet.</p></sc-if>
+<sc-for list="{{ ttV10 }}" as="t" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:8px;border-top:1px solid #EEF3F8;padding:8px 4px"><span style="flex:none;width:24px;font-weight:900;color:#0C2647">{{ t.num }}</span><span style="flex:1;min-width:0;font-weight:700;font-size:13.5px;color:#0C1B2E">{{ t.title }}</span><button sc-camel-on-click="{{ t.onUp }}" style="{{ ttBtnMini }}">↑</button><button sc-camel-on-click="{{ t.onDown }}" style="{{ ttBtnMini }}">↓</button><button sc-camel-on-click="{{ t.onRemove }}" style="{{ ttBtnMini }}">✕</button></div>
+</sc-for>
+</div>
+<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:14px 12px">
+<p style="margin:0 4px 10px;font-weight:900;font-size:14px;text-transform:uppercase;color:#0C1B2E">36-lesson order</p>
+<sc-for list="{{ ttV36 }}" as="t" hint-placeholder-count="6">
+<div style="display:flex;align-items:center;gap:8px;border-top:1px solid #EEF3F8;padding:8px 4px">
+<button sc-camel-on-click="{{ t.onToggle10 }}" aria-label="Include in 10-lesson version" title="Include in 10-lesson version" style="{{ t.boxStyle }}">{{ t.box }}</button>
+<span style="flex:none;width:24px;font-weight:900;color:#0C2647">{{ t.num }}</span>
+<span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#00A3E0">{{ t.fund }}</span><span style="display:block;font-weight:700;font-size:13.5px;color:#0C1B2E">{{ t.title }}</span></span>
+<button sc-camel-on-click="{{ t.onUp }}" style="{{ ttBtnMini }}">↑</button><button sc-camel-on-click="{{ t.onDown }}" style="{{ ttBtnMini }}">↓</button>
+</div>
+</sc-for>
+</div>
+<div style="position:sticky;bottom:12px;margin-top:12px;display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #DCE6F0;border-radius:12px;padding:10px 12px;box-shadow:0 6px 20px rgba(12,38,71,.12)">
+<span style="flex:1;font-size:12.5px;color:#37475C">☐ / ☑ = Include in 10-lesson version</span>
+<button sc-camel-on-click="{{ onTTVerSave }}" style="{{ ttBtnNavy }}">Save versions</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ ttStudioIsCodes }}" hint-placeholder-val="{{ false }}">
+<sc-for list="{{ ttCodeCards }}" as="cc" hint-placeholder-count="2">
+<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:16px;margin-bottom:12px">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><p style="margin:0;font-weight:900;font-size:15px;text-transform:uppercase;color:#0C1B2E">{{ cc.title }} <span style="font-weight:700;font-size:11px;color:#7E8D9C">({{ cc.id }})</span></p><span style="{{ cc.statusStyle }}">{{ cc.status }}</span></div>
+<sc-if value="{{ cc.missing }}" hint-placeholder-val="{{ false }}">
+<p style="margin:10px 0;font-size:13px;color:#37475C">This program doesn't exist yet. Setting it up creates it with its default code, open to anyone who has it.</p>
+<button sc-camel-on-click="{{ cc.onSetup }}" style="{{ ttBtnNavy }}">Set up this program</button>
+</sc-if>
+<sc-if value="{{ cc.exists }}" hint-placeholder-val="{{ true }}">
+<div style="{{ ttK }};margin-top:12px">Join code (not case-sensitive)</div>
+<div style="display:flex;gap:6px;margin-top:6px"><input type="text" value="{{ cc.code }}" sc-camel-on-change="{{ cc.onCode }}" style="{{ ttInp }};font-weight:800;letter-spacing:.08em"><button sc-camel-on-click="{{ cc.onRotate }}" style="{{ ttBtnLine }}">Rotate</button></div>
+<div style="{{ ttK }};margin-top:12px">Email-domain limit (optional)</div>
+<input type="text" value="{{ cc.domain }}" sc-camel-on-change="{{ cc.onDomain }}" placeholder="e.g. school.org: leave blank for anyone" style="{{ ttInp }};margin-top:6px">
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px"><button sc-camel-on-click="{{ cc.onSave }}" style="{{ ttBtnNavy }}">Save code</button><button sc-camel-on-click="{{ cc.onToggle }}" style="{{ ttBtnLine }}">{{ cc.toggleLabel }}</button></div>
+<p style="margin:10px 0 0;font-size:12px;color:#7E8D9C">Rotating or switching a code off stops new joins only. People who already joined keep their access; use Members to remove someone.</p>
+</sc-if>
+</div>
+</sc-for>
+</sc-if>
+
+<sc-if value="{{ ttStudioIsMembers }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px"><p style="margin:0;font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C">{{ ttMemSummary }}</p><button sc-camel-on-click="{{ onTTMemReload }}" style="{{ ttBtnMini }}">Refresh</button></div>
+<sc-if value="{{ ttMemLoading }}" hint-placeholder-val="{{ false }}"><p style="font-size:13px;color:#7E8D9C">Loading…</p></sc-if>
+<sc-if value="{{ ttMemEmpty }}" hint-placeholder-val="{{ false }}"><p style="font-size:13px;color:#7E8D9C">Nobody has joined yet.</p></sc-if>
+<sc-for list="{{ ttMemGroups }}" as="mg" hint-placeholder-count="2">
+<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:12px;margin-bottom:12px">
+<p style="margin:2px 4px 6px;font-weight:900;font-size:13px;color:#0C1B2E">{{ mg.dom }} <span style="font-weight:700;font-size:11px;color:#7E8D9C">· {{ mg.count }}</span></p>
+<sc-for list="{{ mg.rows }}" as="mr" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:10px;border-top:1px solid #EEF3F8;padding:9px 4px">
+<span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:13.5px;color:#0C1B2E">{{ mr.name }}</span><span style="display:block;font-size:12px;color:#7E8D9C">{{ mr.email }} · {{ mr.ver }}</span></span>
+<span style="flex:none;font-weight:800;font-size:12px;color:#0C2647">{{ mr.prog }}</span>
+<button sc-camel-on-click="{{ mr.onRemove }}" style="flex:none;background:transparent;border:2px solid #D5502B;color:#8F2D13;border-radius:9px;padding:6px 10px;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Remove</button>
+</div>
+</sc-for>
+</div>
+</sc-for>
 </sc-if>
 </div>
 </sc-if>
@@ -8763,6 +8898,30 @@ async function ensureMember(code,opts){
     return {ok:false,error:'Could not join — check your connection and try again'};
   }
 }
+/* /api/tt-join: join Twin Thieves with its code (the raw typed code: it can
+   be longer than a Playbook code). Returns the server's JSON plus ok. A
+   Microsoft sign-in that still needs its mailbox confirmed is sent the
+   link, as ensureMember does. */
+async function ttJoinApi(code,first,last){
+  await authReady();
+  const u=firebase.auth().currentUser;
+  if(!u) return {ok:false,error:'Sign in first'};
+  try{
+    const r=await withTimeout(fetch('/api/tt-join',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
+      body:JSON.stringify({code,first,last})}),15000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    if(r.ok&&j.ok) return j;
+    const out={ok:false,status:r.status,reason:j.code||'',error:j.error||'Could not join. Check your connection and try again.'};
+    if(out.reason==='ms-verify'){
+      const s=await msVerifyApi({action:'send',code:cleanCode(code)});
+      const how=' Open it, tap Continue on the page it opens, then join again.';
+      if(s.ok&&s.verified) return ttJoinApi(code,first,last);
+      out.error=s.ok?'Check your email: we sent a link to '+u.email+' to confirm it is yours.'+how:(s.code==='wait'?s.error+how:s.error);
+    }
+    return out;
+  }catch(e){ console.error('ttJoinApi',e); return {ok:false,error:'Could not join. Check your connection and try again.'}; }
+}
 /* /api/ms-verify: {action:'send'} emails the one-time link, {action:'confirm',t}
    checks the secret the link carried. Returns the server's JSON plus ok. */
 async function msVerifyApi(body){
@@ -9072,7 +9231,7 @@ async function sset(key,val){ await fbReady(); await authReady(); try{ const s=J
        or change their own push:CODE:idkey only when it names them. Owner =
        signed-in user if available, else the email already inside the record.
        Shared/content keys are untouched. */
-    const _isMember=/^(resp|coach|gin|chat|push):/.test(key);
+    const _isMember=/^(resp|coach|gin|chat|push|ttm):/.test(key);
     let _payload={value:s};
     if(_isMember){
       let _oe=null;
@@ -10023,11 +10182,13 @@ class Component extends DCLogic {
          most — and only its "revoked" answer ends access. */
       try{
         [rec,tomb]=await Promise.all([
-          sgetStrict('resp:'+s.code+':'+s.idkey),
+          sgetStrict((this.isTT()?'ttm:':'resp:')+s.code+':'+s.idkey),
           sgetStrict('rev:'+s.code+':'+s.idkey)
         ]);
       }catch(e){
         if(!(e&&e.code==='permission-denied')) return;
+        // /api/join does not know Twin Thieves programs; a refusal alone never signs anyone out.
+        if(this.isTT()) return;
         const mem=await ensureMember(s.code);
         if(mem.ok||mem.reason!=='revoked'||this._revoked) return;
         if(this.state.code!==s.code||this.state.idkey!==s.idkey) return;
@@ -10507,10 +10668,11 @@ class Component extends DCLogic {
     const s=this.state, me=String(currentUserEmail()||'').trim().toLowerCase();
     const idkey=s.idkey||(me?slug(me):'');
     if(!idkey) return {idkey:'',keys:[],listed:false,names:{}};
-    const codes=new Set(); if(s.code) codes.add(s.code);
-    const names={}; if(s.code) names[s.code]=(s.org&&s.org.name)||s.code;
+    const own=s.code&&!this.isTT()?s.code:'';
+    const codes=new Set(); if(own) codes.add(own);
+    const names={}; if(own) names[own]=(s.org&&s.org.name)||own;
     const progs=me?await this.myPrograms(me).catch(()=>null):null;
-    (progs||[]).forEach(g=>{ codes.add(g.code); names[g.code]=g.orgName||g.code; });
+    (progs||[]).filter(g=>g.product!=='tt').forEach(g=>{ codes.add(g.code); names[g.code]=g.orgName||g.code; });
     return {idkey,listed:!!progs,names,
       keys:Array.from(codes).map(c=>'push:'+c+':'+idkey).concat(['push:'+idkey])};
   }
@@ -10683,6 +10845,8 @@ class Component extends DCLogic {
     }catch(e){ console.error('resumeNativePush',e); return false; }
   }
   async resumePush(){
+    // Twin Thieves has no notifications.
+    if(this.isTT()) return;
     // Switched off on this device: never registered again except by the switch.
     if(this.pushOffHere()){ this.setState({pushOn:false}); return; }
     if(this.isNativeApp()){ if(await this.resumeNativePush()) return; }
@@ -10702,7 +10866,7 @@ class Component extends DCLogic {
       if(prior&&prior.active===false) return;
     }
 
-    if(known) this.setState({pushOn:true}); if(navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); try{ let reg=await navigator.serviceWorker.getRegistration(); if(!reg) reg=await navigator.serviceWorker.register('firebase-messaging-sw.js'); if(!reg) return; await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js'); if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); this.attachForegroundPush(reg); await this.refreshPushToken(reg); this.bindPushRefresh(); this.syncReminderPrefs().catch(()=>{}); }catch(e){ console.error('resumePush',e); } } async refreshPushToken(reg){ if(!PUSH_VAPID_KEY) return; const s=this.state; if(!s.idkey||!s.code) return; try{ if(!reg) reg=await navigator.serviceWorker.getRegistration(); if(!reg) return; const token=await firebase.messaging().getToken({vapidKey:PUSH_VAPID_KEY,serviceWorkerRegistration:reg}); if(!token) return; const key=this.pushKey(); let rec=null; try{ rec=await sget(key); }catch(e){} rec=rec||{}; const changed=rec.token!==token||rec.active===false||String(rec.code||'')!==String(s.code||''); rec.token=token; rec.active=true; rec.name=s.name||rec.name||''; rec.code=s.code||rec.code||''; rec.idkey=s.idkey; rec.tz=(Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||rec.tz||'America/Chicago'; if(rec.remindHour==null) rec.remindHour=18; if(rec.remind5s==null) rec.remind5s=this.fiveSOn(); rec.at=Date.now(); delete rec.mutedAt; delete rec.mutedFor; await sset(key,rec); /* Deliberately no "one device, one account" claim here — records are keyed
+    if(known) this.setState({pushOn:true}); if(navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); try{ let reg=await navigator.serviceWorker.getRegistration(); if(!reg) reg=await navigator.serviceWorker.register('firebase-messaging-sw.js'); if(!reg) return; await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js'); if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); this.attachForegroundPush(reg); await this.refreshPushToken(reg); this.bindPushRefresh(); this.syncReminderPrefs().catch(()=>{}); }catch(e){ console.error('resumePush',e); } } async refreshPushToken(reg){ if(!PUSH_VAPID_KEY) return; const s=this.state; if(!s.idkey||!s.code||this.isTT()) return; try{ if(!reg) reg=await navigator.serviceWorker.getRegistration(); if(!reg) return; const token=await firebase.messaging().getToken({vapidKey:PUSH_VAPID_KEY,serviceWorkerRegistration:reg}); if(!token) return; const key=this.pushKey(); let rec=null; try{ rec=await sget(key); }catch(e){} rec=rec||{}; const changed=rec.token!==token||rec.active===false||String(rec.code||'')!==String(s.code||''); rec.token=token; rec.active=true; rec.name=s.name||rec.name||''; rec.code=s.code||rec.code||''; rec.idkey=s.idkey; rec.tz=(Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||rec.tz||'America/Chicago'; if(rec.remindHour==null) rec.remindHour=18; if(rec.remind5s==null) rec.remind5s=this.fiveSOn(); rec.at=Date.now(); delete rec.mutedAt; delete rec.mutedFor; await sset(key,rec); /* Deliberately no "one device, one account" claim here — records are keyed
      per program now, so two enrolments on the same phone both keep their
      reminders instead of the newer sign-in erasing the older. */ }catch(e){ console.error('refreshPushToken',e); } } bindPushRefresh(){ if(this._pushRefreshBound) return; this._pushRefreshBound=true; document.addEventListener('visibilitychange',()=>{ if(document.visibilityState!=='visible') return; if(typeof Notification==='undefined'||Notification.permission!=='granted') return; if(!this.state.idkey) return; const now=Date.now(); if(this._lastPushRefresh&&now-this._lastPushRefresh<6*60*60*1000) return; this._lastPushRefresh=now; this.refreshPushToken().catch(()=>{}); }); }
   /* Asked once per person, not once per device. A shared iPad, or a manager
@@ -10981,7 +11145,8 @@ class Component extends DCLogic {
   watchOtherGroups(){
     this.stopOtherWatch();
     const db=fb(); if(!db) return;
-    const gs=(this.state.myGroups||[]).filter(g=>g.code&&g.code!==this.state.code);
+    // Twin Thieves programs have no updates, sessions or chat to watch.
+    const gs=(this.state.myGroups||[]).filter(g=>g.code&&g.code!==this.state.code&&g.product!=='tt');
     if(!gs.length) return;
     this._otherUnsub=[];
     gs.forEach(g=>{
@@ -12492,7 +12657,7 @@ class Component extends DCLogic {
   // Mirror the preference and the device timezone onto the push record the
   // server reads. Silently does nothing if they never enabled notifications.
   async syncReminderPrefs(){
-    const s=this.state; if(!s.idkey||!s.code) return;
+    const s=this.state; if(!s.idkey||!s.code||this.isTT()) return;
     const key=this.pushKey();
     const rec=await sget(key); if(!rec||!rec.token) return;
     const c=this.remCfg();
@@ -13153,16 +13318,26 @@ class Component extends DCLogic {
       const m=await withTimeout(db.collection('members').doc(em).get(),9000);
       orgs=(m.exists&&Array.isArray(m.get('orgs')))?m.get('orgs'):[];
     }catch(e){ console.warn('myPrograms',e); return null; }
+    /* Twin Thieves programs are listed in their own ttmembers/{email}, which
+       the Playbook's rules never read. A refused or failed read adds none. */
+    try{
+      const t=await withTimeout(db.collection('ttmembers').doc(em).get(),9000);
+      const tto=(t.exists&&Array.isArray(t.get('orgs')))?t.get('orgs'):[];
+      orgs=orgs.concat(tto.filter(c=>c==='TT36'||c==='TT10'));
+    }catch(e){}
     const idkey=slug(em);
     const codes=Array.from(new Set(orgs.filter(c=>typeof c==='string'&&c)));
     const rows=await Promise.all(codes.map(async code=>{
       try{
-        const [rev,resp,org]=await Promise.all([
+        const [rev,respPB,org,ttm]=await Promise.all([
           sgetStrict('rev:'+code+':'+idkey),
           sgetStrict('resp:'+code+':'+idkey),
-          sgetStrict('org:'+code)]);
+          sgetStrict('org:'+code),
+          // Twin Thieves' own record; a refused read never drops a Playbook program.
+          sgetStrict('ttm:'+code+':'+idkey).catch(()=>null)]);
+        const tt=!!(org&&org.product==='tt'), resp=tt?ttm:respPB;
         if(rev||!resp||!org) return null;
-        return {code,idkey,name:resp.name||'',orgName:org.name||code};
+        return {code,idkey,name:resp.name||'',orgName:org.name||code,product:tt?'tt':'pb'};
       }catch(e){ return null; }
     }));
     return rows.filter(Boolean).sort((x,y)=>(x.orgName||'').localeCompare(y.orgName||''));
@@ -13184,6 +13359,13 @@ class Component extends DCLogic {
     if(!email||!name) return {ok:false,error:'Could not read your account details'};
     const idkey=slug(email);
     const mem=await ensureMember(code,{sendLink:true});
+    // Not a Playbook code: it may be Twin Thieves' (whose codes run longer).
+    if(!mem.ok&&mem.reason==='no-program'){
+      const parts=String(name).trim().split(/\s+/);
+      const tt=await ttJoinApi(raw,parts[0]||'',parts.slice(1).join(' ')||parts[0]||'');
+      if(tt.ok) return {ok:true,code:tt.code,orgName:'Twin Thieves Leadership'};
+      if(tt.reason!=='no-code') return {ok:false,error:tt.error};
+    }
     if(!mem.ok) return {ok:false,error:mem.error};
     try{
       const [org,revoked]=await Promise.all([
@@ -13213,12 +13395,12 @@ class Component extends DCLogic {
     if(s.gateAddBusy) return;
     const code=cleanCode(s.gateAddCode);
     if(!code) return this.toast('Enter the code first',true);
-    if((s.gatePrograms||[]).some(g=>g.code===code)) return this.toast('You are already in that group',true);
+    if((s.gatePrograms||[]).some(g=>g.code===code&&g.product!=='tt')) return this.toast('You are already in that group',true);
     const name=((s.gatePrograms||[]).find(g=>g.name)||{}).name||(s.resp&&s.resp.name)||'';
     // No name on the account yet: the full join form asks for it ("Back to my programs" returns).
     if(!name) return this.setState({enterNewCode:true,joinCode:code,gateAddCode:''});
     this.setState({gateAddBusy:true});
-    const r=await this.addProgram(code,name);
+    const r=await this.addProgram(s.gateAddCode,name);
     if(!r.ok){ this.setState({gateAddBusy:false}); return this.toast(r.error,true); }
     const progs=await this.myPrograms(currentUserEmail()).catch(()=>null);
     this.setState({gateAddBusy:false,gateAddCode:'',gatePrograms:progs&&progs.length?progs:s.gatePrograms});
@@ -13262,6 +13444,7 @@ class Component extends DCLogic {
       sgetStrict('rev:'+code+':'+idkey).then(v=>({v}),e=>({e}))
     ]);
     if(!org){ return false; }
+    if(org.product==='tt') return this.loadTTLeader(code,idkey,name,email,org,warm);
     if(!program){ return false; }
     const tomb=tombRes.e?null:tombRes.v;
     if(tomb&&!this._justJoined){
@@ -13339,6 +13522,14 @@ class Component extends DCLogic {
     if(this.state.gateDepts.length&&!this.state.joinDept) return this.toast('Pick your department',true);
     this.setState({joining:true});
     const mem=await ensureMember(code,{sendLink:true});
+    /* Not a Playbook code: it may be Twin Thieves'. /api/join answered
+       no-program first, so a Playbook join never gets here. */
+    if(!mem.ok&&mem.reason==='no-program'){
+      const tt=await ttJoinApi(this.state.joinCode,first,last);
+      if(tt.ok){ this._justJoined=true; const ok=await this.loadTTLeader(tt.code,slug(email),tt.name,email);
+        this.setState({joining:false}); if(ok) this.toast('Welcome to Twin Thieves Leadership'); return; }
+      if(tt.reason!=='no-code'){ this.setState({joining:false}); return this.toast(tt.error,true); }
+    }
     if(!mem.ok){ this.setState({joining:false}); return this.toast(mem.error,true); }
     const idkeyEarly=slug(email);
     const warm=(this._warm&&this._warm.code===code)?this._warm:null;
@@ -13425,6 +13616,7 @@ class Component extends DCLogic {
     try{ tomb=await sgetStrict('rev:'+saved.code+':'+saved.idkey); }catch(e){ err=e; }
     if(tomb) return 'revoked';
     if(!(err&&err.code==='permission-denied')) return 'go';
+    if(saved.product==='tt') return 'go';
     this._healTried=this._healTried||{};
     if(this._healTried[saved.code]) return 'go';
     this._healTried[saved.code]=true;
@@ -13491,6 +13683,8 @@ class Component extends DCLogic {
     code=cleanCode(code);
     if(!code){ this.toast('Email confirmed — enter your code to join.'); return false; }
     const mem=await ensureMember(code);
+    // A Twin Thieves code is longer than the link carries: ask for it again.
+    if(!mem.ok&&mem.reason==='no-program'){ this.toast('Email confirmed. Enter your code again to join.'); return false; }
     if(!mem.ok){ this.toast(mem.error,true); return false; }
     const me=String(currentUserEmail()||'').trim().toLowerCase(), idkey=slug(me);
     let resp=null; try{ resp=await sgetStrict('resp:'+code+':'+idkey); }catch(e){}
@@ -15215,13 +15409,236 @@ class Component extends DCLogic {
     return list;
   }
   ttDone(id){ const p=this.state.ttProg||{}; return !!(p[id]&&p[id].doneAt); }
+  /* Sign in to a Twin Thieves program: its own record (ttm:CODE:idkey, name,
+     email and progress only) and the lesson library. Nothing of the
+     Playbook's is read, started or scheduled. */
+  async loadTTLeader(code,idkey,name,email,org,warm){
+    const [orgR,recRes,tombRes,lib]=await Promise.all([
+      org?Promise.resolve(org):sget('org:'+code),
+      sgetStrict('ttm:'+code+':'+idkey).then(v=>({v}),e=>({e})),
+      sgetStrict('rev:'+code+':'+idkey).then(v=>({v}),e=>({e})),
+      sget('ttlib:master').catch(()=>null)]);
+    org=orgR;
+    if(!org||org.product!=='tt') return false;
+    const tomb=tombRes.e?null:tombRes.v;
+    if(tomb&&!this._justJoined){ this.revokeAccess(code,org.name||code); return false; }
+    if(recRes.e){ console.error('loadTTLeader',recRes.e); if(warm) return false;
+      this.setState({booting:false}); this.toast('Could not reach your account. Check your connection and try again.',true); return false; }
+    let rec=recRes.v;
+    if(!rec){ if(!this._justJoined){ this.revokeAccess(code,org.name||code); return false; }
+      rec={name:name||'',email:email||'',idkey,code,joinedAt:Date.now(),progress:{}}; }
+    this._justJoined=false;
+    try{ localStorage.setItem('jj_session',JSON.stringify({role:'leader',code,idkey,name:rec.name,email:rec.email,product:'tt'})); }catch(e){}
+    // Leaving a Playbook program for this one: its live listeners stop.
+    try{ this.stopFeedWatch(); this.stopChat(); this.stopReleaseWatch(); clearTimeout(this._fiveSTimer); }catch(e){}
+    this.setState({booting:false,role:'leader',view:'tthome',tab:'lessons',org,program:null,resp:null,code,idkey,
+      name:rec.name,email:rec.email,ttRec:rec,ttProg:rec.progress||{},ttLib:lib&&Array.isArray(lib.lessons)?lib:null,
+      previewMode:false,ttDemo:false,drafts:{}},()=>{ this.loadMyGroups(rec.email).catch(()=>{}); });
+    window.scrollTo(0,0);
+    return true;
+  }
   ttOpen(id){ this.setState({view:'ttlesson',tab:'lessons',ttLessonId:id,ttTab:'overview',ttPlay:false,ttSeek:0}); window.scrollTo(0,0); }
   ttToggleDone(id){
     const p=Object.assign({},this.state.ttProg||{}), done=!this.ttDone(id);
     if(done) p[id]={doneAt:Date.now()}; else delete p[id];
     this.setState({ttProg:p});
-    // The design preview saves nothing; saving to ttm:CODE:idkey comes with the member side.
-    if(this.state.ttDemo) this.toast(done?'Marked complete (preview: not saved)':'Marked not complete (preview)');
+    if(this.state.ttDemo) return this.toast(done?'Marked complete (preview: not saved)':'Marked not complete (preview)');
+    // Owner-only: ttm:CODE:idkey holds the name, email and progress.
+    const s=this.state; if(!s.code||!s.idkey||!this.isTT()) return;
+    const rec=Object.assign({},s.ttRec||{name:s.name||'',email:s.email||'',idkey:s.idkey,code:s.code},{progress:p,updatedAt:Date.now()});
+    sset('ttm:'+s.code+':'+s.idkey,rec).then(ok=>{ if(ok) this.setState({ttRec:rec}); else this.toast('Could not save. Try again.',true); });
+  }
+  /* ---- Studio: Twin Thieves view ---- */
+  /* Loads the lesson library and the two programs when the Twin Thieves
+     view opens (admins read them directly; nothing of the Playbook's). */
+  async ttStudioLoad(){
+    if(this.state.ttDemo) return;
+    const [lib,o36,o10]=await Promise.all([sget('ttlib:master').catch(()=>null),sget('org:TT36').catch(()=>null),sget('org:TT10').catch(()=>null)]);
+    this.setState({ttLib:lib&&Array.isArray(lib.lessons)?lib:ttSeedLibrary(),ttLibSaved:!!(lib&&Array.isArray(lib.lessons)),
+      ttOrgs:[o36,o10].filter(Boolean)});
+  }
+  ttSaveLib(lib,msg){
+    if(this.state.ttDemo){ this.setState({ttLib:lib}); return this.toast((msg||'Saved')+' (preview: not saved)'); }
+    return this.guard('save Twin Thieves lessons',async()=>{
+      const out=Object.assign({},lib,{updatedAt:Date.now()});
+      if(!(await sset('ttlib:master',out))) return this.toast('Could not save',true);
+      this.setState({ttLib:out,ttLibSaved:true}); this.toast(msg||'Saved');
+    })();
+  }
+  ttOrgRec(id){ return (this.state.ttOrgs||[]).find(o=>o&&o.code===id)||null; }
+  ttSaveOrg(id,patch,msg){
+    const cur=this.ttOrgRec(id)||{code:id,name:'Twin Thieves Leadership · '+(id==='TT10'?'10':'36')+' lessons',
+      product:'tt',ttVersion:id==='TT10'?10:36,joinCode:id==='TT10'?'TWINTHIEVES10':'TWINTHIEVES36',joinDisabled:false,joinDomain:'',createdAt:Date.now()};
+    const next=Object.assign({},cur,patch);
+    const put=()=>this.setState({ttOrgs:(this.state.ttOrgs||[]).filter(o=>o&&o.code!==id).concat([next])});
+    if(this.state.ttDemo){ put(); return this.toast((msg||'Saved')+' (preview: not saved)'); }
+    return this.guard('change Twin Thieves codes',async()=>{
+      // Onto the saved record, so nothing newer is overwritten.
+      let saved=null; try{ saved=await sgetStrict('org:'+id); }catch(e){ return this.toast('Could not reach the program. Try again.',true); }
+      if(saved&&saved.product!=='tt') return this.toast('org:'+id+' is not a Twin Thieves program. Nothing was changed.',true);
+      const rec=Object.assign({},saved||cur,patch);
+      if(!(await sset('org:'+id,rec))) return this.toast('Could not save',true);
+      this.setState({ttOrgs:(this.state.ttOrgs||[]).filter(o=>o&&o.code!==id).concat([rec])}); this.toast(msg||'Saved');
+    })();
+  }
+  async ttLoadMembers(){
+    if(this.state.ttDemo) return this.setState({ttMembers:[
+      {code:'TT36',idkey:'ava-school-org',name:'Ava Sample',email:'ava@school.org',progress:{tt01:{doneAt:1},tt02:{doneAt:1}}},
+      {code:'TT36',idkey:'ben-school-org',name:'Ben Sample',email:'ben@school.org',progress:{}},
+      {code:'TT10',idkey:'cam-acme-com',name:'Cam Sample',email:'cam@acme.com',progress:{tt04:{doneAt:1}}}]});
+    this.setState({ttMemBusy:true});
+    const rows=[];
+    for(const code of ['TT36','TT10']){ try{ (await slistDocs('ttm:'+code+':')).forEach(r=>{ if(r&&r.idkey) rows.push(Object.assign({code},r)); }); }catch(e){} }
+    this.setState({ttMembers:rows,ttMemBusy:false});
+  }
+  /* Remove: the same order as the Playbook's Remove, for this product only:
+     a rev: tombstone, the code out of ttmembers/{email}.orgs, then the record. */
+  ttRemoveMember(m){
+    if(!window.confirm('Remove '+(m.name||m.email)+' from Twin Thieves Leadership ('+m.code+')? Their progress is deleted.')) return;
+    if(this.state.ttDemo){ this.setState({ttMembers:(this.state.ttMembers||[]).filter(x=>!(x.code===m.code&&x.idkey===m.idkey))}); return this.toast('Removed (preview)'); }
+    return this.guard('remove this member',async()=>{
+      const email=String(m.email||'').trim().toLowerCase();
+      if(!(await sset('rev:'+m.code+':'+m.idkey,{at:Date.now(),email,emails:[email]}))) return this.toast('Could not remove. Try again.',true);
+      try{ const db=fb(); if(db&&email) await db.collection('ttmembers').doc(email).update({
+        orgs:firebase.firestore.FieldValue.arrayRemove(m.code),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}); }
+      catch(e){ return this.toast('Access partly removed. Tap Remove again to finish.',true); }
+      await sdel('ttm:'+m.code+':'+m.idkey);
+      this.setState({ttMembers:(this.state.ttMembers||[]).filter(x=>!(x.code===m.code&&x.idkey===m.idkey))});
+      this.toast('Removed');
+    })();
+  }
+  ttStudioVM(v){
+    const s=this.state, lib=this.ttLib(), tab=s.ttAdminTab||'lessons';
+    const by={}; lib.lessons.forEach(l=>{ by[l.id]=l; });
+    const K='font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C';
+    const INPS='width:100%;box-sizing:border-box;background:#fff;border:1px solid #C6D4E2;border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:#0C1B2E';
+    const BTN_NAVY='background:#0C2647;color:#fff;border:2px solid #0C2647;border-radius:10px;padding:10px 16px;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer';
+    const BTN_LINE='background:transparent;color:#0C2647;border:2px solid #00A3E0;border-radius:10px;padding:8px 12px;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer';
+    const BTN_MINI='background:#EAF1F8;color:#0C2647;border:0;border-radius:8px;padding:6px 10px;font-family:inherit;font-weight:800;font-size:11px;cursor:pointer';
+    Object.assign(v,{ttK:K,ttInp:INPS,ttBtnNavy:BTN_NAVY,ttBtnLine:BTN_LINE,ttBtnMini:BTN_MINI,
+      ttTextArea:INPS+';min-height:74px;resize:vertical;line-height:1.5'});
+    v.ttStudioTabs=[['lessons','Lessons'],['versions','Versions'],['codes','Codes'],['members','Members & progress']].map(([k,label])=>({label,
+      onTap:()=>{ this.setState({ttAdminTab:k,ttEditId:null,ttDraft:null}); if(k==='members') this.ttLoadMembers().catch(()=>{}); },
+      style:'border:0;border-radius:999px;padding:7px 12px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;'
+        +(tab===k?'background:#0C2647;color:#FADA01':'background:#EAF1F8;color:#37475C')}));
+    v.ttStudioIsLessons=tab==='lessons'; v.ttStudioIsVersions=tab==='versions';
+    v.ttStudioIsCodes=tab==='codes'; v.ttStudioIsMembers=tab==='members';
+    v.ttLibUnsaved=!s.ttDemo&&!s.ttLibSaved;
+    const miss=l=>[!l.videoUrl&&'Video',!(l.discussion||[]).length&&!(l.additional||[]).length&&'Questions',!(l.handouts||[]).some(h=>h&&h.url)&&'Handout'].filter(Boolean);
+    const all=this.ttLessons(36);
+    // Lessons: the overview, and the editor for one lesson.
+    const editing=s.ttEditId&&s.ttDraft;
+    v.ttEditing=!!editing; v.ttNotEditing=!editing;
+    v.ttStudioSummary=all.filter(l=>!l.closing).length+' lessons and a closing Thank you! · '
+      +all.filter(l=>!l.closing&&!miss(l).length).length+' complete';
+    v.ttStudioRows=all.map(l=>{ const m=l.closing?[]:miss(l);
+      return {num:l.closing?'—':String(l.n),fund:(TT_FUND_NAMES[l.fund]||'').toUpperCase()||'CLOSING',title:l.title,
+        chips:m.length?m.map(x=>({text:'No '+x.toLowerCase(),miss:true,ok:false})):[{text:l.closing?'Closing page':'Ready',ok:true,miss:false}],
+        chipStyle:'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 8px;margin:0 4px 4px 0;background:#FDECE6;color:#8F2D13',
+        okStyle:'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 8px;background:#E3F3EA;color:#2F7F55',
+        onEdit:()=>{ this.setState({ttEditId:l.id,ttDraft:JSON.parse(JSON.stringify(by[l.id]||l))}); window.scrollTo(0,0); },
+        onPreview:()=>this.ttPreviewAsMember(lib,l.id)};
+    });
+    if(editing){
+      const d=s.ttDraft, set=patch=>this.setState({ttDraft:Object.assign({},this.state.ttDraft,patch)});
+      const listEd=(key,ph)=>(d[key]||[]).map((q,i)=>({value:q,ph,
+        onChange:e=>{ const a=(this.state.ttDraft[key]||[]).slice(); a[i]=e.target.value; set({[key]:a}); },
+        onRemove:()=>{ const a=(this.state.ttDraft[key]||[]).slice(); a.splice(i,1); set({[key]:a}); }}));
+      v.ttEdHeading=d.closing?'Closing: Thank you!':('Lesson '+((all.find(x=>x.id===d.id)||{}).n||'')+' · '+(d.title||'Untitled'));
+      v.ttEdIsLesson=!d.closing;
+      v.ttEdTitle=d.title||''; v.onTTEdTitle=e=>set({title:e.target.value});
+      v.ttEdFund=d.fund||'overview'; v.onTTEdFund=e=>set({fund:e.target.value});
+      v.ttFundOptions=TT_FUND_ORDER.map(k=>({value:k,label:TT_FUND_NAMES[k]}));
+      v.ttEdVideo=d.videoUrl||''; v.onTTEdVideo=e=>set({videoUrl:e.target.value.trim()});
+      const vk=ttVideo(d.videoUrl).kind;
+      v.ttEdVideoNote=!d.videoUrl?'YouTube, Vimeo, Google Drive or a direct MP4 link.'
+        :(vk==='file'?'Plays as a video file. Chapters jump to their time.':(/youtu|vimeo/i.test(d.videoUrl)?'Embedded player. Chapters jump to their time.':'Shown in a frame (e.g. Google Drive). Chapters cannot jump the video.'));
+      v.ttEdSummary=d.summary||''; v.onTTEdSummary=e=>set({summary:e.target.value});
+      v.ttEdTranscript=d.transcript||''; v.onTTEdTranscript=e=>set({transcript:e.target.value});
+      v.ttEdDisc=listEd('discussion','A discussion question');
+      v.onTTAddDisc=()=>set({discussion:(d.discussion||[]).concat([''])});
+      v.ttEdAdd=listEd('additional','An additional question');
+      v.onTTAddAdd=()=>set({additional:(d.additional||[]).concat([''])});
+      v.ttEdHand=(d.handouts||[]).map((h,i)=>({label:h.label||'',url:h.url||'',
+        onLabel:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.handouts||[])); a[i].label=e.target.value; set({handouts:a}); },
+        onUrl:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.handouts||[])); a[i].url=e.target.value.trim(); set({handouts:a}); },
+        onRemove:()=>{ const a=(this.state.ttDraft.handouts||[]).slice(); a.splice(i,1); set({handouts:a}); }}));
+      v.onTTAddHand=()=>set({handouts:(d.handouts||[]).concat([{label:'Printable PDF',url:''}])});
+      v.ttEdChap=(d.chapters||[]).map((c,i)=>({t:c.t||'',label:c.label||'',
+        onT:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.chapters||[])); a[i].t=e.target.value.trim(); set({chapters:a}); },
+        onLabel:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.chapters||[])); a[i].label=e.target.value; set({chapters:a}); },
+        onRemove:()=>{ const a=(this.state.ttDraft.chapters||[]).slice(); a.splice(i,1); set({chapters:a}); }}));
+      v.onTTAddChap=()=>set({chapters:(d.chapters||[]).concat([{t:'0:00',label:''}])});
+      const clean=()=>{ const x=JSON.parse(JSON.stringify(this.state.ttDraft));
+        x.title=String(x.title||'').trim()||'Untitled';
+        ['discussion','additional'].forEach(k=>{ x[k]=(x[k]||[]).map(q=>String(q||'').trim()).filter(Boolean); });
+        x.handouts=(x.handouts||[]).filter(h=>h&&String(h.label||'').trim()).map(h=>({label:String(h.label).trim(),url:String(h.url||'').trim()}));
+        x.chapters=(x.chapters||[]).filter(c=>c&&String(c.label||'').trim()).map(c=>({t:String(c.t||'0:00').trim(),label:String(c.label).trim()}));
+        return x; };
+      const withDraft=()=>{ const x=clean(); return Object.assign({},lib,{lessons:lib.lessons.map(l=>l.id===x.id?x:l)}); };
+      v.onTTEdSave=()=>{ this.ttSaveLib(withDraft(),'Lesson saved'); this.setState({ttEditId:null,ttDraft:null}); };
+      v.onTTEdPreview=()=>this.ttPreviewAsMember(withDraft(),s.ttEditId);
+      v.onTTEdCancel=()=>this.setState({ttEditId:null,ttDraft:null});
+    }
+    // Versions: the 36-lesson order, and the 10-lesson picks and their order.
+    const o36=lib.order36||[], o10=lib.order10||[];
+    const move=(arr,i,dir)=>{ const a=arr.slice(), j=i+dir; if(j<0||j>=a.length) return a; [a[i],a[j]]=[a[j],a[i]]; return a; };
+    v.ttV36=o36.map((id,i)=>{ const l=by[id]||{}; const in10=o10.indexOf(id)>=0;
+      return {num:String(i+1),title:l.title||id,fund:TT_FUND_NAMES[l.fund]||'',
+        box:in10?'☑':'☐',boxStyle:'flex:none;background:none;border:0;cursor:pointer;font-size:20px;line-height:1;padding:0 2px;color:'+(in10?'#2F7F55':'#9DAAB8'),
+        onToggle10:()=>{ const n10=in10?o10.filter(x=>x!==id):o10.concat([id]); this.setState({ttLib:Object.assign({},lib,{order10:n10}),ttVerDirty:true}); },
+        onUp:()=>this.setState({ttLib:Object.assign({},lib,{order36:move(o36,i,-1)}),ttVerDirty:true}),
+        onDown:()=>this.setState({ttLib:Object.assign({},lib,{order36:move(o36,i,1)}),ttVerDirty:true})}; });
+    v.ttV10=o10.map((id,i)=>{ const l=by[id]||{};
+      return {num:String(i+1),title:l.title||id,
+        onUp:()=>this.setState({ttLib:Object.assign({},lib,{order10:move(o10,i,-1)}),ttVerDirty:true}),
+        onDown:()=>this.setState({ttLib:Object.assign({},lib,{order10:move(o10,i,1)}),ttVerDirty:true}),
+        onRemove:()=>this.setState({ttLib:Object.assign({},lib,{order10:o10.filter(x=>x!==id)}),ttVerDirty:true})}; });
+    v.ttV10Count=o10.length+' of 10 chosen'+(o10.length>10?' (more than 10)':'');
+    v.ttV10Empty=!o10.length;
+    v.ttVerDirty=!!s.ttVerDirty;
+    v.onTTVerSave=()=>{ this.ttSaveLib(lib,'Versions saved'); this.setState({ttVerDirty:false}); };
+    // Codes: one card per program.
+    v.ttCodeCards=['TT36','TT10'].map(id=>{ const o=this.ttOrgRec(id), ver=id==='TT10'?10:36;
+      const edit=(s.ttCodeEdit||{})[id]||{};
+      const code=edit.code!=null?edit.code:(o?o.joinCode||'':'');
+      const dom=edit.domain!=null?edit.domain:(o?o.joinDomain||'':'');
+      const setE=p=>this.setState({ttCodeEdit:Object.assign({},s.ttCodeEdit||{},{[id]:Object.assign({},edit,p)})});
+      const off=!!(o&&o.joinDisabled);
+      return {title:ver+'-lesson version',id,exists:!!o,missing:!o,
+        status:!o?'Not set up yet':(off?'Code switched off':'Open: anyone with the code can join'+(o.joinDomain?' (only @'+o.joinDomain+')':'')),
+        statusStyle:'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;border-radius:999px;padding:3px 9px;'
+          +(!o?'background:#EAF1F8;color:#37475C':(off?'background:#FDECE6;color:#8F2D13':'background:#E3F3EA;color:#2F7F55')),
+        code,domain:dom,
+        onCode:e=>setE({code:String(e.target.value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,20)}),
+        onDomain:e=>setE({domain:String(e.target.value||'').trim().toLowerCase().replace(/^@/,'')}),
+        onRotate:()=>{ const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let r=''; for(let k=0;k<4;k++) r+=A[Math.floor(Math.random()*A.length)];
+          setE({code:'TWINTHIEVES'+ver+r}); },
+        onSetup:()=>this.ttSaveOrg(id,{},'Program set up with code TWINTHIEVES'+ver),
+        onSave:()=>{ if(!code) return this.toast('Enter a code',true); if(code.length<6) return this.toast('Use at least 6 letters or digits',true);
+          const other=this.ttOrgRec(id==='TT10'?'TT36':'TT10'); if(other&&String(other.joinCode||'')===code) return this.toast('That is the other version\'s code',true);
+          this.ttSaveOrg(id,{joinCode:code,joinDomain:dom},'Code saved'); this.setState({ttCodeEdit:Object.assign({},s.ttCodeEdit||{},{[id]:{}})}); },
+        toggleLabel:off?'Switch code on':'Switch code off',
+        onToggle:()=>this.ttSaveOrg(id,{joinDisabled:!off},off?'Code switched on':'Code switched off')};
+    });
+    // Members and progress, grouped by email domain (the organization, for a solo product).
+    const mem=s.ttMembers||[], groups={};
+    mem.forEach(m=>{ const dom=String(m.email||'').split('@')[1]||'(no email)'; (groups[dom]=groups[dom]||[]).push(m); });
+    v.ttMemLoading=!!s.ttMemBusy; v.ttMemEmpty=!s.ttMemBusy&&!mem.length;
+    v.ttMemSummary=mem.length+' member'+(mem.length===1?'':'s')+' · '+Object.keys(groups).length+' organization'+(Object.keys(groups).length===1?'':'s');
+    v.ttMemGroups=Object.keys(groups).sort().map(dom=>({dom:'@'+dom,count:groups[dom].length+' member'+(groups[dom].length===1?'':'s'),
+      rows:groups[dom].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(m=>{
+        const tot=this.ttLessons(m.code==='TT10'?10:36).filter(l=>!l.closing).length||(m.code==='TT10'?10:36);
+        const done=Object.keys(m.progress||{}).filter(k=>m.progress[k]&&m.progress[k].doneAt).length;
+        return {name:m.name||m.email,email:m.email,ver:m.code==='TT10'?'10 lessons':'36 lessons',prog:done+' of '+tot,
+          onRemove:()=>this.ttRemoveMember(m)}; })}));
+    v.onTTMemReload=()=>this.ttLoadMembers();
+  }
+  /* Preview a lesson exactly as a member sees it, from Studio (drafts included). */
+  ttPreviewAsMember(lib,id){
+    this._ttStudioLib=this.state.ttLib;
+    this.setState({role:'leader',ttFromStudio:true,ttLib:lib,ttPreviewing:true,
+      org:{code:'TT36',name:'Twin Thieves Leadership',product:'tt',ttVersion:36}},()=>this.ttOpen(id));
   }
   /* Design preview: sample content, no sign-in, nothing saved. */
   startTTDemo(which){
@@ -15230,7 +15647,8 @@ class Component extends DCLogic {
     const org={code:'TT36',name:'Twin Thieves Leadership',product:'tt',ttVersion:36};
     _gateSignIn=false;
     if(which==='studio') return this.setState({booting:false,role:'admin',view:'admin',adminTab:'orgs',
-      adminProduct:'tt',ttAdminTab:'lessons',orgList:[],name:'Preview',ttLib:lib,ttProg:prog,ttDemo:true,org});
+      adminProduct:'tt',ttAdminTab:'lessons',orgList:[],name:'Preview',ttLib:lib,ttProg:prog,ttDemo:true,org,ttLibSaved:true,
+      ttOrgs:[{code:'TT36',name:'Twin Thieves Leadership · 36 lessons',product:'tt',ttVersion:36,joinCode:'TWINTHIEVES36',joinDisabled:false,joinDomain:''}]});
     this.setState({booting:false,role:'leader',view:which==='lesson'?'ttlesson':'tthome',tab:'lessons',
       ttLessonId:'tt04',ttTab:'overview',name:'Preview',org,ttLib:lib,ttProg:prog,ttDemo:true});
   }
@@ -15244,35 +15662,21 @@ class Component extends DCLogic {
     const prodTT=s.role==='admin'&&s.adminProduct==='tt';
     v.prodTabs=[['pb','Championship Playbook'],['tt','Twin Thieves Leadership']].map(([k,label])=>{
       const on=(k==='tt')===prodTT;
-      return {label,onTap:()=>this.setState({adminProduct:k}),
+      return {label,onTap:()=>{ this.setState({adminProduct:k}); if(k==='tt') this.ttStudioLoad().catch(()=>{}); },
         style:'flex:1 1 0;border:0;border-radius:8px;padding:10px 8px;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;'
           +(on?(k==='tt'?'background:#FADA01;color:#0C2647':'background:#0C2647;color:#fff'):'background:transparent;color:#7E8D9C')};
     });
     v.showAdminTT=v.showAdmin&&prodTT; v.showAdmin=v.showAdmin&&!prodTT;
-    if(v.showAdminTT){
-      const all=this.ttLessons(36), tab=s.ttAdminTab||'lessons';
-      v.ttStudioTabs=[['lessons','Lessons'],['versions','Versions'],['codes','Codes'],['members','Members & progress']].map(([k,label])=>({label,
-        onTap:()=>this.setState({ttAdminTab:k}),
-        style:'border:0;border-radius:999px;padding:7px 12px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;'
-          +(tab===k?'background:#0C2647;color:#FADA01':'background:#EAF1F8;color:#37475C')}));
-      v.ttStudioIsLessons=tab==='lessons'; v.ttStudioIsLater=tab!=='lessons';
-      v.ttStudioLaterText={versions:'Versions: the 10-lesson picker and its order, and the 36-lesson order.',
-        codes:'Codes: TWINTHIEVES10 and TWINTHIEVES36, with rotate, disable and an optional email-domain limit.',
-        members:'Members and progress, grouped by organization or email domain, with Remove.'}[tab]||'';
-      const miss=l=>[!l.videoUrl&&'Video',!(l.discussion||[]).length&&!(l.additional||[]).length&&'Questions',!(l.handouts||[]).some(h=>h&&h.url)&&'Handout'].filter(Boolean);
-      v.ttStudioSummary=all.filter(l=>!l.closing).length+' lessons and a closing Thank you! · '
-        +all.filter(l=>!l.closing&&!miss(l).length).length+' complete';
-      v.ttStudioRows=all.map(l=>{ const m=l.closing?[]:miss(l);
-        return {num:l.closing?'—':String(l.n),fund:(TT_FUND_NAMES[l.fund]||'').toUpperCase()||'CLOSING',title:l.title,
-          chips:m.length?m.map(x=>({text:'No '+x.toLowerCase(),miss:true,ok:false})):[{text:l.closing?'Closing page':'Ready',ok:true,miss:false}],
-          chipStyle:'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 8px;margin:0 4px 4px 0;background:#FDECE6;color:#8F2D13',
-          okStyle:'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 8px;background:#E3F3EA;color:#2F7F55',
-          onPreview:()=>{ this.setState({role:'leader',ttFromStudio:true}); this.ttOpen(l.id); }};
-      });
-    }
-    v.ttBackToStudio=!!s.ttFromStudio&&!!s.ttDemo;
-    v.onTTBackToStudio=()=>this.setState({role:'admin',view:'admin',adminProduct:'tt',ttFromStudio:false});
+    if(v.showAdminTT) this.ttStudioVM(v);
+    v.ttBackToStudio=!!s.ttFromStudio;
+    v.onTTBackToStudio=()=>{ const back={role:'admin',view:'admin',adminProduct:'tt',ttFromStudio:false,ttPreviewing:false};
+      if(s.ttPreviewing){ back.ttLib=this._ttStudioLib||s.ttLib; back.org=s.ttDemo?s.org:null; }
+      this.setState(back); window.scrollTo(0,0); };
     if(!tt) return;
+    // My Profile: who they are, their groups, and what is kept. Solo: no people, map or chat.
+    v.ttMeName=s.name||''; v.ttMeEmail=s.email||'';
+    v.ttMeGroups=(s.myGroups||[]).length>1?(s.myGroups.length+' groups · switch or add a code'):'Add a code for another group';
+    v.onTTMyGroups=()=>{ if(s.ttDemo) return this.toast('Preview: My groups opens the program picker'); this.openMyGroups(); };
     const list=this.ttLessons(), lessons=list.filter(l=>!l.closing), total=lessons.length;
     const doneN=lessons.filter(l=>this.ttDone(l.id)).length;
     const pct=total?Math.round(doneN/total*100):0;
@@ -16412,7 +16816,7 @@ class Component extends DCLogic {
     /* On a narrow screen the mark alone carries the brand, so the wordmark
        steps aside and gives the organization name the width. */
     v.wordmarkL1='The Championship'; v.wordmarkL2='Teams Playbook';
-    v.navProductLabel=this.isTT()?'Twin Thieves':'The Playbook';
+    v.navProductLabel=(this.isTT()||(s.role==='admin'&&s.adminProduct==='tt'))?'Twin Thieves':'The Playbook';
     v.wordmarkStyle=(s.wide?'display:block':'display:none')
       +';flex:0 1 auto;min-width:0;font-weight:700;font-size:8px;letter-spacing:.22em;'
       +'text-transform:uppercase;color:#7E8D9C;line-height:1.3;overflow:hidden;text-overflow:ellipsis';
@@ -16507,7 +16911,7 @@ class Component extends DCLogic {
     v.onResumeGate=()=>this.setState({view:'gate',joinCode:(s.known&&s.known.code)||''});
     v.showGate=V('gate'); v.showHome=V('home'); v.showFund=V('fund');
     v.showItem=V('item'); v.showToolkit=V('toolkit'); v.showTool=V('tool'); v.showProgress=V('progress');
-    v.showTTHome=V('tthome'); v.showTTLesson=V('ttlesson');
+    v.showTTHome=V('tthome'); v.showTTLesson=V('ttlesson'); v.showTTMe=V('ttme');
     v.showMe=V('me'); v.showAdmin=V('admin'); v.showHub=V('hub'); v.showStreak=V('streak'); v.showAssess=V('assess'); v.showScore=V('score');
     v.showOrgDash=V('orgdash');
     v.showPerf=V('perf');
@@ -17970,14 +18374,21 @@ class Component extends DCLogic {
     const picks=(s.gatePrograms||[]);
     v.gatePick=v.gateSignedIn&&picks.length>0&&!s.enterNewCode;
     const fromApp=s.role==='leader'&&!!s.code;
-    v.gatePickList=picks.map(g=>{ const here=fromApp&&g.code===s.code;
-      return {label:g.orgName||g.code,sub:here?g.code+' · you are here':g.code,
+    /* Playbook programs first, then Twin Thieves under its own heading, so
+       the two products never run together. */
+    const pbPicks=picks.filter(g=>g.product!=='tt'), ttPicks=picks.filter(g=>g.product==='tt');
+    const pickRow=g=>{ const here=fromApp&&g.code===s.code, tt=g.product==='tt';
+      const id=tt?('Twin Thieves · '+(g.code==='TT10'?'10':'36')+' lessons'):g.code;
+      return {isHead:false,isPick:true,label:tt?'Twin Thieves Leadership':(g.orgName||g.code),sub:here?id+' · you are here':id,
         style:'display:block;width:100%;max-width:300px;margin:0 auto 10px;background:#FFFFFF;color:#0C1B2E;border:2px solid '
           +(here?'#FADA01':'#FFFFFF')+';border-radius:14px;padding:12px 16px;font-family:inherit;cursor:pointer;text-align:left;box-shadow:0 6px 22px rgba(0,0,0,.25)',
-        onPick:()=>{ if(s.gatePickBusy) return; this.pickProgram(g); }}; });
+        onPick:()=>{ if(s.gatePickBusy) return; this.pickProgram(g); }}; };
+    v.gatePickList=pbPicks.map(pickRow).concat(ttPicks.length&&pbPicks.length
+      ?[{isHead:true,isPick:false,text:'Twin Thieves Leadership'}]:[]).concat(ttPicks.map(pickRow));
     v.gatePickBusy=!!s.gatePickBusy;
     v.gateAddCode=s.gateAddCode||'';
-    v.onGateAddCode=e=>this.setState({gateAddCode:cleanCode(e.target.value)});
+    // Up to 20 characters: Twin Thieves codes are longer than a Playbook code (which join trims to 12).
+    v.onGateAddCode=e=>this.setState({gateAddCode:String(e.target.value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,20)});
     v.onGateAddSubmit=e=>{ if(e&&e.preventDefault) e.preventDefault(); this.gateAddProgram(); };
     const addReady=!!s.gateAddCode&&!s.gateAddBusy;
     v.gateAddBtnLabel=s.gateAddBusy?'Joining…':'Join';
@@ -23943,7 +24354,7 @@ class Component extends DCLogic {
       /* A Twin Thieves program has only its lessons and the profile. */
       : this.isTT()
       ? [{k:'lessons',g:'▲',l:'Lessons',v:'tthome',n:0,gc:W?'#00A3E0':'#FFFFFF'},
-         {k:'me',g:'●',l:'My Profile',v:'me',n:0}]
+         {k:'me',g:'●',l:'My Profile',v:'ttme',n:0}]
       : [{k:'playbook',g:'▲',l:this.wordFor('tabPlaybook','Playbook'),v:'home',n:0,gc:W?'#00A3E0':'#FFFFFF'},
          {k:'toolkit',g:'🧰',l:this.wordFor('tabToolkit','Toolkit'),v:'toolkit',n:0},
          {k:'assess',g:'◎',l:this.wordFor('tabAssess','Assessment'),v:'score',n:0,gc:'#00A3E0'},
