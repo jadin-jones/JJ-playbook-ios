@@ -1,8 +1,13 @@
 # JJ Playbook — go-live runbook
 
-Launch tonight: live site **jjplaybook.netlify.app**, Firebase project
-**test-6b2ab**, no Microsoft sign-in, no custom domain.
-Dev is **jj-playbook-dev.netlify.app** / **jj-playbook-dev**.
+| Site | Addresses | Firebase project |
+|---|---|---|
+| Live | **playbook.jadin-jones.com** and jjplaybook.netlify.app | **test-6b2ab** |
+| Dev | **dev.playbook.jadin-jones.com** and jj-playbook-dev.netlify.app | **jj-playbook-dev** |
+
+Both addresses of a site keep working. The app picks the project by host:
+anything containing `dev` is Dev. Microsoft sign-in is offered on all four
+addresses; on live it works only after step 11b.
 
 This file holds no secrets. Keys and passwords go only into the Netlify,
 Firebase and Google Cloud consoles, or into a terminal prompt that does not
@@ -33,7 +38,9 @@ to [Rollback](#rollback) before carrying on.
 3. Wait for the Dev deploy to finish.
    - **Success:** the deploy is Published, and its Functions tab lists `auth-proxy`,
      `coach`, `granola`, `join`, `members`, `migrate-peers`, `ms-verify` and `peer`.
-4. Test on Dev in a normal Chrome window, and on a phone:
+4. Test on Dev in a normal Chrome window, and on a phone, on
+   **dev.playbook.jadin-jones.com**. Then do a quick sign-in on
+   jj-playbook-dev.netlify.app too:
    - Google sign-in, which goes through `https://jj-playbook-dev.netlify.app/__/auth/handler`.
    - Email and password sign-in.
    - Microsoft sign-in (Dev only).
@@ -122,6 +129,11 @@ its dashboard differs. Check:
 - Publish directory `public`, and Functions directory `netlify/functions`.
   After the merge, `netlify.toml` sets both anyway.
 - Branch deploys: off, or `main` only.
+- Domain management: `playbook.jadin-jones.com` is added to the live site with
+  a valid HTTPS certificate (and `dev.playbook.jadin-jones.com` to the Dev
+  site). `jjplaybook.netlify.app` must keep serving too: don't turn on a
+  redirect from it. Netlify's `URL` variable becomes the primary domain,
+  which is what the one-time Microsoft email falls back to.
 
 ### 4b. Environment variables (Production context)
 
@@ -175,8 +187,13 @@ Firebase console → **test-6b2ab**:
 1. Authentication → Sign-in method:
    - **Email/Password** on
    - Google on
-   - **Microsoft off**
-2. Authentication → Settings → Authorized domains: `jjplaybook.netlify.app` is listed.
+   - **Microsoft off** for now; it goes on in step 11b, after the live rules
+2. Authentication → Settings → Authorized domains: **`playbook.jadin-jones.com`**
+   and `jjplaybook.netlify.app` are both listed. Sign-in and the emailed links
+   (password reset, verification, the one-time Microsoft link) are refused
+   from any address that isn't listed.
+   - Do the same on **jj-playbook-dev** for `dev.playbook.jadin-jones.com` and
+     `jj-playbook-dev.netlify.app` before testing Dev on its new address.
 3. Leave "Enable create (sign-up)" on tonight. Turning it off may also block
    first-time Google sign-ins; test that on Dev first (post-launch).
 4. Project settings → Cloud Messaging:
@@ -189,21 +206,39 @@ Google Cloud console → project test-6b2ab → APIs & Services:
 1. Enabled: **FCM Registration API**, **Firebase Installations API** and
    **Firebase Cloud Messaging API**.
 2. Credentials → the browser key starting `AIzaSyAgcR`:
-   - If it has website restrictions, they include `https://jjplaybook.netlify.app/*`.
+   - If it has website restrictions, they include `https://playbook.jadin-jones.com/*`
+     and `https://jjplaybook.netlify.app/*`. See 11b: website restrictions also
+     block the one-time Microsoft email, which is sent from the server.
    - If it has API restrictions, they include Identity Toolkit, Token Service,
      Cloud Firestore, FCM Registration and Firebase Installations.
    - **Success:** all present. Changes to the key can take about 5 minutes to apply.
 
-## 6. Google OAuth redirect URI for live
+## 6. Redirect URIs for every address (Google and Microsoft)
 
-The live app now hands sign-in off through its own `/__/auth`. Google Cloud
-console → test-6b2ab → APIs & Services → Credentials → OAuth 2.0 client
-"Web client (auto created by Google Service)":
-- Authorized JavaScript origins: add `https://jjplaybook.netlify.app`.
-- Authorized redirect URIs: add `https://jjplaybook.netlify.app/__/auth/handler`.
-  Keep `https://test-6b2ab.firebaseapp.com/__/auth/handler`.
-- **Success:** saved. Do this before step 7, or Google sign-in on live fails
-  with `redirect_uri_mismatch`.
+The app hands sign-in off through each address's own `/__/auth`, so every
+address needs its handler registered. Keep the `firebaseapp.com` ones too.
+
+**Google:** Google Cloud console → the project → APIs & Services → Credentials →
+OAuth 2.0 client "Web client (auto created by Google Service)". Add the
+JavaScript origins and the redirect URIs:
+
+| Project | Authorized JavaScript origins | Authorized redirect URIs |
+|---|---|---|
+| test-6b2ab (live) | `https://playbook.jadin-jones.com`, `https://jjplaybook.netlify.app` | `https://playbook.jadin-jones.com/__/auth/handler`, `https://jjplaybook.netlify.app/__/auth/handler`, `https://test-6b2ab.firebaseapp.com/__/auth/handler` |
+| jj-playbook-dev | `https://dev.playbook.jadin-jones.com`, `https://jj-playbook-dev.netlify.app` | `https://dev.playbook.jadin-jones.com/__/auth/handler`, `https://jj-playbook-dev.netlify.app/__/auth/handler`, `https://jj-playbook-dev.firebaseapp.com/__/auth/handler` |
+
+**Microsoft:** Azure portal → App registrations → the app → Authentication →
+Web → Redirect URIs.
+
+| App | Redirect URIs |
+|---|---|
+| **JJ Playbook Live** (new, the stopgap in the personal Azure directory; supported account types: any organizational directory and personal Microsoft accounts) | `https://playbook.jadin-jones.com/__/auth/handler`, `https://jjplaybook.netlify.app/__/auth/handler`, `https://test-6b2ab.firebaseapp.com/__/auth/handler` |
+| The Dev app | add `https://dev.playbook.jadin-jones.com/__/auth/handler` next to its existing ones |
+
+Put the live app's client secret in the password manager, not anywhere in
+the repo. It's used in step 11b.
+- **Success:** saved in all four places. Do this before step 7, or sign-in on
+  live fails with `redirect_uri_mismatch` (Google) or `AADSTS50011` (Microsoft).
 
 ## 7. Merge develop into main by pull request, and publish live
 
@@ -231,8 +266,9 @@ Before you start:
 - **Success:** the PR is Merged, and Netlify → live → Deploys shows a
   production deploy from `main` that ends up Published, with the same
   function list as Dev.
-- `https://jjplaybook.netlify.app/` loads the gate with Google and email only
-  (no Microsoft button).
+- `https://playbook.jadin-jones.com/` and `https://jjplaybook.netlify.app/` both
+  load the gate with Google, Microsoft and email. Microsoft answers "not
+  turned on yet" until 11b.
 - `https://jjplaybook.netlify.app/READ-ME-FIRST.md` is a 404, because only
   `public/` is served now.
 - Sign in with Google once as an admin. **Success:** you reach Studio.
@@ -302,9 +338,41 @@ When done: `unset FIREBASE_PRIVATE_KEY FIREBASE_CLIENT_EMAIL`, or close the term
 3. Paste `firestore.rules` from `main` and publish.
 - **Success:** it publishes without errors.
 
+## 11b. Microsoft on live
+
+Enable Microsoft on test-6b2ab **only after the live rules (step 11) are
+published**. Those rules refuse admin to Microsoft sign-ins and require the
+one-time mailbox check (`msVerified`) before a Microsoft sign-in can read
+anything.
+
+1. Firebase console → test-6b2ab → Authentication → Sign-in method → Add new
+   provider → **Microsoft**. Enter the **JJ Playbook Live** app's client ID and
+   secret, from the password manager. Leave the tenant empty (common).
+2. The one-time email (`/api/ms-verify`) needs:
+   - **Email/Password** on (step 5). Firebase sends the check as its standard
+     *email verification* email, through the Identity Toolkit
+     `sendOobCode` call with the public web key.
+   - **Email link (passwordless) sign-in is not needed.** The link is our own
+     continue URL (`/?msv=…`), not a sign-in link.
+   - Authorized domains: both live addresses (step 5), because the continue URL
+     is the address the person is using.
+   - Env vars: nothing new. It uses `FIREBASE_*` and Netlify's own `URL`.
+   - The web key `AIzaSyAgcR…` must allow the call from the server. If that key
+     has **website restrictions**, a server call carries no referrer and is
+     refused (`API_KEY_HTTP_REFERRER_BLOCKED`), so the email never goes. Then
+     either take the website restriction off (keep the API restrictions, which
+     must include Identity Toolkit), or tell Claude to switch ms-verify to the
+     Admin SDK's link generator plus our own mail.
+3. Test it: in a private window on `playbook.jadin-jones.com`, sign in with
+   Microsoft as a member (not an admin), join, and follow the emailed link.
+   - **Success:** the link comes back to `playbook.jadin-jones.com`, "Email
+     confirmed" shows, and the join works. An admin address through Microsoft is
+     refused.
+
 ## 12. Test as steve@jadin-jones.com on PLAYBOOK26
 
-In a private window on `https://jjplaybook.netlify.app`, and on a phone:
+In a private window on `https://playbook.jadin-jones.com`, and on a phone.
+Then do a quick sign-in on `https://jjplaybook.netlify.app` too:
 - Sign in (Google, or email with Forgot password). **Success:** you land in
   PLAYBOOK26 without typing the code.
 - The member list, map, AI coach, colleague evidence, own peer round and
@@ -316,10 +384,12 @@ In a private window on `https://jjplaybook.netlify.app`, and on a phone:
 
 Send the sign-in instructions, for example:
 
-> The Playbook has moved to a new sign-in. Go to https://jjplaybook.netlify.app
-> and choose **Continue with Google**, or sign in with your email and password.
-> First time with email? Tap **Forgot password** to set one. Use the same
-> email your program invited. If it asks for a code, your program lead has it.
+> The Playbook has moved to a new sign-in. Go to https://playbook.jadin-jones.com
+> and use the email your program invited you with: **Continue with Google**,
+> **Continue with Microsoft** for a work Microsoft account, or your email and
+> password. First time with email? Tap **Forgot password** to set one (see the
+> open question below: this only works once your account exists). If it asks
+> for a code, your program lead has it.
 > On iPhone, add it to your Home Screen (Share → Add to Home Screen) and turn
 > on notifications in My Profile.
 
@@ -337,8 +407,28 @@ Send the sign-in instructions, for example:
 | Google sign-in on live (`redirect_uri_mismatch`) | Add the URI from step 6. The fix applies within minutes, and no deploy is needed. |
 | Push on live | Check step 5: the web push certificate, the APIs and the key restrictions. No deploy is needed. |
 | The peer migration or scripts on live (steps 9 and 10) | Import the step 8 export (Firestore → Import). This replaces the data with the pre-launch copy, so do it only for real damage. |
+| Microsoft on live (step 11b) | Firebase console → test-6b2ab → Authentication → Sign-in method → Microsoft → disable. The button then answers "not turned on yet". |
 | The live rules (step 11) | Rules → History → the previous version → publish. This takes effect within a minute. |
 | Granola notes stop landing | Put the old value back as `GRANOLA_SECRET_OLD` (or `GRANOLA_SECRET`) until Zapier/Make has the new one. |
+
+## Open question: returning members with Microsoft work emails
+
+Many members' invited email is a work Microsoft (Outlook or Exchange) address
+with no Google account and no Firebase account yet.
+- **Forgot password doesn't help them.** Firebase answers a reset for an address
+  with no account exactly as for one that has an account (email enumeration
+  protection), and sends nothing. The app then says "If there is an account for
+  …, a link … is on its way", and nothing arrives. So "First time? … tap
+  Forgot password to set one" works only for accounts an admin has already
+  created.
+- **Microsoft on live (step 11b) covers them.** They sign in with Microsoft, and
+  the first join sends the one-time email. Until 11b, their options are:
+  1. an admin creates their email/password account first (Firebase console →
+     Authentication → Add user), then they use Forgot password;
+  2. they use Google, if the address is a Google account; or
+  3. a small script creates accounts for every `members` email that has none
+     (not built; ask Claude).
+- Decide before emailing members (step 13), and word the email to match.
 
 ## After launch
 
@@ -357,6 +447,12 @@ These are in the handoff notes, in order:
 deletes, and a send that falls back, all read the array and write it back
 whole. The rules can't check a single message, so any member of a program
 can alter or erase anyone's messages, or all of them.
+
+Also after launch: `functions/index.js` builds push-notification links from
+`SITE_URL = https://jjplaybook.netlify.app`, and `capacitor.config.json` points the
+iOS app at the same address. Both keep working, but they open the netlify.app
+address, where a member signed in on `playbook.jadin-jones.com` isn't signed
+in. Move them to the custom domain with the next Functions deploy and app build.
 
 The fix is one document per message: `chat/{CODE}/messages/{id}`, holding
 `ownerEmail`, `text` and `ts`.

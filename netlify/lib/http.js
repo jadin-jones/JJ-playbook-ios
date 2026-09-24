@@ -1,17 +1,31 @@
 /* JSON replies with CORS for our own sites only.
  *
  * The app calls /api/* from its own origin, which needs no CORS at all; this
- * only decides what another site's browser may do. The two sites below get
- * the CORS headers; any other origin gets none, so its browser refuses the
- * response. Errors never carry a stack or an exception's message.
+ * only decides what another site's browser may do. Each Netlify site answers
+ * only its own addresses (by FIREBASE_PROJECT_ID), so the live API never
+ * serves a Dev page or the other way round; any other origin gets no CORS
+ * headers, so its browser refuses the response. Errors never carry a stack
+ * or an exception's message.
  */
-const ORIGINS = ['https://jjplaybook.netlify.app', 'https://jj-playbook-dev.netlify.app'];
+const SITE_HOSTS = {
+  'test-6b2ab': ['jjplaybook.netlify.app', 'playbook.jadin-jones.com'],
+  'jj-playbook-dev': ['jj-playbook-dev.netlify.app', 'dev.playbook.jadin-jones.com']
+};
+/* This site's own https origins; none if the project is not one of ours. */
+function siteOrigins() {
+  return (SITE_HOSTS[String(process.env.FIREBASE_PROJECT_ID || '')] || []).map(h => 'https://' + h);
+}
+/* The caller's Origin header when it is one of this site's own, else ''. */
+function ownOrigin(event) {
+  const h = (event && event.headers) || {};
+  const origin = String(h.origin || h.Origin || '');
+  return siteOrigins().indexOf(origin) >= 0 ? origin : '';
+}
 
 function http(event, methods, allowHeaders) {
-  const h = (event && event.headers) || {};
-  const origin = h.origin || h.Origin || '';
+  const origin = ownOrigin(event);
   const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Vary': 'Origin' };
-  if (ORIGINS.indexOf(origin) >= 0) {
+  if (origin) {
     headers['Access-Control-Allow-Origin'] = origin;
     headers['Access-Control-Allow-Methods'] = methods;
     headers['Access-Control-Allow-Headers'] = allowHeaders || 'Content-Type, Authorization';
@@ -42,4 +56,4 @@ function withCors(methods, allowHeaders, fn) {
   };
 }
 
-module.exports = { http, withCors, ORIGINS };
+module.exports = { http, withCors, ownOrigin, siteOrigins, SITE_HOSTS };

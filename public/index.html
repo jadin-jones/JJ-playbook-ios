@@ -7730,13 +7730,19 @@ const FIREBASE_CONFIG=(location.hostname.indexOf("dev")>-1)?{apiKey:"AIzaSyBuWZt
    https://<host>/__/auth/handler is an authorized redirect URI on that
    project's Google OAuth client (and, where Microsoft sign-in is offered, on
    its Microsoft (Entra) app registration); every other host keeps
-   firebaseapp.com. jjplaybook.netlify.app needs that URI on test-6b2ab's
-   Google OAuth client before this reaches live (docs/GO-LIVE.md). */
-const AUTH_OWN_HOSTS=['jj-playbook-dev.netlify.app','jjplaybook.netlify.app'];
-/* Microsoft sign-in is offered only where its Entra app and the provider are
-   set up. Live launches without it (a publisher-verified app in the
-   JadinJones tenant comes later). */
-const MS_SIGNIN_HOSTS=['jj-playbook-dev.netlify.app'];
+   firebaseapp.com. Each live host needs that URI on test-6b2ab's Google OAuth
+   client, and each Dev host on jj-playbook-dev's (docs/GO-LIVE.md).
+   The project itself is picked above by host: any host containing "dev"
+   (jj-playbook-dev.netlify.app, dev.playbook.jadin-jones.com) is Dev, and
+   jjplaybook.netlify.app and playbook.jadin-jones.com are live. */
+const AUTH_OWN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com',
+  'jjplaybook.netlify.app','playbook.jadin-jones.com'];
+/* Microsoft sign-in is offered where its Entra app lists the host's
+   /__/auth/handler. On live that app is a stopgap in the personal Azure
+   directory, and the provider is switched on in test-6b2ab only after the live
+   rules are published; until then the button answers that it is not on yet. */
+const MS_SIGNIN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com',
+  'jjplaybook.netlify.app','playbook.jadin-jones.com'];
 const msSignInHere=()=>MS_SIGNIN_HOSTS.indexOf(location.hostname)>=0;
 if(AUTH_OWN_HOSTS.indexOf(location.hostname)>=0) FIREBASE_CONFIG.authDomain=location.hostname;
 const COLL='jj_playbook';
@@ -13095,7 +13101,7 @@ class Component extends DCLogic {
     }
     if(allow.length&&allow.indexOf(email.toLowerCase())<0){
       this.setState({joining:false});
-      return this.toast('That email is not on the list for '+(org.name||code)+'. Check with your program lead.',true);
+      return this.toast(email+' is not on the list for '+(org.name||code)+'. If your program invited you with your work email, sign out and sign in with that one. Otherwise check with your program lead.',true);
     }
     const idkey=idkeyEarly, name=first+' '+last;
     let resp;
@@ -17410,8 +17416,8 @@ class Component extends DCLogic {
     v.gateShowGoogle=!inApp;
     v.gateShowMicrosoft=!inApp&&msSignInHere();
     v.gateSignInHint=inApp
-      ?'Sign in with your email and password. Use the email your program lead approved.'
-      :'Use the email your program lead approved.';
+      ?'Sign in with your email and password. Use the email your program invited you with. First time? Tap Forgot password to set one.'
+      :'Use the email your program invited you with. First time? Continue with Google, or tap Forgot password to set one.';
     // Sign-in only; an admin creates email accounts (see emailSubmit).
     v.pwInpStyle=INP+';display:block;box-sizing:border-box;max-width:300px;margin:0 auto 10px';
     v.pwEmail=s.pwEmail||''; v.pwPass=s.pwPass||'';

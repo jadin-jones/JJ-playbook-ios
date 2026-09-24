@@ -110,7 +110,7 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
         code: 'bad-allowlist' });
     }
     if (allow.length && allow.indexOf(email) < 0) {
-      return reply(403, { error: email + ' is not on the list for ' + orgName + '. Check with your program lead.',
+      return reply(403, { error: email + ' is not on the list for ' + orgName + '. If your program invited you with your work email, sign out and sign in with that one. Otherwise check with your program lead.',
         code: 'not-listed' });
     }
 

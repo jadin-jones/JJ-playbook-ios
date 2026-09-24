@@ -7,9 +7,10 @@
  *       the account's address with continueUrl <site>/?msv=<secret>, plus
  *       &c=<code> when the app says which program they were joining, so the
  *       window the link opens in can carry on with that join. The secret is
- *       never returned: it exists only in that email. <site> is Netlify's URL
- *       for this site, never a request header, so a forged Host cannot send
- *       the link anywhere else. Once a minute, 5 a day.
+ *       never returned: it exists only in that email. <site> is the address
+ *       the person is using when it is one of this site's own (see
+ *       netlify/lib/http.js), else Netlify's URL for the site; never the Host
+ *       header, so the link cannot be sent anywhere else. Once a minute, 5 a day.
  *   { action: 'confirm', t }
  *       Checks t against the stored hash (same account, same email, within
  *       an hour, 10 wrong tries at most) and writes msVerified/{uid}.
@@ -22,7 +23,7 @@
 const crypto = require('crypto');
 const { db, auth, missingEnv } = require('../lib/firebase-admin');
 const { isMicrosoft, isConfirmed } = require('../lib/ms-verify');
-const { withCors } = require('../lib/http');
+const { withCors, ownOrigin } = require('../lib/http');
 const { allow, clientIp, HOUR } = require('../lib/rate-limit');
 
 // The same public web API keys the app ships with, per project.
@@ -45,7 +46,13 @@ const sha = s => crypto.createHash('sha256').update(String(s)).digest('hex');
 const cleanCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
 const same = (a, b) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
-function siteUrl() {
+/* Where the emailed link returns: the address the person is using, when it
+   is one of this site's own (signed-in state is per address, so the link
+   must come back to the same one), else Netlify's URL for the site. Never
+   the Host header, and never an address outside that list. */
+function siteUrl(event) {
+  const own = ownOrigin(event);
+  if (own) return own;
   const u = String(process.env.URL || '').replace(/\/+$/, '');
   return /^https:\/\/[a-z0-9.-]+$/i.test(u) ? u : '';
 }
@@ -80,7 +87,7 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
     const now = Date.now();
 
     if (body.action === 'send') {
-      const site = siteUrl();
+      const site = siteUrl(event);
       const key = WEB_KEYS[process.env.FIREBASE_PROJECT_ID];
       if (!site || !key) return reply(500, { error: 'Server is not configured (URL or project key)' });
       const snap = await ref.get();
