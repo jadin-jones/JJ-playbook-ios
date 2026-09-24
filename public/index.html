@@ -14928,6 +14928,79 @@ class Component extends DCLogic {
     const s=this.state, me=String(currentUserEmail()||'').trim().toLowerCase();
     return s.role==='leader'&&!!me&&this.leadsOf(s.org).indexOf(me)>=0;
   }
+  /* The pyramid's blocks, labels and lock badges for the SVG in the home
+     screen template. With no options it is the Playbook home pyramid exactly:
+     yellow and glowing = done, navy with a lock = not unlocked yet, a tap opens
+     the fundamental. opts.highlight (a module id, or null for none) switches to
+     a display-only picture: that one block yellow with the same glow and a
+     THIS LESSON line, nothing locked. opts.readOnly makes every block ignore
+     taps and never open Playbook content. */
+  pyramidVM(allMods,opts){
+    opts=opts||{}; const s=this.state;
+    const hl=Object.prototype.hasOwnProperty.call(opts,'highlight'), ro=!!opts.readOnly;
+    const AX=150,AY=10,BL=10,BR=290,BY=250;
+    const xAt=(y,side)=>{const t=(y-AY)/(BY-AY);return AX+(side*(BR-AX))*t;};
+    const byTier=t=>byRow(allMods.filter(m=>(m.tier||0)===t));
+    void BL;
+    const onPyr=t=>byTier(t).filter(m=>m.pyramid!==false&&!partRoot(m));
+    const rows=[{y0:AY,y1:90,list:onPyr(3)},{y0:90,y1:170,list:onPyr(2)},{y0:170,y1:BY,list:onPyr(1)}];
+    const gSize=pyrGlobalSize(rows,xAt);
+    // The base row is held small by COMMUNICATION alone. Let every other block
+    // grow into its own cell up to the Lead Others size, so ENERGY, EXECUTE
+    // and E+R=O read at the same weight as CAST DIRECTION.
+    const midList=onPyr(2);
+    const targetSize=midList.length?pyrRowLayout(midList,90,170,midList.length,xAt,9.5).size:gSize;
+    const cells=[],labels=[],locks=[];
+    rows.forEach(r=>{
+      const n=r.list.length; if(!n) return;
+      const lt=xAt(r.y0,-1),rt=xAt(r.y0,1),lb=xAt(r.y1,-1),rb=xAt(r.y1,1);
+      const st=(rt-lt)/n, sb=(rb-lb)/n;
+      const rowL=pyrRowLayout(r.list,r.y0,r.y1,n,xAt,0,gSize);
+      const rowSize=rowL.size, rowLead=rowL.lead;
+      void rowSize; void rowLead;
+      r.list.forEach((m,i)=>{
+        /* highlight mode: exactly one block (or none) is yellow, nothing is
+           locked, and it means "this lesson", not "done". */
+        const isHl=hl&&opts.highlight===m.id;
+        const locked=hl?false:!this.fundUnlocked(m), done=hl?isHl:this.fundLit(m);
+        const x0t=lt+i*st,x1t=lt+(i+1)*st,x0b=lb+i*sb,x1b=lb+(i+1)*sb;
+        const pts=(n===1)?[AX+','+AY,x1b+','+r.y1,x0b+','+r.y1]:[x0t+','+r.y0,x1t+','+r.y0,x1b+','+r.y1,x0b+','+r.y1];
+        const cy=(r.y0+r.y1)/2, cx=((x0t+x1t)/2+(x0b+x1b)/2)/2;
+        const lines=pyrLines(m);
+        const lineY=rowL.top+PYR_ICON+5;
+        const availCell=((xAt(lineY,1)-xAt(lineY,-1))/n)*0.86;
+        const ownRatio=lines.reduce((a,s)=>Math.max(a,pyrTextRatio(s)),0.1);
+        const ownLen=lines.reduce((a,s)=>Math.max(a,s.length),1);
+        const size=Math.max(gSize,Math.min(targetSize,(availCell-ownLen*PYR_LS)/ownRatio));
+        const lead=size+1.4;
+        const isz=PYR_ICON*Math.min(1.25,Math.max(1,targetSize/gSize));
+        const tagSize=size*0.82, tagLead=tagSize+1.2, tagH=isHl?2*tagLead+3:0;
+        const blockH=isz+5+lines.length*lead+tagH;
+        const top=cy-blockH/2+(n===1?11:0), iy=top, firstBaseline=top+isz+5+size;
+        const ink=done?'#0C2647':(locked?'#7E8D9C':'#FFFFFF');
+        // every base-row icon reads at one size; the house artwork carries more
+        // white space than the rest, so it comes down a hair
+        const csz=isz*(m.id==='principle'?0.9:1);        cells.push({points:pts.join(' '),fill:done?'#FADA01':(locked?'#0C2647':(BRAND_TIER[m.tier]||BRAND_TIER[1])),
+          icon:iconFor(m,ink), ix:cx-csz/2, iy:iy+(isz-csz)/2, isz:csz,
+          iconOpacity:locked?.6:1,
+          gStyle:(ro?'cursor:default;pointer-events:none;':'cursor:'+(locked?'default':'pointer')+';')
+            +(s.ringsIn?('animation:jjCellRise .62s cubic-bezier(.22,.9,.3,1) '+(0.05+cells.length*0.055).toFixed(3)+'s backwards;'):'')
+            +(done?'filter:drop-shadow(0 0 8px rgba(250,218,1,.6))':''),
+          onTap:ro?(()=>{}):(locked?(()=>this.toast('Unlocks '+fmtDate(this.fundUnlockDate(m)))):(()=>this.go('fund',{fundId:m.id})))});
+        // the base row's right-hand block sits against the slope; nudge its
+        // label in so it clears the divider
+        const lx=cx-45+(m.id==='comm'?6.5:(m.id==='energy'?-3:0));
+        lines.forEach((ln,li)=>labels.push({x:lx,y:firstBaseline-size+li*lead,w:90,h:lead,text:ln,
+          style:'display:flex;align-items:center;justify-content:center;height:100%;white-space:nowrap;line-height:1;font-family:Montserrat,sans-serif;font-weight:800;font-size:'+size+'px;letter-spacing:.4px;color:'+ink}));
+        // The highlighted block says what the yellow means here, so it is not
+        // read as "finished" the way yellow reads on the Playbook home.
+        if(isHl) ['THIS','LESSON'].forEach((t,ti)=>labels.push({x:lx,y:firstBaseline-size+lines.length*lead+3+ti*tagLead,w:90,h:tagLead,text:t,
+          style:'display:flex;align-items:center;justify-content:center;height:100%;white-space:nowrap;line-height:1;font-family:Montserrat,sans-serif;font-weight:800;font-size:'+tagSize+'px;letter-spacing:.5px;color:#0C2647;opacity:.78'}));
+        if(locked){ const ly=iy+isz-1; locks.push({x:cx,y:ly,ty:ly+3}); }
+      });
+    });
+    return {cells, cellLabels:labels, cellLocks:locks};
+  }
   async setOrgLead(r,on){
     const email=String(r.email||'').trim().toLowerCase();
     if(!email) return this.toast('This leader has no email address, so they cannot be a lead',true);
@@ -18260,56 +18333,7 @@ class Component extends DCLogic {
     const AX=150,AY=10,BL=10,BR=290,BY=250;
     const xAt=(y,side)=>{const t=(y-AY)/(BY-AY);return AX+(side*(BR-AX))*t;};
     const byTier=t=>byRow(allMods.filter(m=>(m.tier||0)===t));
-    const onPyr=t=>byTier(t).filter(m=>m.pyramid!==false&&!partRoot(m));
-    const rows=[{y0:AY,y1:90,list:onPyr(3)},{y0:90,y1:170,list:onPyr(2)},{y0:170,y1:BY,list:onPyr(1)}];
-    const gSize=pyrGlobalSize(rows,xAt);
-    // The base row is held small by COMMUNICATION alone. Let every other block
-    // grow into its own cell up to the Lead Others size, so ENERGY, EXECUTE
-    // and E+R=O read at the same weight as CAST DIRECTION.
-    const midList=onPyr(2);
-    const targetSize=midList.length?pyrRowLayout(midList,90,170,midList.length,xAt,9.5).size:gSize;
-    const cells=[],labels=[],locks=[];
-    rows.forEach(r=>{
-      const n=r.list.length; if(!n) return;
-      const lt=xAt(r.y0,-1),rt=xAt(r.y0,1),lb=xAt(r.y1,-1),rb=xAt(r.y1,1);
-      const st=(rt-lt)/n, sb=(rb-lb)/n;
-      const rowL=pyrRowLayout(r.list,r.y0,r.y1,n,xAt,0,gSize);
-      const rowSize=rowL.size, rowLead=rowL.lead;
-      void rowSize; void rowLead;
-      r.list.forEach((m,i)=>{
-        const locked=!this.fundUnlocked(m), done=this.fundLit(m);
-        const x0t=lt+i*st,x1t=lt+(i+1)*st,x0b=lb+i*sb,x1b=lb+(i+1)*sb;
-        const pts=(n===1)?[AX+','+AY,x1b+','+r.y1,x0b+','+r.y1]:[x0t+','+r.y0,x1t+','+r.y0,x1b+','+r.y1,x0b+','+r.y1];
-        const cy=(r.y0+r.y1)/2, cx=((x0t+x1t)/2+(x0b+x1b)/2)/2;
-        const lines=pyrLines(m);
-        const lineY=rowL.top+PYR_ICON+5;
-        const availCell=((xAt(lineY,1)-xAt(lineY,-1))/n)*0.86;
-        const ownRatio=lines.reduce((a,s)=>Math.max(a,pyrTextRatio(s)),0.1);
-        const ownLen=lines.reduce((a,s)=>Math.max(a,s.length),1);
-        const size=Math.max(gSize,Math.min(targetSize,(availCell-ownLen*PYR_LS)/ownRatio));
-        const lead=size+1.4;
-        const isz=PYR_ICON*Math.min(1.25,Math.max(1,targetSize/gSize));
-        const blockH=isz+5+lines.length*lead;
-        const top=cy-blockH/2+(n===1?11:0), iy=top, firstBaseline=top+isz+5+size;
-        const ink=done?'#0C2647':(locked?'#7E8D9C':'#FFFFFF');
-        // every base-row icon reads at one size; the house artwork carries more
-        // white space than the rest, so it comes down a hair
-        const csz=isz*(m.id==='principle'?0.9:1);        cells.push({points:pts.join(' '),fill:done?'#FADA01':(locked?'#0C2647':(BRAND_TIER[m.tier]||BRAND_TIER[1])),
-          icon:iconFor(m,ink), ix:cx-csz/2, iy:iy+(isz-csz)/2, isz:csz,
-          iconOpacity:locked?.6:1,
-          gStyle:'cursor:'+(locked?'default':'pointer')+';'
-            +(s.ringsIn?('animation:jjCellRise .62s cubic-bezier(.22,.9,.3,1) '+(0.05+cells.length*0.055).toFixed(3)+'s backwards;'):'')
-            +(done?'filter:drop-shadow(0 0 8px rgba(250,218,1,.6))':''),
-          onTap:locked?(()=>this.toast('Unlocks '+fmtDate(this.fundUnlockDate(m)))):(()=>this.go('fund',{fundId:m.id}))});
-        // the base row's right-hand block sits against the slope; nudge its
-        // label in so it clears the divider
-        const lx=cx-45+(m.id==='comm'?6.5:(m.id==='energy'?-3:0));
-        lines.forEach((ln,li)=>labels.push({x:lx,y:firstBaseline-size+li*lead,w:90,h:lead,text:ln,
-          style:'display:flex;align-items:center;justify-content:center;height:100%;white-space:nowrap;line-height:1;font-family:Montserrat,sans-serif;font-weight:800;font-size:'+size+'px;letter-spacing:.4px;color:'+ink}));
-        if(locked){ const ly=iy+isz-1; locks.push({x:cx,y:ly,ty:ly+3}); }
-      });
-    });
-    v.cells=cells; v.cellLabels=labels; v.cellLocks=locks;
+    Object.assign(v,this.pyramidVM(allMods));
     // Sections with no tier are part of the playbook but not part of the
     // pyramid — the introduction reading sits here.
     // The wedge to the left of the pyramid was dead space — label the three
