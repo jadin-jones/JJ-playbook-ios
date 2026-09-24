@@ -10214,7 +10214,13 @@ class Component extends DCLogic {
     const token=await this.devicePushToken();
     const {keys}=await this.myPushKeys();
     for(const k of keys){
-      let rec=null; try{ rec=await sget(k); }catch(e){}
+      /* The old person-only push:<idkey> is still tried, because on the
+         current rules it may hold this token, but V3 refuses reading it until
+         backfill-owner stamps it, so that refusal is expected and stays quiet. */
+      const legacy=k.split(':').length===2;
+      let rec=null;
+      try{ rec=await sgetStrict(k); }
+      catch(e){ if(!legacy) console.warn('unregisterPushHere read',k,e); continue; }
       if(!rec||!rec.token||!token||rec.token!==token) continue;
       delete rec.token; rec.active=false; rec.mutedAt=Date.now();
       try{ await sset(k,rec); }catch(e){ console.warn('unregisterPushHere',k,e); }
@@ -10380,13 +10386,18 @@ class Component extends DCLogic {
        this account has no push record of its own, so nothing was ever
        registered for it and every reminder it set was silent. Register it here
        rather than bailing out — unless this account turned notifications off on
-       purpose, which is what active:false means. */
-    if(!await this.mineSubscribed()){
+       purpose, which is what active:false means.
+       Before a program is open (at boot, and for admins) there is no record to
+       ask about: pushKey() would be push: or push:<idkey>, which V3 refuses,
+       and the switch must not claim On. afterLeaderIn() runs this again once
+       the code and idkey are known. */
+    const known=!!(this.state.code&&this.state.idkey);
+    if(known&&!await this.mineSubscribed()){
       let prior=null; try{ prior=await sget(this.pushKey()); }catch(e){}
       if(prior&&prior.active===false) return;
     }
 
-    this.setState({pushOn:true}); if(navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); try{ let reg=await navigator.serviceWorker.getRegistration(); if(!reg) reg=await navigator.serviceWorker.register('firebase-messaging-sw.js'); if(!reg) return; await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js'); if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); this.attachForegroundPush(reg); await this.refreshPushToken(reg); this.bindPushRefresh(); this.syncReminderPrefs().catch(()=>{}); }catch(e){ console.error('resumePush',e); } } async refreshPushToken(reg){ if(!PUSH_VAPID_KEY) return; const s=this.state; if(!s.idkey) return; try{ if(!reg) reg=await navigator.serviceWorker.getRegistration(); if(!reg) return; const token=await firebase.messaging().getToken({vapidKey:PUSH_VAPID_KEY,serviceWorkerRegistration:reg}); if(!token) return; const key=this.pushKey(); let rec=null; try{ rec=await sget(key); }catch(e){} rec=rec||{}; const changed=rec.token!==token||rec.active===false||String(rec.code||'')!==String(s.code||''); rec.token=token; rec.active=true; rec.name=s.name||rec.name||''; rec.code=s.code||rec.code||''; rec.idkey=s.idkey; rec.tz=(Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||rec.tz||'America/Chicago'; if(rec.remindHour==null) rec.remindHour=18; if(rec.remind5s==null) rec.remind5s=this.fiveSOn(); rec.at=Date.now(); delete rec.mutedAt; delete rec.mutedFor; await sset(key,rec); /* Deliberately no "one device, one account" claim here — records are keyed
+    if(known) this.setState({pushOn:true}); if(navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); try{ let reg=await navigator.serviceWorker.getRegistration(); if(!reg) reg=await navigator.serviceWorker.register('firebase-messaging-sw.js'); if(!reg) return; await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js'); if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); this.attachForegroundPush(reg); await this.refreshPushToken(reg); this.bindPushRefresh(); this.syncReminderPrefs().catch(()=>{}); }catch(e){ console.error('resumePush',e); } } async refreshPushToken(reg){ if(!PUSH_VAPID_KEY) return; const s=this.state; if(!s.idkey||!s.code) return; try{ if(!reg) reg=await navigator.serviceWorker.getRegistration(); if(!reg) return; const token=await firebase.messaging().getToken({vapidKey:PUSH_VAPID_KEY,serviceWorkerRegistration:reg}); if(!token) return; const key=this.pushKey(); let rec=null; try{ rec=await sget(key); }catch(e){} rec=rec||{}; const changed=rec.token!==token||rec.active===false||String(rec.code||'')!==String(s.code||''); rec.token=token; rec.active=true; rec.name=s.name||rec.name||''; rec.code=s.code||rec.code||''; rec.idkey=s.idkey; rec.tz=(Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||rec.tz||'America/Chicago'; if(rec.remindHour==null) rec.remindHour=18; if(rec.remind5s==null) rec.remind5s=this.fiveSOn(); rec.at=Date.now(); delete rec.mutedAt; delete rec.mutedFor; await sset(key,rec); /* Deliberately no "one device, one account" claim here — records are keyed
      per program now, so two enrolments on the same phone both keep their
      reminders instead of the newer sign-in erasing the older. */ }catch(e){ console.error('refreshPushToken',e); } } bindPushRefresh(){ if(this._pushRefreshBound) return; this._pushRefreshBound=true; document.addEventListener('visibilitychange',()=>{ if(document.visibilityState!=='visible') return; if(typeof Notification==='undefined'||Notification.permission!=='granted') return; if(!this.state.idkey) return; const now=Date.now(); if(this._lastPushRefresh&&now-this._lastPushRefresh<6*60*60*1000) return; this._lastPushRefresh=now; this.refreshPushToken().catch(()=>{}); }); }
   /* Asked once per person, not once per device. A shared iPad, or a manager
@@ -12171,7 +12182,7 @@ class Component extends DCLogic {
   // Mirror the preference and the device timezone onto the push record the
   // server reads. Silently does nothing if they never enabled notifications.
   async syncReminderPrefs(){
-    const s=this.state; if(!s.idkey) return;
+    const s=this.state; if(!s.idkey||!s.code) return;
     const key=this.pushKey();
     const rec=await sget(key); if(!rec||!rec.token) return;
     const c=this.remCfg();
