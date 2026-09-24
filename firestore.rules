@@ -39,7 +39,13 @@ service cloud.firestore {
       // program members read, only admins write.
       function perOrgKind() { return kind() in ['org','events','updates']; }
       function overrideDoc() { return kind() == 'program' && parts()[1] == 'override'; }
-      function globalKind() { return kind() in ['knowledge','demo'] || (kind() == 'program' && parts()[1] != 'override'); }
+      // Content every member reads. knowledge:misses (the questions members
+      // asked the AI coach) and demo: (test sends, which carry a push token)
+      // are admin-only.
+      function globalKind() {
+        return (kind() == 'knowledge' && docId != 'knowledge:misses')
+          || (kind() == 'program' && parts()[1] != 'override');
+      }
       function personalKind() { return kind() in ['resp','coach','gin','push','awaymark','remindmark','unlockmark','dwinvitemark']; }
       function teamKind() { return kind() == 'chat'; }
       // peer:CODE:TOKEN. Old peer:TOKEN rounds have no program in the key, so
