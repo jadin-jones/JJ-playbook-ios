@@ -74,11 +74,14 @@ async function plan(snap) {
   base.orgName = org.name || code;
 
   // The owner is the leader who opened it: their own record says who they are.
-  let owner = cleanEmail(doc.ownerEmail);
+  // An admin's address is not taken as the owner: until sset() stopped it, an
+  // admin saving a leader's resp: record stamped the admin's email on it.
+  const notAdmin = e => (ADMINS.indexOf(e) >= 0 ? '' : e);
+  let owner = notAdmin(cleanEmail(doc.ownerEmail));
   if (!owner && doc.idkey) {
     const respSnap = await col.doc('resp:' + code + ':' + doc.idkey).get();
     const resp = parseVal(respSnap);
-    owner = cleanEmail(respSnap.exists && respSnap.get('ownerEmail')) || cleanEmail(resp && resp.email);
+    owner = notAdmin(cleanEmail(respSnap.exists && respSnap.get('ownerEmail'))) || cleanEmail(resp && resp.email);
   }
   if (!owner) return Object.assign(base, { skip: 'no-owner', detail: doc.idkey ? 'no email on resp:' + code + ':' + doc.idkey : 'round names no leader' });
   base.owner = owner;

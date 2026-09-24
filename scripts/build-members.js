@@ -112,7 +112,7 @@ async function main() {
   const recs = await loadRecords(['resp', 'org', 'rev']);
   const fresh = plan(recs, await loadMembers(), revocations(recs.rev));
   if (!saved) {
-    printPlan(fresh, describe);
+    printPlan(fresh, describe, { member: 'Add a program code to members/{email}.orgs' });
     const file = savePlan(SCRIPT, project, args.options, fresh);
     console.log('\nNothing was written. Plan saved to ' + path.relative(process.cwd(), file));
     console.log('To write exactly these changes: node scripts/build-members.js --project ' + project +

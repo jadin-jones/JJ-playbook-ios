@@ -180,11 +180,19 @@ function loadPlan(file, script, project, options) {
   return p;
 }
 
-function printPlan(plan, describe) {
-  if (plan.changes.length) {
-    console.log('Changes (' + plan.changes.length + '):');
-    plan.changes.forEach(c => console.log('  ' + describe(c)));
-  } else console.log('Changes: none');
+/* titles: { type: heading } lists each type of change in its own section,
+   in that order. */
+function printPlan(plan, describe, titles) {
+  if (!plan.changes.length) console.log('Changes: none');
+  const types = Object.keys(titles || {});
+  plan.changes.forEach(c => { if (types.indexOf(c.type) < 0) types.push(c.type); });
+  types.forEach(t => {
+    const list = plan.changes.filter(c => c.type === t);
+    if (!list.length) return;
+    console.log(((titles || {})[t] || t) + ' (' + list.length + '):');
+    list.forEach(c => console.log('  ' + describe(c)));
+    console.log('');
+  });
   const byReason = {};
   plan.skips.forEach(s => (byReason[s.reason] = byReason[s.reason] || []).push(s));
   const reasons = Object.keys(byReason).sort();

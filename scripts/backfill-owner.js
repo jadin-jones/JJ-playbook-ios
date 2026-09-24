@@ -18,8 +18,13 @@
  *
  * Records an admin took over: until sset() stopped it, an admin saving a
  * member's record (Studio's group and lead buttons, the coach's notes) wrote
- * the admin's email as its owner, locking the member out under V3. Those
- * are re-stamped with the member's email (RESTAMP), checked the same way.
+ * the admin's email as its owner, locking the member out under V3. The peer
+ * migration then copied that owner onto the rounds it moved. Records of
+ * resp, push, coach, gin and peer rounds whose ownerEmail is an admin's are
+ * re-stamped with the member's email (RESTAMP, listed on their own), but
+ * only when the member's email is the one their idkey was made from; a peer
+ * round's owner is the leader named by its idkey, and the copy inside the
+ * round is corrected too. Anything else is skipped and listed.
  *
  * Peer rounds: peer:CODE:TOKEN gets a top-level peerMode ('team' or 'peer',
  * from the round's own mode), which the rules use to let the whole program
@@ -40,7 +45,7 @@
  * run finds nothing to do.
  */
 const {
-  COLL, db, ADMINS, cleanEmail, loadRecords, revocations, personSkip, parseVal,
+  COLL, db, ADMINS, slug, cleanEmail, loadRecords, revocations, personSkip, parseVal,
   parseArgs, guardProject, fail, savePlan, loadPlan, printPlan, applyPlan
 } = require('./lib/common');
 const path = require('path');
@@ -95,6 +100,7 @@ function plan(recs, isRevoked, options) {
         if (who.emails.size > 1) { skip(r.id, { reason: 'ambiguous', detail: 'resp records name ' + Array.from(who.emails).join(', ') }); continue; }
         const email = Array.from(who.emails)[0];
         if (had && had === email) { already++; continue; }
+        if (had && slug(email) !== r.parts[1]) { skip(r.id, { reason: 'idkey-mismatch', detail: 'owned by ' + had + '; ' + email + ' is not the person idkey ' + r.parts[1] + ' was made from' }); continue; }
         const s = personSkip(email, null, isRevoked);
         if (s) { skip(r.id, s); continue; }
         const rev = Array.from(who.codes).find(c => isRevoked(c, email));
@@ -115,10 +121,25 @@ function plan(recs, isRevoked, options) {
         if (!email) { skip(r.id, { reason: 'no-resp', detail: 'no resp:' + code + ':' + idkey + ' with an email to take the owner from' }); continue; }
       }
       if (had && had === email) { already++; continue; }   // an admin's own record
+      if (had && slug(email) !== idkey) { skip(r.id, { reason: 'idkey-mismatch', detail: 'owned by ' + had + '; ' + email + ' is not the person idkey ' + idkey + ' was made from' }); continue; }
       const s = personSkip(email, code, isRevoked);
       if (s) { skip(r.id, s); continue; }
       changes.push(stamp(r.id, had, email));
     }
+  }
+
+  // Peer rounds an admin ended up owning (through the migration).
+  for (const r of (recs.peer || [])) {
+    const had = cleanEmail(r.ownerEmail);
+    if (r.parts.length !== 3 || !had || !isAdmin(had) || !r.value) continue;
+    const code = r.parts[1], idkey = String(r.value.idkey || '');
+    const email = idkey ? owner.get(code + ':' + idkey) : '';
+    if (!email) { skip(r.id, { reason: 'no-resp', detail: 'owned by ' + had + '; no resp:' + code + ':' + (idkey || '?') + ' names the leader' }); continue; }
+    if (email === had) { already++; continue; }
+    if (slug(email) !== idkey) { skip(r.id, { reason: 'idkey-mismatch', detail: 'owned by ' + had + '; ' + email + ' is not the person idkey ' + idkey + ' was made from' }); continue; }
+    const s = personSkip(email, code, isRevoked);
+    if (s) { skip(r.id, s); continue; }
+    changes.push({ key: 'owner:' + r.id, type: 'restamp', id: r.id, from: had, owner: email, round: true });
   }
 
   // 2. peerMode on peer rounds
@@ -167,6 +188,14 @@ function write(c) {
       const now = snap.get('ownerEmail') || '';
       if (c.type === 'owner' && now) return 'already has ownerEmail ' + now;
       if (c.type === 'restamp' && now !== c.from) return 'ownerEmail is now ' + (now || 'missing') + ', not ' + c.from;
+      if (c.round) {
+        // The app's saves copy ownerEmail from inside the round, so fix both.
+        const v = parseVal(snap);
+        if (!v) return 'round is empty or unreadable';
+        v.ownerEmail = c.owner;
+        tx.update(ref, { ownerEmail: c.owner, value: JSON.stringify(v) });
+        return true;
+      }
       tx.update(ref, { ownerEmail: c.owner });
       return true;
     }
@@ -195,7 +224,12 @@ async function main() {
   const recs = await loadRecords(OWNED.concat(['org', 'rev', 'peer']));
   const fresh = plan(recs, revocations(recs.rev), args.options);
   if (!saved) {
-    printPlan(fresh, describe);
+    printPlan(fresh, describe, {
+      owner: 'Stamp a missing ownerEmail',
+      restamp: 'Re-stamp records an admin took over (charlie@, lucas@, review@)',
+      peermode: 'Stamp peerMode on peer rounds',
+      lead: 'Copy leads to org:CODE'
+    });
     const file = savePlan(SCRIPT, project, args.options, fresh);
     console.log('\nNothing was written. Plan saved to ' + path.relative(process.cwd(), file));
     console.log('To write exactly these changes: node scripts/backfill-owner.js --project ' + project +
