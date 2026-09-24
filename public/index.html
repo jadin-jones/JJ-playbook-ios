@@ -11012,7 +11012,10 @@ class Component extends DCLogic {
     const docs=Object.assign({},this.state.peerDocs); docs[token]=doc;
     const org=this.state.org;
     if(org){ org.teamRound={token,round:doc.round,openedAt:doc.openedAt};
-      sset('org:'+org.code,org).catch(()=>{}); }
+      /* Onto the saved program, not this copy, so nothing newer (the leads
+         list) is overwritten. */
+      const tr=org.teamRound;
+      sgetStrict('org:'+org.code).then(cur=>{ if(cur){ cur.teamRound=tr; return sset('org:'+org.code,cur); } }).catch(()=>{}); }
     this.setState({resp:r,org,peerDocs:docs,peerBusy:false});
     await this.saveResp();
     this.toast('Team round open — share the link');
@@ -14870,20 +14873,41 @@ class Component extends DCLogic {
       active:g.active
     }));
   }
+  /* Program leads are the leads list of emails in org:CODE, which only
+     admins can write; the member's own resp: record, which they can save,
+     no longer decides it. resp.orgLead is still mirrored because the join
+     alert in functions/index.js (adminTokens) reads it until that is
+     redeployed. */
+  leadsOf(org){ const l=org&&org.leads; return Array.isArray(l)?l:[]; }
+  isOrgLeadHere(){
+    const s=this.state, me=String(currentUserEmail()||'').trim().toLowerCase();
+    return s.role==='leader'&&!!me&&this.leadsOf(s.org).indexOf(me)>=0;
+  }
   async setOrgLead(r,on){
-    const doc=await sget('resp:'+r.code+':'+r.idkey);
-    if(!doc) return this.toast('Could not find that leader',true);
-    doc.orgLead=!!on;
-    const ok=await sset('resp:'+r.code+':'+r.idkey,doc);
-    if(!ok) return this.toast('Could not save',true);
+    const email=String(r.email||'').trim().toLowerCase();
+    if(!email) return this.toast('This leader has no email address, so they cannot be a lead',true);
+    let org=null;
+    try{ org=await sgetStrict('org:'+r.code); }catch(e){ return this.toast('Could not reach the program. Try again.',true); }
+    if(!org) return this.toast('Could not find that program',true);
+    if(org.leads!==undefined&&!Array.isArray(org.leads))
+      return this.toast('The lead list for this program is damaged. Nothing was changed.',true);
+    const leads=this.leadsOf(org).filter(x=>x!==email);
+    if(on) leads.push(email);
+    org.leads=leads;
+    if(!await sset('org:'+r.code,org)) return this.toast('Could not save',true);
+    const listed=(this.state.orgList||[]).find(x=>x.code===r.code); if(listed) listed.leads=leads.slice();
     r.orgLead=!!on;
     this.setState({roster:this.state.roster.slice()});
+    let mirrored=false;
+    try{ const doc=await sget('resp:'+r.code+':'+r.idkey);
+      if(doc){ doc.orgLead=!!on; mirrored=await sset('resp:'+r.code+':'+r.idkey,doc); } }catch(e){}
+    if(!mirrored) return this.toast((on?'Lead saved':'Lead removed')+', but their join alerts could not be updated. Try again.',true);
     this.toast(on?(r.name+' can now see organization data'):(r.name+' is back to a standard leader'));
   }
   // An org lead also needs everyone else's peer-review documents — aggregate
   // counts only; individual responses are never rendered for them.
   async loadOrgPeerDocs(){
-    if(!(this.state.resp&&this.state.resp.orgLead)) return;
+    if(!this.isOrgLeadHere()) return;
     const docs=Object.assign({},this.state.peerDocs);
     for(const r of (this.state.members||[])){
       for(const pr of ((r.peerRounds)||[])){
@@ -14903,6 +14927,9 @@ class Component extends DCLogic {
     const r=(await slistDocs('resp:'+code+':'))
       .filter(x=>x&&x.name&&x.idkey!=='__preview__');
     r.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    /* Who is a lead comes from org:CODE, not the old flag on their record. */
+    const org=await sget('org:'+code).catch(()=>null), leads=this.leadsOf(org);
+    r.forEach(x=>{ x.orgLead=leads.indexOf(String(x.email||'').trim().toLowerCase())>=0; });
     this.setState({roster:r});
     // pull every peer-review round this org's leaders have opened, so the
     // Scores tab can show the 360 alongside the self-scores
@@ -15096,6 +15123,11 @@ class Component extends DCLogic {
   async saveOrg(code,patch){
     const o=this.state.orgList.find(x=>x.code===code); if(!o) return false;
     Object.assign(o,patch);
+    /* The leads list is changed only by setOrgLead. This copy of the program
+       may be older than it, so the saved list is kept, and if it cannot be
+       read the save waits rather than risk dropping it. */
+    let cur=null; try{ cur=await sgetStrict('org:'+code); }catch(e){ return false; }
+    if(cur&&cur.leads!==undefined) o.leads=cur.leads; else delete o.leads;
     const ok=await sset('org:'+code,o);
     /* An address returning to the approved list lifts its revocation — that
        list is where access is granted, so it is where it is restored. */
@@ -17791,7 +17823,7 @@ class Component extends DCLogic {
       }
       {
         const tDoc2=this.teamCurrent(), tAg2=tDoc2?peerAgg(tDoc2):null, tN2=tAg2?tAg2.n:0;
-        const isLead2=!!(s.resp&&s.resp.orgLead);
+        const isLead2=this.isOrgLeadHere();
         v.teamCard={
           show:!(s.org&&s.org.teamAssessOn===false),
           hasRound:!!tDoc2, noRound:this.teamState()==='none',
@@ -18321,7 +18353,7 @@ class Component extends DCLogic {
 
     // ---- Organization dashboard, for a leader Studio has flagged as org lead
     {
-      const isLead=!!(s.resp&&s.resp.orgLead)&&s.role==='leader';
+      const isLead=this.isOrgLeadHere();
       v.isOrgLead=isLead;
       v.onOpenOrgDash=()=>{ Promise.resolve(this.loadMembers(s.code,true)).then(()=>this.loadOrgPeerDocs()); this.go('orgdash'); };
       if(isLead){
