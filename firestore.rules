@@ -1,14 +1,27 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true && msConfirmed();
+    }
     function userEmail() { return request.auth.token.email.lower(); }
+    // Microsoft reports every address as verified, but any tenant's admin can
+    // put any address on an account (nOAuth). A Microsoft sign-in counts only
+    // once /api/ms-verify has confirmed the mailbox: msVerified/{uid} holds it.
+    function msConfirmed() {
+      return request.auth.token.firebase.sign_in_provider != 'microsoft.com'
+        || (exists(/databases/$(database)/documents/msVerified/$(request.auth.uid))
+          && get(/databases/$(database)/documents/msVerified/$(request.auth.uid)).data.email == userEmail());
+    }
+    // Admin never through Microsoft, even with a confirmed mailbox.
     function isAdmin() {
-      return signedIn() && userEmail() in [
-        'charlie@jadin-jones.com',
-        'lucas@jadin-jones.com',
-        'review@jadin-jones.com'
-      ];
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider != 'microsoft.com'
+        && userEmail() in [
+          'charlie@jadin-jones.com',
+          'lucas@jadin-jones.com',
+          'review@jadin-jones.com'
+        ];
     }
     function memberDoc() { return /databases/$(database)/documents/members/$(userEmail()); }
     function isAnyMember() { return signedIn() && exists(memberDoc()); }
@@ -22,11 +35,17 @@ service cloud.firestore {
     match /jj_playbook/{docId} {
       function parts() { return docId.split(':'); }
       function kind() { return parts()[0]; }
+      // org:CODE (including its leads list), events:CODE, updates:CODE:
+      // program members read, only admins write.
       function perOrgKind() { return kind() in ['org','events','updates']; }
       function overrideDoc() { return kind() == 'program' && parts()[1] == 'override'; }
       function globalKind() { return kind() in ['knowledge','demo'] || (kind() == 'program' && parts()[1] != 'override'); }
-      function personalKind() { return kind() in ['resp','coach','gin','rev','push','awaymark','remindmark','unlockmark','dwinvitemark']; }
-      function teamKind() { return kind() in ['chat','peer']; }
+      function personalKind() { return kind() in ['resp','coach','gin','push','awaymark','remindmark','unlockmark','dwinvitemark']; }
+      function teamKind() { return kind() == 'chat'; }
+      // peer:CODE:TOKEN. Old peer:TOKEN rounds have no program in the key, so
+      // only admins (the migration) reach them.
+      function peerKind() { return kind() == 'peer' && parts().size() == 3; }
+      function revKind() { return kind() == 'rev'; }
       function isPreviewOrSample() { return docId.matches('.*:(__preview__|sample-[^:]*)'); }
       function ownsExisting() {
         return signedIn() && resource != null
@@ -38,24 +57,54 @@ service cloud.firestore {
           && request.resource.data.ownerEmail is string
           && request.resource.data.ownerEmail == userEmail();
       }
+      // ownerEmail never changes on an update (admins aside).
+      function keepsOwner() { return request.resource.data.ownerEmail == resource.data.ownerEmail; }
+      // A team round is readable by its whole program; an individual round,
+      // or one without peerMode yet, only by its owner.
+      function teamRound() { return resource.data.get('peerMode', '') == 'team'; }
+      // peerToken must match the key; peerMode is 'peer' or 'team' and, once
+      // set, never changes.
+      function peerFieldsOk() {
+        return request.resource.data.peerToken == parts()[2]
+          && request.resource.data.peerMode in ['peer', 'team'];
+      }
+      function keepsPeerMode() {
+        return !('peerMode' in resource.data) || request.resource.data.peerMode == resource.data.peerMode;
+      }
+
       allow read: if isAdmin()
         || (perOrgKind() && inOrg(parts()[1]))
         || (overrideDoc() && inOrg(parts()[2]))
         || (globalKind() && isAnyMember())
         || (teamKind() && inOrg(parts()[1]))
+        || (peerKind() && inOrg(parts()[1]) && (resource == null || ownsExisting() || teamRound()))
         || (isPreviewOrSample() && isAnyMember())
+        // rev: a member may learn only that they have no tombstone; an
+        // existing one is refused, which the app treats as revoked.
+        || (revKind() && resource == null && inOrg(parts()[1]))
         || (personalKind() && resource == null && inOrg(parts()[1]))
         || (personalKind() && ownsExisting());
       allow create: if isAdmin()
         || (personalKind() && inOrg(parts()[1]) && ownsIncoming())
+        || (peerKind() && inOrg(parts()[1]) && ownsIncoming() && peerFieldsOk())
         || (teamKind() && inOrg(parts()[1]));
       allow update: if isAdmin()
-        || (personalKind() && ownsExisting() && ownsIncoming())
+        || (personalKind() && ownsExisting() && ownsIncoming() && keepsOwner())
+        || (peerKind() && inOrg(parts()[1]) && ownsExisting() && ownsIncoming() && keepsOwner()
+          && peerFieldsOk() && keepsPeerMode())
         || (teamKind() && inOrg(parts()[1]));
-      allow delete: if isAdmin() || (personalKind() && ownsExisting());
+      allow delete: if isAdmin()
+        || (personalKind() && ownsExisting())
+        || (peerKind() && ownsExisting());
     }
 
-    match /tt_data/{docId}     { allow read, write: if isAnyMember(); }
-    match /jj_lifeplan/{docId} { allow read, write: if isAnyMember(); }
+    // Written and read only by the Netlify functions (Admin SDK).
+    match /msVerified/{uid}      { allow read, write: if false; }
+    match /msVerifyPending/{uid} { allow read, write: if false; }
+
+    // Nothing in this app uses these two; they were open to every member.
+    // Closed to admins until whatever uses them is known.
+    match /tt_data/{docId}     { allow read, write: if isAdmin(); }
+    match /jj_lifeplan/{docId} { allow read, write: if isAdmin(); }
   }
 }
