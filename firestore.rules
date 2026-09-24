@@ -113,5 +113,43 @@ service cloud.firestore {
     // Closed to admins until whatever uses them is known.
     match /tt_data/{docId}     { allow read, write: if isAdmin(); }
     match /jj_lifeplan/{docId} { allow read, write: if isAdmin(); }
+
+    // ===== Twin Thieves Leadership: its own section. Nothing above changes. =====
+    // Membership is ttmembers/{email}.orgs, never members/{email}, so a Twin
+    // Thieves member gets nothing from the Playbook's rules above (inOrg and
+    // isAnyMember read members/{email}). Admins are covered by isAdmin above.
+    function ttMemberDoc() { return /databases/$(database)/documents/ttmembers/$(userEmail()); }
+    function inTT(code) {
+      return signedIn() && code in ['TT36', 'TT10'] && exists(ttMemberDoc())
+        && code in get(ttMemberDoc()).data.orgs;
+    }
+
+    match /ttmembers/{email} {
+      allow read: if isAdmin() || (signedIn() && email == userEmail());
+      allow write: if isAdmin();
+    }
+
+    match /jj_playbook/{docId} {
+      function tp() { return docId.split(':'); }
+      function ttOwns() {
+        return resource != null && resource.data.ownerEmail is string
+          && resource.data.ownerEmail == userEmail();
+      }
+      function ttOwnsIncoming() {
+        return request.resource.data.ownerEmail is string
+          && request.resource.data.ownerEmail == userEmail();
+      }
+      // The lesson library: admin-edit (above), member-read.
+      // org:TT36 / org:TT10: members read their own program (its code among it).
+      // rev:: a member may learn only that they have no tombstone.
+      // ttm:CODE:idkey: name, email and progress, owner-only.
+      allow read: if (docId == 'ttlib:master' && (inTT('TT36') || inTT('TT10')))
+        || (tp()[0] == 'org' && tp().size() == 2 && inTT(tp()[1]))
+        || (tp()[0] == 'rev' && tp().size() == 3 && resource == null && inTT(tp()[1]))
+        || (tp()[0] == 'ttm' && tp().size() == 3 && inTT(tp()[1]) && (resource == null || ttOwns()));
+      allow create: if tp()[0] == 'ttm' && tp().size() == 3 && inTT(tp()[1]) && ttOwnsIncoming();
+      allow update: if tp()[0] == 'ttm' && tp().size() == 3 && inTT(tp()[1]) && ttOwns() && ttOwnsIncoming()
+        && request.resource.data.ownerEmail == resource.data.ownerEmail;
+    }
   }
 }
