@@ -162,16 +162,23 @@ console → test-6b2ab → APIs & Services → Credentials → OAuth 2.0 client
 - **Success:** saved. Do this before step 7, or Google sign-in on live fails
   with `redirect_uri_mismatch`.
 
-## 7. Merge develop into main and publish live
+## 7. Merge develop into main by pull request, and publish live
 
-You do this, not Claude:
-```
-git checkout main && git pull
-git merge --ff-only develop
-git push origin main
-git checkout develop
-```
-- **Success:** the live deploy is Published with the same function list as Dev.
+`main` is protected: changes reach it only through a pull request. You open
+and merge it, not Claude.
+
+1. Open the pull request, either on GitHub (Pull requests → New → base `main`,
+   compare `develop`) or in the Codespace:
+   ```
+   gh pr create --base main --head develop --title "Launch: V3 sign-in, members, rules and security" --body "See docs/GO-LIVE.md"
+   ```
+2. Check the PR's Files changed tab. It should hold only what was tested on Dev
+   (the same head commit as the Dev deploy).
+3. Merge it with **Create a merge commit**. Don't squash: a squash leaves
+   `develop` and `main` with different histories, and the next PR gets messy.
+- **Success:** the PR is Merged, and Netlify → live → Deploys shows a
+  production deploy from `main` that ends up Published, with the same
+  function list as Dev.
 - `https://jjplaybook.netlify.app/` loads the gate with Google and email only
   (no Microsoft button).
 - `https://jjplaybook.netlify.app/READ-ME-FIRST.md` is a 404, because only
@@ -262,7 +269,7 @@ Send the sign-in instructions, for example:
 | A Dev deploy (step 1) | Netlify → Dev → Deploys → the previous deploy → **Publish deploy**. Then fix it on `develop` in one more push. |
 | The Dev rules (step 2) | Firebase console → jj-playbook-dev → Rules → History → the previous version → publish. `b197f2b:firestore.rules` holds the Dev rules from before. |
 | The Dev scripts (step 3) | They only add ownerEmail, peerMode, leads and program codes. The saved plan lists every change. Put a single record right in the console; for anything larger, import a Dev export. |
-| The live deploy (step 7) | Netlify → live → Deploys → the last good production deploy → **Publish deploy** (no build). Revert on `main` afterwards. |
+| The live deploy (step 7) | Netlify → live → Deploys → the last good production deploy → **Publish deploy** (no build). Then revert the merge through a pull request (GitHub → the merged PR → **Revert**, then merge that PR). While a revert PR is open, don't push to `main` by other means. |
 | Google sign-in on live (`redirect_uri_mismatch`) | Add the URI from step 6. The fix applies within minutes, and no deploy is needed. |
 | Push on live | Check step 5: the web push certificate, the APIs and the key restrictions. No deploy is needed. |
 | The peer migration or scripts on live (steps 9 and 10) | Import the step 8 export (Firestore → Import). This replaces the data with the pre-launch copy, so do it only for real damage. |
