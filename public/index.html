@@ -507,6 +507,8 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:#00A3E0;box-sh
   to{opacity:1;transform:translate3d(0,0,0)}
 }
 @keyframes jjFadeIn{from{opacity:0}to{opacity:1}}
+/* Twin Thieves phone menu: slides in from the left. */
+@keyframes jjDrawerIn{from{transform:translateX(-100%)}to{transform:none}}
 @keyframes jjFall{0%{transform:translateY(0) rotate(0deg);opacity:0}8%{opacity:.95}100%{transform:translateY(112vh) rotate(540deg);opacity:.15}}
 @keyframes jjPop{0%{opacity:0;transform:scale(.72)}60%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
 @keyframes jjSweep{from{opacity:0;transform:translateX(-70px)}to{opacity:1;transform:translateX(0)}}
@@ -5340,7 +5342,8 @@ sc-if,sc-for{display:none!important}
 <p style="margin:0 0 12px;background:#FFF7CC;border:1px solid #F1DC6B;border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.45;color:#5C4B00">Design preview: sample content. Nothing is saved.</p>
 </sc-if>
 <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px">
-<button sc-camel-on-click="{{ onTTHome }}" style="background:none;border:0;padding:0;cursor:pointer;font-family:inherit;font-weight:800;font-size:12px;color:#00A3E0">← All lessons</button>
+<sc-if value="{{ ttPhone }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ onTTMenu }}" style="background:#fff;border:1px solid #DCE6F0;border-radius:999px;padding:7px 12px;cursor:pointer;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#0C2647">☰ Lessons</button></sc-if>
+<sc-if value="{{ ttWide }}" hint-placeholder-val="{{ true }}"><button sc-camel-on-click="{{ onTTHome }}" style="background:none;border:0;padding:0;cursor:pointer;font-family:inherit;font-weight:800;font-size:12px;color:#00A3E0">← All lessons</button></sc-if>
 <sc-if value="{{ ttBackToStudio }}" hint-placeholder-val="{{ false }}">
 <button sc-camel-on-click="{{ onTTBackToStudio }}" style="background:#FADA01;color:#0C2647;border:0;border-radius:999px;padding:6px 12px;cursor:pointer;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase">Back to Studio</button>
 </sc-if>
@@ -5384,11 +5387,9 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 </div>
 </div>
-<div style="{{ ttTwoColStyle }}">
-<div style="background:linear-gradient(150deg,#123663,#0C2647 62%,#0A1F3A);border:1px solid #1E4C7D;border-radius:14px;padding:16px">
+<section style="background:linear-gradient(150deg,#123663,#0C2647 62%,#0A1F3A);border:1px solid #1E4C7D;border-radius:14px;padding:18px 16px 16px;margin-top:14px">
 <p style="margin:0;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#FADA01">Where this fits</p>
-<svg sc-camel-view-box="-62 4 364 256" style="width:100%;height:auto;display:block;margin:12px 0 4px;overflow:visible" aria-hidden="true">
-<polygon points="150,10 10,250 -58,250" fill="#0A1F3A"></polygon>
+<svg sc-camel-view-box="-4 0 308 258" style="width:100%;max-width:620px;height:auto;display:block;margin:14px auto 4px;overflow:visible" aria-hidden="true">
 <sc-for list="{{ ttCells }}" as="c" hint-placeholder-count="9">
 <g sc-camel-on-click="{{ c.onTap }}" style="{{ c.gStyle }}">
 <polygon points="{{ c.points }}" fill="{{ c.fill }}" stroke="rgba(255,255,255,.28)" stroke-width="1"></polygon>
@@ -5401,16 +5402,8 @@ sc-if,sc-for{display:none!important}
 </foreignObject>
 </sc-for>
 </svg>
-<p style="margin:6px 0 0;text-align:center;font-size:12px;color:#A9BDD6">{{ ttFitText }}</p>
-</div>
-<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:14px 12px">
-<p style="margin:0 4px 8px;font-weight:900;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#0C1B2E">Curriculum</p>
-<sc-for list="{{ ttCurr }}" as="cu" hint-placeholder-count="7">
-<button sc-camel-on-click="{{ cu.onTap }}" style="{{ cu.style }}"><span style="{{ cu.numStyle }}">{{ cu.num }}</span><span style="{{ cu.titleStyle }}">{{ cu.title }}</span></button>
-</sc-for>
-<button sc-camel-on-click="{{ onTTHome }}" style="width:100%;margin-top:6px;background:transparent;border:2px solid #00A3E0;color:#0C2647;border-radius:10px;padding:10px;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">{{ ttViewAll }}</button>
-</div>
-</div>
+<p style="margin:8px 0 0;text-align:center;font-weight:700;font-size:13px;color:#A9BDD6">{{ ttFitText }}</p>
+</section>
 <sc-if value="{{ ttNotThanks }}" hint-placeholder-val="{{ true }}">
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:16px;margin-top:14px">
 <sc-if value="{{ ttHasDiscussion }}" hint-placeholder-val="{{ true }}">
@@ -7819,9 +7812,34 @@ Or upload an image
 <span style="{{ tb.labelStyle }}">{{ tb.label }}</span>
 <span style="{{ tb.badgeStyle }}">{{ tb.badge }}</span>
 </button>
+<sc-if value="{{ tb.hasTTList }}" hint-placeholder-val="{{ false }}">
+<div data-tt-list="1" style="{{ ttSideListStyle }}">
+<sc-for list="{{ ttSide }}" as="sl" hint-placeholder-count="8">
+<button data-tt-cur="{{ sl.cur }}" sc-camel-on-click="{{ sl.onTap }}" style="{{ sl.style }}"><span style="{{ sl.numStyle }}">{{ sl.num }}</span><span style="{{ sl.titleStyle }}">{{ sl.title }}</span><sc-if value="{{ sl.done }}" hint-placeholder-val="{{ false }}"><span style="flex:none;margin-left:auto;color:#2F7F55;font-weight:900;font-size:14px" aria-label="Completed">✓</span></sc-if></button>
+</sc-for>
+</div>
+</sc-if>
 </sc-for>
 </div>
 </nav>
+</sc-if>
+
+<sc-if value="{{ ttMenuOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;inset:0;z-index:80;display:flex;animation:jjFadeIn .18s ease both">
+<div style="width:min(86vw,340px);height:100%;background:#F3F7FB;box-shadow:6px 0 30px rgba(7,20,38,.35);display:flex;flex-direction:column;animation:jjDrawerIn .22s ease both">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 16px 10px">
+<span style="font-weight:800;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:#9DAAB8">Twin Thieves · Lessons</span>
+<button sc-camel-on-click="{{ onTTMenuClose }}" aria-label="Close" style="background:none;border:0;font-size:22px;line-height:1;color:#0C2647;cursor:pointer">✕</button>
+</div>
+<div data-tt-list="1" style="flex:1;min-height:0;overflow-y:auto;position:relative;padding:0 10px 10px">
+<sc-for list="{{ ttSide }}" as="sl" hint-placeholder-count="8">
+<button data-tt-cur="{{ sl.cur }}" sc-camel-on-click="{{ sl.onTap }}" style="{{ sl.style }}"><span style="{{ sl.numStyle }}">{{ sl.num }}</span><span style="{{ sl.titleStyle }}">{{ sl.title }}</span><sc-if value="{{ sl.done }}" hint-placeholder-val="{{ false }}"><span style="flex:none;margin-left:auto;color:#2F7F55;font-weight:900;font-size:14px" aria-label="Completed">✓</span></sc-if></button>
+</sc-for>
+</div>
+<button sc-camel-on-click="{{ onTTMenuProfile }}" style="margin:0 10px 16px;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DCE6F0;border-radius:12px;padding:12px 14px;font-family:inherit;font-weight:800;font-size:14px;color:#0C1B2E;cursor:pointer"><span style="color:#7E8D9C">●</span> My Profile</button>
+</div>
+<button sc-camel-on-click="{{ onTTMenuClose }}" aria-label="Close the menu" style="flex:1;border:0;background:rgba(7,20,38,.45);cursor:pointer"></button>
+</div>
 </sc-if>
 
 <sc-if value="{{ hasCelebration }}" hint-placeholder-val="{{ false }}">
@@ -15437,7 +15455,14 @@ class Component extends DCLogic {
     window.scrollTo(0,0);
     return true;
   }
-  ttOpen(id){ this.setState({view:'ttlesson',tab:'lessons',ttLessonId:id,ttTab:'overview',ttPlay:false,ttSeek:0}); window.scrollTo(0,0); }
+  ttOpen(id){ this.setState({view:'ttlesson',tab:'lessons',ttLessonId:id,ttTab:'overview',ttPlay:false,ttSeek:0,ttMenu:false},()=>this.ttScrollSide()); window.scrollTo(0,0); }
+  /* The lesson list scrolls inside itself (sidebar or phone menu) to the
+     current lesson, without moving the page. */
+  ttScrollSide(){
+    setTimeout(()=>{ try{ document.querySelectorAll('[data-tt-list]').forEach(box=>{
+      const el=box.querySelector('[data-tt-cur="1"]'); if(!el) return;
+      box.scrollTop=Math.max(0,el.offsetTop-box.clientHeight/2+el.clientHeight/2); }); }catch(e){} },60);
+  }
   ttToggleDone(id){
     const p=Object.assign({},this.state.ttProg||{}), done=!this.ttDone(id);
     if(done) p[id]={doneAt:Date.now()}; else delete p[id];
@@ -15650,7 +15675,7 @@ class Component extends DCLogic {
       adminProduct:'tt',ttAdminTab:'lessons',orgList:[],name:'Preview',ttLib:lib,ttProg:prog,ttDemo:true,org,ttLibSaved:true,
       ttOrgs:[{code:'TT36',name:'Twin Thieves Leadership · 36 lessons',product:'tt',ttVersion:36,joinCode:'TWINTHIEVES36',joinDisabled:false,joinDomain:''}]});
     this.setState({booting:false,role:'leader',view:which==='lesson'?'ttlesson':'tthome',tab:'lessons',
-      ttLessonId:'tt04',ttTab:'overview',name:'Preview',org,ttLib:lib,ttProg:prog,ttDemo:true});
+      ttLessonId:'tt04',ttTab:'overview',name:'Preview',org,ttLib:lib,ttProg:prog,ttDemo:true},()=>this.ttScrollSide());
   }
   /* View-model for the Twin Thieves screens and the Studio product switcher. */
   ttRender(v,W){
@@ -15700,6 +15725,22 @@ class Component extends DCLogic {
         onOpen:()=>this.ttOpen(l.id)});
     });
     v.ttRows=rows;
+    // The lesson list for the sidebar (desktop) and the menu (phones).
+    const curId=s.view==='ttlesson'?s.ttLessonId:'';
+    v.ttSide=list.map(l=>{ const d=this.ttDone(l.id), me=l.id===curId;
+      return {cur:me?'1':'0',num:l.closing?'★':String(l.n),title:l.closing?'Thank you!':l.title,done:d,
+        style:'width:100%;display:flex;align-items:center;gap:10px;text-align:left;font-family:inherit;cursor:pointer;border:0;border-radius:10px;padding:8px 10px;margin-bottom:2px;'
+          +(me?'background:#FFF7CC;box-shadow:inset 3px 0 0 #FADA01':'background:transparent'),
+        numStyle:'flex:none;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10.5px;'
+          +(d?'background:#2F7F55;color:#fff':(l.closing?'background:#FADA01;color:#0C2647':'background:#EAF1F8;color:#0C2647')),
+        titleStyle:'font-size:12.5px;line-height:1.3;color:#0C1B2E;font-weight:'+(me?'800':'600'),
+        onTap:()=>this.ttOpen(l.id)}; });
+    v.ttSideListStyle='position:relative;max-height:calc(100vh - 290px);min-height:120px;overflow-y:auto;margin:2px 0 10px;padding:4px 4px 4px 6px;border-left:2px solid #DCE6F0';
+    v.ttPhone=!W; v.ttWide=!!W;
+    v.ttMenuOpen=!!s.ttMenu&&!W;
+    v.onTTMenu=()=>{ this.setState({ttMenu:true},()=>this.ttScrollSide()); };
+    v.onTTMenuClose=()=>this.setState({ttMenu:false});
+    v.onTTMenuProfile=()=>{ this.setState({ttMenu:false,view:'ttme',tab:'me'}); window.scrollTo(0,0); };
     // Lesson page
     if(s.view==='ttlesson'){
       const cur=list.find(l=>l.id===s.ttLessonId)||list[0];
@@ -15730,18 +15771,6 @@ class Component extends DCLogic {
       v.ttCells=pyr.cells; v.ttCellLabels=pyr.cellLabels;
       const pm=TT_PYR.find(p=>p.id===hl);
       v.ttFitText=pm?(pm.name+' · '+TIER_LABEL[pm.tier]):'All nine fundamentals of the pyramid';
-      v.ttTwoColStyle='display:grid;gap:14px;margin-top:14px;grid-template-columns:'+(W?'1fr 1fr':'1fr');
-      // Curriculum: a window around this lesson.
-      const from=Math.max(0,Math.min(i-2,list.length-7));
-      v.ttCurr=list.slice(from,from+7).map(l=>{ const d=this.ttDone(l.id), me=l.id===cur.id;
-        return {num:l.closing?'★':(d?'✓':String(l.n)),title:l.closing?'Thank you!':l.title,
-          style:'width:100%;display:flex;align-items:center;gap:10px;text-align:left;font-family:inherit;cursor:pointer;border:0;border-radius:10px;padding:9px 10px;margin-bottom:4px;'
-            +(me?'background:#FFF7CC;box-shadow:inset 3px 0 0 #FADA01':'background:transparent'),
-          numStyle:'flex:none;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;'
-            +(d?'background:#2F7F55;color:#fff':'background:#EAF1F8;color:#0C2647'),
-          titleStyle:'font-size:13px;line-height:1.3;color:#0C1B2E;font-weight:'+(me?'800':'600'),
-          onTap:()=>this.ttOpen(l.id)}; });
-      v.ttViewAll='View all '+total+' lessons';
       v.onTTHome=()=>{ this.setState({view:'tthome',tab:'lessons'}); window.scrollTo(0,0); };
       v.ttDiscussion=(cur.discussion||[]).map(q=>({text:q})); v.ttHasDiscussion=v.ttDiscussion.length>0;
       v.ttAdditional=(cur.additional||[]).map(q=>({text:q})); v.ttHasAdditional=v.ttAdditional.length>0;
@@ -15807,7 +15836,7 @@ class Component extends DCLogic {
         const size=Math.max(gSize,Math.min(targetSize,(availCell-ownLen*PYR_LS)/ownRatio));
         const lead=size+1.4;
         const isz=PYR_ICON*Math.min(1.25,Math.max(1,targetSize/gSize));
-        const tagSize=size*0.82, tagLead=tagSize+1.2, tagH=isHl?2*tagLead+3:0;
+        const tagSize=size*0.92, tagLead=tagSize+1.4, tagH=isHl?2*tagLead+3:0;
         const blockH=isz+5+lines.length*lead+tagH;
         const top=cy-blockH/2+(n===1?11:0), iy=top, firstBaseline=top+isz+5+size;
         const ink=done?'#0C2647':(locked?'#7E8D9C':'#FFFFFF');
@@ -15828,7 +15857,7 @@ class Component extends DCLogic {
         // The highlighted block says what the yellow means here, so it is not
         // read as "finished" the way yellow reads on the Playbook home.
         if(isHl) ['THIS','LESSON'].forEach((t,ti)=>labels.push({x:lx,y:firstBaseline-size+lines.length*lead+3+ti*tagLead,w:90,h:tagLead,text:t,
-          style:'display:flex;align-items:center;justify-content:center;height:100%;white-space:nowrap;line-height:1;font-family:Montserrat,sans-serif;font-weight:800;font-size:'+tagSize+'px;letter-spacing:.5px;color:#0C2647;opacity:.78'}));
+          style:'display:flex;align-items:center;justify-content:center;height:100%;white-space:nowrap;line-height:1;font-family:Montserrat,sans-serif;font-weight:800;font-size:'+tagSize+'px;letter-spacing:.6px;color:#0C2647'}));
         if(locked){ const ly=iy+isz-1; locks.push({x:cx,y:ly,ty:ly+3}); }
       });
     });
@@ -24373,6 +24402,8 @@ class Component extends DCLogic {
       const tabKey=t.k;
       const photo=(t.k==='me'&&navAv)?navAv:'';
       return {key:tabKey, glyph:t.g,label:t.l,badge:t.n>9?'9+':String(t.n),
+        // Twin Thieves: the lesson list sits under Lessons in the desktop sidebar.
+        hasTTList:W&&this.isTT()&&t.k==='lessons',
         hasPhoto:!!photo, noPhoto:!photo, photo:photo||BLANK_IMG,
         isMail:!photo&&!!t.mail, plainGlyph:!photo&&!t.mail,
         mailWrapStyle:'flex:none;display:flex;align-items:center;justify-content:center;'
