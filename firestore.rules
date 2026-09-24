@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function userEmail() { return request.auth.token.email.lower(); }
+    function isAdmin() {
+      return signedIn() && userEmail() in [
+        'charlie@jadin-jones.com',
+        'lucas@jadin-jones.com',
+        'review@jadin-jones.com'
+      ];
+    }
+    function memberDoc() { return /databases/$(database)/documents/members/$(userEmail()); }
+    function isAnyMember() { return signedIn() && exists(memberDoc()); }
+    function inOrg(code) { return isAnyMember() && code in get(memberDoc()).data.orgs; }
+
+    match /members/{email} {
+      allow read: if isAdmin() || (signedIn() && email == userEmail());
+      allow write: if isAdmin();
+    }
+
+    match /jj_playbook/{docId} {
+      function parts() { return docId.split(':'); }
+      function kind() { return parts()[0]; }
+      function perOrgKind() { return kind() in ['org','events','updates']; }
+      function overrideDoc() { return kind() == 'program' && parts()[1] == 'override'; }
+      function globalKind() { return kind() in ['knowledge','demo'] || (kind() == 'program' && parts()[1] != 'override'); }
+      function personalKind() { return kind() in ['resp','coach','gin','rev','push','awaymark','remindmark','unlockmark','dwinvitemark']; }
+      function teamKind() { return kind() in ['chat','peer']; }
+      function isPreviewOrSample() { return docId.matches('.*:(__preview__|sample-[^:]*)'); }
+      function ownsExisting() {
+        return signedIn() && resource != null
+          && resource.data.ownerEmail is string
+          && resource.data.ownerEmail == userEmail();
+      }
+      function ownsIncoming() {
+        return signedIn()
+          && request.resource.data.ownerEmail is string
+          && request.resource.data.ownerEmail == userEmail();
+      }
+      allow read: if isAdmin()
+        || (perOrgKind() && inOrg(parts()[1]))
+        || (overrideDoc() && inOrg(parts()[2]))
+        || (globalKind() && isAnyMember())
+        || (teamKind() && inOrg(parts()[1]))
+        || (isPreviewOrSample() && isAnyMember())
+        || (personalKind() && resource == null && inOrg(parts()[1]))
+        || (personalKind() && ownsExisting());
+      allow create: if isAdmin()
+        || (personalKind() && inOrg(parts()[1]) && ownsIncoming())
+        || (teamKind() && inOrg(parts()[1]));
+      allow update: if isAdmin()
+        || (personalKind() && ownsExisting() && ownsIncoming())
+        || (teamKind() && inOrg(parts()[1]));
+      allow delete: if isAdmin() || (personalKind() && ownsExisting());
+    }
+
+    match /tt_data/{docId}     { allow read, write: if isAnyMember(); }
+    match /jj_lifeplan/{docId} { allow read, write: if isAnyMember(); }
+  }
+}
