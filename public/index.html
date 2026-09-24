@@ -8794,7 +8794,24 @@ async function sset(key,val){ await fbReady(); await authReady(); try{ const s=J
     if(_isMember){
       let _oe=null;
       try{ const _u=(firebase.auth&&firebase.apps.length)?firebase.auth().currentUser:null; if(_u&&_u.email) _oe=_u.email.toLowerCase(); }catch(e){}
-      if(!_oe && val && typeof val==="object"){ const _e=val.email||(val.resp&&val.resp.email)||""; if(_e) _oe=String(_e).toLowerCase(); }
+      /* An admin saving someone else's record (Studio's group and lead
+         buttons, coach notes) must not become its owner, or V3 locks the
+         member out of it. The owner is then the member: the email in the
+         record, else their resp:CODE:idkey. If neither can be found the
+         field is left out, and merge keeps whatever the record had. */
+      if(_oe && isAdminEmail(_oe)){
+        _oe=null;
+        const _p=key.split(':');
+        if(_p[0]==='resp'&&val&&typeof val==='object'&&val.email) _oe=String(val.email).trim().toLowerCase();
+        else if(_p.length===3&&_p[0]!=='chat'){
+          try{ const _r=await db.collection(COLL).doc('resp:'+_p[1]+':'+_p[2]).get();
+            if(_r.exists){ let _e=_r.get('ownerEmail');
+              if(!_e||isAdminEmail(_e)){ try{ _e=(JSON.parse(_r.get('value'))||{}).email; }catch(e){ _e=''; } }
+              if(_e&&!isAdminEmail(_e)) _oe=String(_e).trim().toLowerCase(); } }catch(e){}
+        }
+        if(_oe&&isAdminEmail(_oe)) _oe=null;
+      }
+      else if(!_oe && val && typeof val==="object"){ const _e=val.email||(val.resp&&val.resp.email)||""; if(_e) _oe=String(_e).toLowerCase(); }
       if(_oe) _payload.ownerEmail=_oe;
     }
     /* Peer and team rounds carry peerToken, so /api/peer can find them from

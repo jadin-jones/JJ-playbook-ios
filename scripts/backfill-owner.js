@@ -16,6 +16,11 @@
  *   push:idkey (old,        the email of any resp:*:idkey; two different
  *     person-only)            emails is reported as ambiguous, not guessed
  *
+ * Records an admin took over: until sset() stopped it, an admin saving a
+ * member's record (Studio's group and lead buttons, the coach's notes) wrote
+ * the admin's email as its owner, locking the member out under V3. Those
+ * are re-stamped with the member's email (RESTAMP), checked the same way.
+ *
  * Leads (only with --leads): for every resp:CODE:* with orgLead true, the
  * lead's email is added to the `leads` list inside org:CODE's value, the
  * admin-only place the app and /api/members trust. resp.orgLead itself is left
@@ -29,7 +34,7 @@
  * run finds nothing to do.
  */
 const {
-  COLL, db, cleanEmail, loadRecords, revocations, personSkip, parseVal,
+  COLL, db, ADMINS, cleanEmail, loadRecords, revocations, personSkip, parseVal,
   parseArgs, guardProject, fail, savePlan, loadPlan, printPlan, applyPlan
 } = require('./lib/common');
 const path = require('path');
@@ -39,6 +44,11 @@ const SCRIPT = 'backfill-owner';
 const OWNED = ['resp', 'push', 'coach', 'gin'];
 const USAGE = 'Usage: node scripts/backfill-owner.js --project <id> [--live] [--leads] [--apply <plan.json>]\n' +
   'Without --apply it is a dry run: nothing is written.';
+
+/* A missing ownerEmail is stamped; an admin's is replaced (from: that address). */
+const stamp = (id, had, email) => had
+  ? { key: 'owner:' + id, type: 'restamp', id, from: had, owner: email }
+  : { key: 'owner:' + id, type: 'owner', id, owner: email };
 
 /* The whole plan from records already read; touches no database. */
 function plan(recs, isRevoked, options) {
@@ -50,11 +60,15 @@ function plan(recs, isRevoked, options) {
   const orgs = new Map();
   (recs.org || []).forEach(r => { if (r.parts.length === 2 && r.value) orgs.set(r.parts[1], r.value); });
 
-  // Who each member record belongs to, by program and idkey, and by idkey alone.
+  // Who each member record belongs to, by program and idkey, and by idkey
+  // alone. An admin's address as ownerEmail is the takeover above, so the
+  // email inside the record wins over it.
+  const isAdmin = e => ADMINS.indexOf(e) >= 0;
   const owner = new Map(), byIdkey = new Map();
   (recs.resp || []).forEach(r => {
     if (r.parts.length !== 3) return;
-    const email = cleanEmail(r.ownerEmail) || cleanEmail(r.value && r.value.email);
+    const top = cleanEmail(r.ownerEmail), inside = cleanEmail(r.value && r.value.email);
+    const email = (top && !isAdmin(top)) ? top : (inside || top);
     if (!email) return;
     owner.set(r.parts[1] + ':' + r.parts[2], email);
     if (!byIdkey.has(r.parts[2])) byIdkey.set(r.parts[2], { emails: new Set(), codes: new Set() });
@@ -65,19 +79,21 @@ function plan(recs, isRevoked, options) {
   // 1. ownerEmail
   for (const kind of OWNED) {
     for (const r of (recs[kind] || [])) {
-      if (cleanEmail(r.ownerEmail)) { already++; continue; }
-      if (r.ownerEmail) { skip(r.id, { reason: 'bad-owner', detail: 'ownerEmail is set but is not an email address' }); continue; }
+      const had = cleanEmail(r.ownerEmail);
+      if (had && !isAdmin(had)) { already++; continue; }
+      if (r.ownerEmail && !had) { skip(r.id, { reason: 'bad-owner', detail: 'ownerEmail is set but is not an email address' }); continue; }
 
       if (kind === 'push' && r.parts.length === 2) {
         const who = byIdkey.get(r.parts[1]);
         if (!who) { skip(r.id, { reason: 'no-resp', detail: 'no resp:*:' + r.parts[1] + ' to take the owner from' }); continue; }
         if (who.emails.size > 1) { skip(r.id, { reason: 'ambiguous', detail: 'resp records name ' + Array.from(who.emails).join(', ') }); continue; }
         const email = Array.from(who.emails)[0];
+        if (had && had === email) { already++; continue; }
         const s = personSkip(email, null, isRevoked);
         if (s) { skip(r.id, s); continue; }
         const rev = Array.from(who.codes).find(c => isRevoked(c, email));
         if (rev) { skip(r.id, { reason: 'revoked', detail: email + ' has a rev: record for ' + rev }); continue; }
-        changes.push({ key: 'owner:' + r.id, type: 'owner', id: r.id, owner: email });
+        changes.push(stamp(r.id, had, email));
         continue;
       }
 
@@ -92,9 +108,10 @@ function plan(recs, isRevoked, options) {
         email = owner.get(code + ':' + idkey);
         if (!email) { skip(r.id, { reason: 'no-resp', detail: 'no resp:' + code + ':' + idkey + ' with an email to take the owner from' }); continue; }
       }
+      if (had && had === email) { already++; continue; }   // an admin's own record
       const s = personSkip(email, code, isRevoked);
       if (s) { skip(r.id, s); continue; }
-      changes.push({ key: 'owner:' + r.id, type: 'owner', id: r.id, owner: email });
+      changes.push(stamp(r.id, had, email));
     }
   }
 
@@ -119,9 +136,9 @@ function plan(recs, isRevoked, options) {
   return { changes, skips, already };
 }
 
-const describe = c => c.type === 'owner'
-  ? 'STAMP  ' + c.id + '  ownerEmail = ' + c.owner
-  : 'LEAD   ' + c.id + '  add ' + c.email + ' to leads';
+const describe = c => c.type === 'owner' ? 'STAMP    ' + c.id + '  ownerEmail = ' + c.owner
+  : c.type === 'restamp' ? 'RESTAMP  ' + c.id + '  ownerEmail ' + c.from + ' -> ' + c.owner
+  : 'LEAD     ' + c.id + '  add ' + c.email + ' to leads';
 
 /* One change, in a transaction that re-reads the record first. Returns true,
    or why it was not written. */
@@ -130,8 +147,10 @@ function write(c) {
   return db().runTransaction(async tx => {
     const snap = await tx.get(ref);
     if (!snap.exists) return 'record is gone';
-    if (c.type === 'owner') {
-      if (snap.get('ownerEmail')) return 'already has ownerEmail ' + snap.get('ownerEmail');
+    if (c.type === 'owner' || c.type === 'restamp') {
+      const now = snap.get('ownerEmail') || '';
+      if (c.type === 'owner' && now) return 'already has ownerEmail ' + now;
+      if (c.type === 'restamp' && now !== c.from) return 'ownerEmail is now ' + (now || 'missing') + ', not ' + c.from;
       tx.update(ref, { ownerEmail: c.owner });
       return true;
     }
