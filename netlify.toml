@@ -4,6 +4,11 @@
   # path in the app, manifests and service worker already assumes public/
   # is the site root.
   publish = "public"
+  # The Netlify functions (join, members, peer, ms-verify, coach, granola,
+  # migrate-peers, auth-proxy) live here. This file overrides the dashboard's
+  # "Functions directory": the top-level functions/ folder is the Firebase
+  # Cloud Functions source (deployed with the Firebase CLI, never by Netlify)
+  # and must never be picked up as Netlify functions.
   functions = "netlify/functions"
 
 # The app calls /api/coach; Netlify runs netlify/functions/coach.js.
