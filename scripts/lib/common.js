@@ -137,6 +137,11 @@ function guardProject(args, usage) {
   if (missing.length) fail('Missing credentials: ' + missing.join(', ') + '. Add them as Codespaces secrets and restart the Codespace.');
   const envProject = process.env.FIREBASE_PROJECT_ID;
   if (args.project !== envProject) fail('--project ' + args.project + ' does not match the credentials, which are for ' + envProject + '.');
+  /* The service account must belong to that project too, so a shell with the
+     live project ID but the Dev key (or the other way round) is refused. */
+  const sa = String(process.env.FIREBASE_CLIENT_EMAIL || '').trim().toLowerCase();
+  if (!sa.endsWith('@' + envProject + '.iam.gserviceaccount.com'))
+    fail('The service account ' + sa + ' is not in project ' + envProject + '. Set FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY for the same project.');
   if (envProject === LIVE_PROJECT && !args.live) fail(LIVE_PROJECT + ' is the live project. Add --live to use it.');
   if (args.live && envProject !== LIVE_PROJECT) fail('--live was given, but ' + envProject + ' is not the live project.');
   console.log('\nProject:         ' + envProject + (args.live ? '   (LIVE)' : ''));
