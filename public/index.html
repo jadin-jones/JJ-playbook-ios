@@ -10195,15 +10195,19 @@ class Component extends DCLogic {
     }catch(e){ console.warn('devicePushToken',e); return null; }
   }
   /* Their push records on this account: one per program (My groups' list,
-     plus the program open now) and the old one keyed by person only. */
+     plus the program open now) and the old one keyed by person only.
+     listed is false when My groups could not be read, so the keys may be
+     missing programs; names maps each code to its program name. */
   async myPushKeys(){
     const s=this.state, me=String(currentUserEmail()||'').trim().toLowerCase();
     const idkey=s.idkey||(me?slug(me):'');
-    if(!idkey) return {idkey:'',keys:[]};
+    if(!idkey) return {idkey:'',keys:[],listed:false,names:{}};
     const codes=new Set(); if(s.code) codes.add(s.code);
+    const names={}; if(s.code) names[s.code]=(s.org&&s.org.name)||s.code;
     const progs=me?await this.myPrograms(me).catch(()=>null):null;
-    (progs||[]).forEach(g=>codes.add(g.code));
-    return {idkey,keys:Array.from(codes).map(c=>'push:'+c+':'+idkey).concat(['push:'+idkey])};
+    (progs||[]).forEach(g=>{ codes.add(g.code); names[g.code]=g.orgName||g.code; });
+    return {idkey,listed:!!progs,names,
+      keys:Array.from(codes).map(c=>'push:'+c+':'+idkey).concat(['push:'+idkey])};
   }
   /* Off, and sign-out: this device's token leaves every record of theirs. */
   async unregisterPushHere(){
@@ -10221,20 +10225,39 @@ class Component extends DCLogic {
     }catch(e){ console.warn('deleteToken',e); }
     this._nativeToken=null;
   }
-  /* On: every program record of theirs gets this device's token back. */
-  async registerPushEverywhere(){
-    const token=await this.devicePushToken(); if(!token) return;
-    const {idkey,keys}=await this.myPushKeys();
+  /* On: every program record of theirs gets this device's token back.
+     Returns what could not be done, so the switch can say so:
+     failed lists the names of programs whose record was not written, and
+     listed is false when their other programs could not be looked up.
+     A record that cannot be read is left alone rather than written blind,
+     which would replace its reminder settings with defaults. */
+  async registerPushEverywhere(token){
+    token=token||await this.devicePushToken();
+    if(!token) return {failed:[],listed:false,noToken:true};
+    const {idkey,keys,listed,names}=await this.myPushKeys();
     const tz=(Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||'America/Chicago';
+    const failed=[];
     for(const k of keys.filter(x=>x.split(':').length===3)){
-      let rec=null; try{ rec=await sget(k); }catch(e){}
-      rec=Object.assign({},rec||{},{token,active:true,code:k.split(':')[1],idkey,
+      const code=k.split(':')[1];
+      let rec=null;
+      try{ rec=await sgetStrict(k); }
+      catch(e){ console.warn('registerPushEverywhere read',k,e); failed.push(names[code]||code); continue; }
+      rec=Object.assign({},rec||{},{token,active:true,code,idkey,
         name:this.state.name||(rec&&rec.name)||'',tz,at:Date.now()});
       if(this.isNativeApp()) rec.platform='ios-native';
       if(rec.remindHour==null) rec.remindHour=18;
       delete rec.mutedAt; delete rec.mutedFor;
-      try{ await sset(k,rec); }catch(e){ console.warn('registerPushEverywhere',k,e); }
+      if(!await sset(k,rec)) failed.push(names[code]||code);
     }
+    return {failed,listed:!!listed};
+  }
+  /* What the switch says after turning on, from registerPushEverywhere(). */
+  pushEverywhereMsg(r){
+    if(!r||r.noToken) return 'Could not finish setting up notifications — switch off and on again to retry.';
+    if(r.failed.length) return 'Notifications are on, but could not be set up for '+r.failed.join(', ')
+      +'. Switch off and on again to retry.';
+    if(!r.listed) return 'Notifications are on for this program, but your other programs could not be checked. Switch off and on again to retry.';
+    return '';
   }
   /* The switch in My Profile, turned off. */
   async disablePush(){
@@ -10422,7 +10445,10 @@ class Component extends DCLogic {
             const token=await this.registerNativePush();
             await this.saveNativeToken(token);
             this.syncReminderPrefs().catch(()=>{});
-            this.registerPushEverywhere().catch(()=>{});
+            const all=await this.registerPushEverywhere(token)
+              .catch(e=>{ console.warn('registerPushEverywhere',e); return null; });
+            const msg=this.pushEverywhereMsg(all);
+            if(msg) this.setState({pushMsg:msg});
           }catch(e){
             console.error('registerNativePush',e);
             /* Only surfaced if the device never got registered — the switch
@@ -10475,12 +10501,16 @@ class Component extends DCLogic {
         token, name:this.state.name||'', code:this.state.code||'',
         idkey:this.state.idkey||'', at:Date.now(), active:true
       })),15000,'save');
-      this.registerPushEverywhere().catch(()=>{});
-      /* The token is stored — that is what makes push work, so call it done here.
-         Anything after this is housekeeping and must never hold the button. */
+      /* This program is on. Their other programs are written before the
+         switch says done, and any that could not be are named. */
       this.markPushOn();
-      this.setState({pushBusy:false,pushOn:true,pushMsg:'\u2713 Notifications are on for this device.'});
-      this.toast('Notifications enabled');
+      this.setState({pushOn:true,pushMsg:'Setting up your other groups\u2026'});
+      const all=await this.pushStep(this.registerPushEverywhere(token),30000,'your other groups')
+        .catch(e=>{ console.warn('registerPushEverywhere',e); return null; });
+      const msg=this.pushEverywhereMsg(all);
+      this.setState({pushBusy:false,pushMsg:msg||'\u2713 Notifications are on for this device, for all your groups.'});
+      if(msg) this.toast('Notifications are only partly on',true); else this.toast('Notifications enabled');
+      /* Anything after this is housekeeping and must never hold the button. */
       this.markPushAsked();
       this.syncReminderPrefs().catch(()=>{});
       this.attachForegroundPush(reg);
