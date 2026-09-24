@@ -111,6 +111,7 @@ async function move(p) {
     tx.set(to, {
       value: JSON.stringify(doc),
       peerToken: p.token,
+      peerMode: doc.mode === 'team' ? 'team' : 'peer',   // what the rules read
       ownerEmail: p.owner,
       migratedFrom: p.from,
       migratedAt: admin.firestore.FieldValue.serverTimestamp()

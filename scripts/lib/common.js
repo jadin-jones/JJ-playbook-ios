@@ -64,7 +64,7 @@ async function listPrefix(prefix) {
 }
 
 /* Everything the planners need, read once. Each record is
-   { id, parts, value, ownerEmail } so planning itself touches no database
+   { id, parts, value, ownerEmail, peerMode } so planning itself touches no database
    and can be checked offline. */
 async function loadRecords(prefixes) {
   const out = {};
@@ -73,7 +73,8 @@ async function loadRecords(prefixes) {
       id: snap.id,
       parts: snap.id.split(':'),
       value: parseVal(snap),
-      ownerEmail: snap.get('ownerEmail')
+      ownerEmail: snap.get('ownerEmail'),
+      peerMode: snap.get('peerMode')
     }));
   }
   return out;

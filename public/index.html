@@ -8819,6 +8819,9 @@ async function sset(key,val){ await fbReady(); await authReady(); try{ const s=J
        by anyone else (Studio included) never changes the owner. */
     else if(/^peer:[^:]+:[^:]+$/.test(key)){
       _payload.peerToken=key.split(':')[2];
+      /* Top level so the rules can tell a team round, which the whole
+         program may read, from an individual one, which only its owner may. */
+      _payload.peerMode=(val&&val.mode==='team')?'team':'peer';
       if(val&&typeof val.ownerEmail==='string'&&val.ownerEmail) _payload.ownerEmail=val.ownerEmail.toLowerCase();
     }
     await attempt(()=>db.collection(COLL).doc(key).set(_payload,{merge:true}),2,9000); return true; }

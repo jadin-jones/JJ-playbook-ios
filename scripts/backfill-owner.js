@@ -21,6 +21,12 @@
  * the admin's email as its owner, locking the member out under V3. Those
  * are re-stamped with the member's email (RESTAMP), checked the same way.
  *
+ * Peer rounds: peer:CODE:TOKEN gets a top-level peerMode ('team' or 'peer',
+ * from the round's own mode), which the rules use to let the whole program
+ * read team rounds while individual rounds stay with their owner. A round
+ * without it is owner-only, so old team rounds are hidden from members until
+ * this runs (PEERMODE).
+ *
  * Leads (only with --leads): for every resp:CODE:* with orgLead true, the
  * lead's email is added to the `leads` list inside org:CODE's value, the
  * admin-only place the app and /api/members trust. resp.orgLead itself is left
@@ -115,7 +121,16 @@ function plan(recs, isRevoked, options) {
     }
   }
 
-  // 2. leads
+  // 2. peerMode on peer rounds
+  for (const r of (recs.peer || [])) {
+    if (r.parts.length !== 3) continue;   // old peer:TOKEN rounds are the migration's
+    if (!r.value) { skip(r.id, { reason: 'unreadable', detail: 'round is empty or unreadable' }); continue; }
+    const mode = r.value.mode === 'team' ? 'team' : 'peer';
+    if (r.peerMode === mode) { already++; continue; }
+    changes.push({ key: 'peermode:' + r.id, type: 'peermode', id: r.id, mode, from: r.peerMode || '' });
+  }
+
+  // 3. leads
   const seen = new Set();
   for (const r of (options.leads ? (recs.resp || []) : [])) {
     if (r.parts.length !== 3 || !r.value || r.value.orgLead !== true) continue;
@@ -138,6 +153,7 @@ function plan(recs, isRevoked, options) {
 
 const describe = c => c.type === 'owner' ? 'STAMP    ' + c.id + '  ownerEmail = ' + c.owner
   : c.type === 'restamp' ? 'RESTAMP  ' + c.id + '  ownerEmail ' + c.from + ' -> ' + c.owner
+  : c.type === 'peermode' ? 'PEERMODE ' + c.id + '  peerMode = ' + c.mode + (c.from ? ' (was ' + c.from + ')' : '')
   : 'LEAD     ' + c.id + '  add ' + c.email + ' to leads';
 
 /* One change, in a transaction that re-reads the record first. Returns true,
@@ -155,6 +171,13 @@ function write(c) {
       return true;
     }
     const v = parseVal(snap);
+    if (c.type === 'peermode') {
+      if (!v) return 'round is empty or unreadable';
+      if ((v.mode === 'team' ? 'team' : 'peer') !== c.mode) return 'the round\'s mode has changed';
+      if ((snap.get('peerMode') || '') !== c.from) return 'peerMode is now ' + (snap.get('peerMode') || 'missing');
+      tx.update(ref, { peerMode: c.mode });
+      return true;
+    }
     if (!v) return 'program record is empty or unreadable';
     const leads = v.leads === undefined ? [] : v.leads;
     if (!Array.isArray(leads)) return 'leads is not a list';
@@ -169,7 +192,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2), USAGE, ['leads']);
   const project = guardProject(args, USAGE);
   const saved = args.apply ? loadPlan(args.apply, SCRIPT, project, args.options) : null;
-  const recs = await loadRecords(OWNED.concat(['org', 'rev']));
+  const recs = await loadRecords(OWNED.concat(['org', 'rev', 'peer']));
   const fresh = plan(recs, revocations(recs.rev), args.options);
   if (!saved) {
     printPlan(fresh, describe);
