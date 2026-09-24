@@ -11493,7 +11493,11 @@ class Component extends DCLogic {
         if(t) return t;
       }catch(e){ console.warn('preview coach failed, trying /api/coach',e); }
     }
-    const res=await fetch('/api/coach',{method:'POST',headers:{'Content-Type':'application/json'},
+    /* /api/coach answers only signed-in members of a program and admins. */
+    await authReady();
+    const cu=firebase.auth().currentUser; if(!cu) throw new Error('not signed in');
+    const res=await fetch('/api/coach',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await cu.getIdToken())},
       body:JSON.stringify({system:system,messages:messages,max_tokens:maxTokens||500})});
     if(!res.ok) throw new Error('coach endpoint '+res.status);
     const data=await res.json();
