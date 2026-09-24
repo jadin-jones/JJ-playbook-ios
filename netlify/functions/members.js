@@ -26,6 +26,14 @@
  * peerRounds {token,openedAt}, and peerAgg for their newest peer round:
  * { token, n, avg } (score averages only; no comments, no one's answers).
  *
+ * POST /api/members  { action, code, ... }  (same caller checks)
+ *   'evidence'    { idkey, goalId, text }: add what the caller saw to a
+ *                 colleague's open goal (V3 lets no member write another's
+ *                 record). Only that entry is added, marked share, byName
+ *                 (the caller's first name) and byId (their idkey).
+ *   'team-round'  { token }: set org:CODE's teamRound to a team round the
+ *                 caller owns (members may not write org:CODE).
+ *
  * Env: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
  * (see netlify/lib/firebase-admin.js).
  */
@@ -40,7 +48,7 @@ const HDR = {
   'Cache-Control': 'no-store',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS'
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
 };
 const reply = (statusCode, body) => ({ statusCode, headers: HDR, body: JSON.stringify(body) });
 
@@ -115,86 +123,155 @@ async function peerDoc(code, token) {
   return d || parseVal(await col.doc('peer:' + token).get());
 }
 
+/* Who is calling, and may they act in program CODE? Returns
+   { email, idkey, isAdmin, org, own } or { refuse: reply }. */
+async function caller(event, code) {
+  const h = event.headers || {};
+  const m = /^Bearer\s+(.+)$/i.exec(h.authorization || h.Authorization || '');
+  if (!m) return { refuse: reply(401, { error: 'Sign in first' }) };
+  let tok;
+  try { tok = await auth().verifyIdToken(m[1], true); }
+  catch (e) { return { refuse: reply(401, { error: 'Your sign-in has expired. Sign in again.' }) }; }
+  const email = lower(tok.email);
+  if (!email) return { refuse: reply(403, { error: 'Your account has no email address' }) };
+  if (tok.email_verified !== true) return { refuse: reply(403, { error: 'Verify your email address first', code: 'unverified' }) };
+  if (!code) return { refuse: reply(400, { error: 'No program code' }) };
+
+  const ms = isMicrosoft(tok);
+  if (ms && !(await isConfirmed(tok.uid, email)))
+    return { refuse: reply(403, { error: 'Confirm your email address first', code: 'ms-verify' }) };
+  const isAdmin = ADMINS.indexOf(email) >= 0 && !ms;
+  const idkey = slug(email);
+  const col = db().collection(COLL);
+  const [orgSnap, memberSnap, ownSnap, ownRev] = await Promise.all([
+    col.doc('org:' + code).get(),
+    db().collection('members').doc(email).get(),
+    col.doc('resp:' + code + ':' + idkey).get(),
+    col.doc('rev:' + code + ':' + idkey).get()
+  ]);
+  const org = parseVal(orgSnap), own = parseVal(ownSnap);
+  if (!org) return { refuse: reply(404, { error: 'No program found for ' + code, code: 'no-program' }) };
+  if (!isAdmin) {
+    const orgs = memberSnap.exists ? memberSnap.get('orgs') : null;
+    if (!Array.isArray(orgs) || orgs.indexOf(code) < 0 || !own)
+      return { refuse: reply(403, { error: 'You are not in this program', code: 'not-member' }) };
+    if (parseVal(ownRev)) return { refuse: reply(403, { error: 'Your access to this program has ended', code: 'revoked' }) };
+  }
+  return { email, idkey, isAdmin, org, own };
+}
+
+/* Revoked in this program: a tombstone for their idkey, or their address
+   listed in any tombstone. */
+async function revokedIn(code) {
+  const keys = new Set(), emails = new Set();
+  (await prefix('rev:' + code + ':')).forEach(d => {
+    const v = parseVal(d); if (!v) return;
+    keys.add(d.id.split(':')[2]);
+    [v.email].concat(arr(v.emails)).map(lower).filter(Boolean).forEach(e => emails.add(e));
+  });
+  return (idkey, email) => keys.has(idkey) || (!!email && emails.has(lower(email)));
+}
+
+/* GET: the other members. */
+async function list(c, code) {
+  const leads = Array.isArray(c.org.leads) ? c.org.leads.map(lower) : [];
+  const lead = c.isAdmin || leads.indexOf(c.email) >= 0;
+  const revoked = await revokedIn(code);
+  const out = [];
+  for (const d of await prefix('resp:' + code + ':')) {
+    const parts = d.id.split(':');
+    if (parts.length !== 3) continue;
+    const r = parseVal(d);
+    const k = parts[2];
+    if (!r || !r.name || k === c.idkey || k === '__preview__' || /^sample-/.test(k)) continue;
+    if (revoked(k, r.email)) continue;
+    r.idkey = k;
+    const o = forMember(r, code);
+    if (lead) forLead(o, r);
+    out.push(o);
+  }
+  // Leads: each member's newest peer round, read side by side.
+  if (lead) await Promise.all(out.map(async o => {
+    const newest = o.peerRounds.slice().sort((a, b) => b.openedAt - a.openedAt)[0];
+    o.peerAgg = null;
+    if (!newest) return;
+    const pd = await peerDoc(code, newest.token);
+    if (pd) o.peerAgg = Object.assign({ token: newest.token }, aggregate(pd));
+  }));
+  out.sort((a, b) => a.name.localeCompare(b.name));
+  return reply(200, { ok: true, code, lead, members: out });
+}
+
+/* POST { action: 'evidence', code, idkey, goalId, text }: what the caller saw
+   a colleague do, added to one of that colleague's open goals. V3 lets no
+   member write another's record, so it is added here, and only this. */
+const EVIDENCE_MAX = 1000, EVIDENCE_PER_GOAL = 500;
+async function addEvidence(c, code, body) {
+  const target = String(body.idkey || '');
+  const text = String(body.text || '').trim();
+  if (!target || target === c.idkey) return reply(400, { error: 'Choose a colleague' });
+  if (!text) return reply(400, { error: 'Write what you saw' });
+  if (text.length > EVIDENCE_MAX) return reply(400, { error: 'Keep it under ' + EVIDENCE_MAX + ' characters' });
+  if (target === '__preview__' || /^sample-/.test(target)) return reply(400, { error: 'That is a sample record' });
+  const revoked = await revokedIn(code);
+  const ref = db().collection(COLL).doc('resp:' + code + ':' + target);
+  const byName = String((c.own && c.own.name) || 'A colleague').trim().split(/\s+/)[0] || 'A colleague';
+  return db().runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const rec = parseVal(snap);
+    if (!rec || revoked(target, rec.email)) return reply(404, { error: 'Could not reach that record' });
+    const g = arr(rec.goals).find(x => x && x.id === body.goalId);
+    if (!g || g.closed) return reply(409, { error: 'That goal is no longer open' });
+    const ev = arr(g.evidence);
+    if (ev.length >= EVIDENCE_PER_GOAL) return reply(409, { error: 'That goal has no room for more' });
+    g.evidence = ev.concat([{ ts: Date.now(), text, share: true, byName, byId: c.idkey }]);
+    tx.update(ref, { value: JSON.stringify(rec) });
+    return reply(200, { ok: true });
+  });
+}
+
+/* POST { action: 'team-round', code, token }: the program's current team
+   round, set by the leader who opened it. Members may not write org:CODE, so
+   it is set here, and only teamRound, only to a team round the caller owns. */
+async function setTeamRound(c, code, body) {
+  const token = String(body.token || '');
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(token)) return reply(400, { error: 'Bad round' });
+  const col = db().collection(COLL);
+  const roundSnap = await col.doc('peer:' + code + ':' + token).get();
+  const round = parseVal(roundSnap);
+  if (!round || round.mode !== 'team') return reply(404, { error: 'No team round found' });
+  if (lower(roundSnap.get('ownerEmail')) !== c.email) return reply(403, { error: 'That round is not yours' });
+  const ref = col.doc('org:' + code);
+  return db().runTransaction(async tx => {
+    const org = parseVal(await tx.get(ref));
+    if (!org) return reply(404, { error: 'No program found for ' + code });
+    org.teamRound = { token, round: num(round.round) || 1, openedAt: num(round.openedAt) || Date.now() };
+    tx.update(ref, { value: JSON.stringify(org) });
+    return reply(200, { ok: true, teamRound: org.teamRound });
+  });
+}
+
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: HDR, body: '' };
-  if (event.httpMethod !== 'GET') return reply(405, { error: 'GET only' });
+  if (event.httpMethod !== 'GET' && event.httpMethod !== 'POST') return reply(405, { error: 'GET or POST only' });
 
   const missing = missingEnv();
   if (missing.length) return reply(500, { error: 'Server is not configured (' + missing.join(', ') + ')' });
 
-  const h = event.headers || {};
-  const m = /^Bearer\s+(.+)$/i.exec(h.authorization || h.Authorization || '');
-  if (!m) return reply(401, { error: 'Sign in first' });
-  let tok;
-  try { tok = await auth().verifyIdToken(m[1], true); }
-  catch (e) { return reply(401, { error: 'Your sign-in has expired. Sign in again.' }); }
-
-  const email = lower(tok.email);
-  if (!email) return reply(403, { error: 'Your account has no email address' });
-  if (tok.email_verified !== true) return reply(403, { error: 'Verify your email address first', code: 'unverified' });
-
-  const code = cleanCode((event.queryStringParameters || {}).code);
-  if (!code) return reply(400, { error: 'No program code' });
-
+  let body = {};
+  if (event.httpMethod === 'POST') {
+    try { body = JSON.parse(event.body || '{}') || {}; } catch (e) { return reply(400, { error: 'Bad JSON' }); }
+  }
+  const code = cleanCode(event.httpMethod === 'GET' ? (event.queryStringParameters || {}).code : body.code);
   try {
-    const ms = isMicrosoft(tok);
-    if (ms && !(await isConfirmed(tok.uid, email)))
-      return reply(403, { error: 'Confirm your email address first', code: 'ms-verify' });
-    const isAdmin = ADMINS.indexOf(email) >= 0 && !ms;
-    const idkey = slug(email);
-    const col = db().collection(COLL);
-
-    const [orgSnap, memberSnap, ownSnap, ownRev] = await Promise.all([
-      col.doc('org:' + code).get(),
-      db().collection('members').doc(email).get(),
-      col.doc('resp:' + code + ':' + idkey).get(),
-      col.doc('rev:' + code + ':' + idkey).get()
-    ]);
-    const org = parseVal(orgSnap);
-    if (!org) return reply(404, { error: 'No program found for ' + code, code: 'no-program' });
-    if (!isAdmin) {
-      const orgs = memberSnap.exists ? memberSnap.get('orgs') : null;
-      if (!Array.isArray(orgs) || orgs.indexOf(code) < 0) return reply(403, { error: 'You are not in this program', code: 'not-member' });
-      if (!parseVal(ownSnap)) return reply(403, { error: 'You are not in this program', code: 'not-member' });
-      if (parseVal(ownRev)) return reply(403, { error: 'Your access to this program has ended', code: 'revoked' });
-    }
-    const leads = Array.isArray(org.leads) ? org.leads.map(lower) : [];
-    const lead = isAdmin || leads.indexOf(email) >= 0;
-
-    // Revoked in this program: a tombstone for their idkey, or their address
-    // listed in any tombstone.
-    const revKeys = new Set(), revEmails = new Set();
-    (await prefix('rev:' + code + ':')).forEach(d => {
-      const v = parseVal(d); if (!v) return;
-      revKeys.add(d.id.split(':')[2]);
-      [v.email].concat(arr(v.emails)).map(lower).filter(Boolean).forEach(e => revEmails.add(e));
-    });
-
-    const out = [];
-    for (const d of await prefix('resp:' + code + ':')) {
-      const parts = d.id.split(':');
-      if (parts.length !== 3) continue;
-      const r = parseVal(d);
-      const k = parts[2];
-      if (!r || !r.name || k === idkey || k === '__preview__' || /^sample-/.test(k)) continue;
-      if (revKeys.has(k) || (r.email && revEmails.has(lower(r.email)))) continue;
-      r.idkey = k;
-      const o = forMember(r, code);
-      if (lead) forLead(o, r);
-      out.push(o);
-    }
-    // Leads: each member's newest peer round, read side by side.
-    if (lead) await Promise.all(out.map(async o => {
-      const newest = o.peerRounds.slice().sort((a, b) => b.openedAt - a.openedAt)[0];
-      o.peerAgg = null;
-      if (!newest) return;
-      const pd = await peerDoc(code, newest.token);
-      if (pd) o.peerAgg = Object.assign({ token: newest.token }, aggregate(pd));
-    }));
-    out.sort((a, b) => a.name.localeCompare(b.name));
-    return reply(200, { ok: true, code, lead, members: out });
+    const c = await caller(event, code);
+    if (c.refuse) return c.refuse;
+    if (event.httpMethod === 'GET') return await list(c, code);
+    if (body.action === 'evidence') return await addEvidence(c, code, body);
+    if (body.action === 'team-round') return await setTeamRound(c, code, body);
+    return reply(400, { error: 'Unknown action' });
   } catch (e) {
-    console.error('members', code, email, e);
-    return reply(500, { error: 'Could not load the program right now. Try again in a moment.' });
+    console.error('members', code, e);
+    return reply(500, { error: 'Could not reach the program right now. Try again in a moment.' });
   }
 };

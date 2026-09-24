@@ -11015,10 +11015,10 @@ class Component extends DCLogic {
     const docs=Object.assign({},this.state.peerDocs); docs[token]=doc;
     const org=this.state.org;
     if(org){ org.teamRound={token,round:doc.round,openedAt:doc.openedAt};
-      /* Onto the saved program, not this copy, so nothing newer (the leads
-         list) is overwritten. */
-      const tr=org.teamRound;
-      sgetStrict('org:'+org.code).then(cur=>{ if(cur){ cur.teamRound=tr; return sset('org:'+org.code,cur); } }).catch(()=>{}); }
+      /* Members may not write org:CODE, so /api/members sets teamRound on
+         the saved program, and only to a team round this leader owns. */
+      this.membersPost({action:'team-round',code:org.code,token})
+        .then(res=>{ if(!res.ok) this.toast('The round is open, but your group may not see it yet. Try again.',true); }); }
     this.setState({resp:r,org,peerDocs:docs,peerBusy:false});
     await this.saveResp();
     this.toast('Team round open — share the link');
@@ -11742,14 +11742,12 @@ class Component extends DCLogic {
      reflecting at once cannot clobber each other's entries. */
   async addColleagueEvidence(member,goalId,text){
     const t=String(text||'').trim(); if(!t||!member||!member.idkey) return false;
-    const s=this.state, key='resp:'+(member.code||s.code)+':'+member.idkey;
-    let rec=null; try{ rec=await sget(key); }catch(e){}
-    if(!rec){ this.toast('Could not reach that record',true); return false; }
-    const g=(Array.isArray(rec.goals)?rec.goals:[]).find(x=>x.id===goalId);
-    if(!g){ this.toast('That goal is no longer open',true); return false; }
-    g.evidence=(g.evidence||[]).concat([{ts:Date.now(), text:t, share:true,
-      byName:(s.name||'A colleague').split(' ')[0], byId:s.idkey}]);
-    try{ await sset(key,rec); }catch(e){ this.toast('Could not save',true); return false; }
+    const s=this.state;
+    /* V3 lets no member write a colleague's record, so /api/members adds the
+       entry (on a fresh read, in a transaction) after checking both are in
+       the program and the goal is still open. */
+    const r=await this.membersPost({action:'evidence',code:member.code||s.code,idkey:member.idkey,goalId,text:t});
+    if(!r.ok){ this.toast(r.error||'Could not save',true); return false; }
     this.setState({obsDraft:'', obsPick:''});
     this.loadMembers(s.code,true);
     this.toast('Sent — they will see what you saw');
@@ -14781,6 +14779,18 @@ class Component extends DCLogic {
       avatarStyle:'flex:none;width:52px;height:52px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:'+(i.me?'#FADA01':'#EAF1F8')+';color:#0C1B2E;font-weight:900;font-size:16px'}; }
   clearLocation(){ const s=this.state; if(!s.resp||!s.resp.loc) return;
     delete s.resp.loc; this.setState({resp:s.resp}); this.saveResp(); this.toast('Your pin is off the map'); }
+  /* POST /api/members: { ok } or { ok:false, error }. Never throws. */
+  async membersPost(body){
+    try{
+      await authReady();
+      const u=firebase.auth().currentUser; if(!u) return {ok:false,error:'Sign in first'};
+      const r=await withTimeout(fetch('/api/members',{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
+        body:JSON.stringify(body)}),15000);
+      let j={}; try{ j=await r.json(); }catch(e){}
+      return (r.ok&&j.ok)?j:{ok:false,error:j.error||''};
+    }catch(e){ return {ok:false,error:''}; }
+  }
   async fetchMembers(code){
     await authReady();
     const u=firebase.auth().currentUser; if(!u) throw new Error('not signed in');
