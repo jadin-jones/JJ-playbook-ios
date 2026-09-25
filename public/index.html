@@ -5601,6 +5601,10 @@ sc-if,sc-for{display:none!important}
 <div style="{{ ttK }};margin-top:12px">Email-domain limit (optional)</div>
 <input type="text" value="{{ cc.domain }}" sc-camel-on-change="{{ cc.onDomain }}" placeholder="e.g. school.org: leave blank for anyone" style="{{ ttInp }};margin-top:6px">
 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px"><button sc-camel-on-click="{{ cc.onSave }}" style="{{ ttBtnNavy }}">Save code</button><button sc-camel-on-click="{{ cc.onToggle }}" style="{{ ttBtnLine }}">{{ cc.toggleLabel }}</button></div>
+<div style="{{ ttK }};margin-top:16px">Approved emails (optional)</div>
+<textarea value="{{ cc.allowText }}" sc-camel-on-change="{{ cc.onAllow }}" placeholder="student1@school.org&#10;student2@school.org&#10;Leave empty for anyone with the code" style="{{ ttTextArea }};margin-top:6px;font-family:ui-monospace,Menlo,monospace;font-size:13px"></textarea>
+<p style="margin:4px 0 0;font-size:12px;line-height:1.5;color:#7E8D9C">{{ cc.allowNote }}</p>
+<div style="margin-top:8px"><button sc-camel-on-click="{{ cc.onAllowSave }}" style="{{ ttBtnLine }}">Save list</button></div>
 <p style="margin:10px 0 0;font-size:12px;color:#7E8D9C">Rotating or switching a code off stops new joins only. People who already joined keep their access; use Members to remove someone.</p>
 </sc-if>
 </div>
@@ -15564,9 +15568,32 @@ class Component extends DCLogic {
      view opens (admins read them directly; nothing of the Playbook's). */
   async ttStudioLoad(){
     if(this.state.ttDemo) return;
-    const [lib,o36,o10]=await Promise.all([sget('ttlib:master').catch(()=>null),sget('org:TT36').catch(()=>null),sget('org:TT10').catch(()=>null)]);
+    // The approved-email lists (ttallow:, admins only): 'error' when unreadable, so Studio won't save over them.
+    const allowOf=id=>sgetStrict('ttallow:'+id).then(a=>(!a?[]:(Array.isArray(a.emails)?a.emails:'error')),()=>'error');
+    const [lib,o36,o10,a36,a10]=await Promise.all([sget('ttlib:master').catch(()=>null),sget('org:TT36').catch(()=>null),sget('org:TT10').catch(()=>null),
+      allowOf('TT36'),allowOf('TT10')]);
     this.setState({ttLib:lib&&Array.isArray(lib.lessons)?lib:ttSeedLibrary(),ttLibSaved:!!(lib&&Array.isArray(lib.lessons)),
-      ttOrgs:[o36,o10].filter(Boolean)});
+      ttOrgs:[o36,o10].filter(Boolean),ttAllow:{TT36:a36,TT10:a10},ttAllowEdit:{}});
+  }
+  /* Codes → Approved emails: when the list is not empty, /api/tt-join lets
+     only these addresses join with the code (invites are not checked).
+     Saved to ttallow:TTxx, which only admins can read. Empty clears it. */
+  ttSaveAllow(id,text){
+    const s=this.state;
+    if((s.ttAllow||{})[id]==='error') return this.toast('The saved list could not be read. Reload Studio before changing it.',true);
+    const raw=String(text||'').split(/[\s,;]+/).map(x=>x.trim().toLowerCase()).filter(Boolean);
+    const bad=raw.filter(x=>!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+    if(bad.length) return this.toast('Not an email address: '+bad[0],true);
+    const emails=Array.from(new Set(raw));
+    if(emails.length>5000) return this.toast('Up to 5,000 emails per program',true);
+    const done=()=>{ this.setState({ttAllow:Object.assign({},this.state.ttAllow||{},{[id]:emails}),
+      ttAllowEdit:Object.assign({},this.state.ttAllowEdit||{},{[id]:null})});
+      return emails.length?'Approved list saved: '+emails.length+' email'+(emails.length===1?'':'s'):'Approved list cleared: anyone with the code can join'; };
+    if(s.ttDemo) return this.toast(done()+' (preview: not saved)');
+    return this.guard('change the approved emails',async()=>{
+      if(!(await sset('ttallow:'+id,{emails,updatedAt:Date.now()}))) return this.toast('Could not save',true);
+      this.toast(done());
+    })();
   }
   ttSaveLib(lib,msg){
     if(this.state.ttDemo){ this.setState({ttLib:lib}); return this.toast((msg||'Saved')+' (preview: not saved)'); }
@@ -15788,8 +15815,17 @@ class Component extends DCLogic {
       const dom=edit.domain!=null?edit.domain:(o?o.joinDomain||'':'');
       const setE=p=>this.setState({ttCodeEdit:Object.assign({},s.ttCodeEdit||{},{[id]:Object.assign({},edit,p)})});
       const off=!!(o&&o.joinDisabled);
+      const allow=(s.ttAllow||{})[id], allowBad=allow==='error', listed=Array.isArray(allow)?allow:[];
+      const allowEd=(s.ttAllowEdit||{})[id], allowText=allowEd!=null?allowEd:listed.join('\n');
       return {title:ver+'-lesson version',id,exists:!!o,missing:!o,
-        status:!o?'Not set up yet':(off?'Code switched off':'Open: anyone with the code can join'+(o.joinDomain?' (only @'+o.joinDomain+')':'')),
+        status:!o?'Not set up yet':(off?'Code switched off':(listed.length?'Open: only the '+listed.length+' approved email'+(listed.length===1?'':'s')+' can join':'Open: anyone with the code can join')+(o.joinDomain?' (only @'+o.joinDomain+')':'')),
+        allowText,
+        allowNote:allowBad?'The saved list could not be loaded. Reload Studio before changing it.'
+          :(allowEd!=null&&allowEd!==listed.join('\n')?'Not saved yet. ':'')+(listed.length
+            ?listed.length+' email'+(listed.length===1?'':'s')+' saved: only they can join with the code. Invites still work for anyone invited.'
+            :'Empty: anyone with the code can join.'),
+        onAllow:e=>this.setState({ttAllowEdit:Object.assign({},this.state.ttAllowEdit||{},{[id]:String(e.target.value||'')})}),
+        onAllowSave:()=>this.ttSaveAllow(id,allowText),
         statusStyle:'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;border-radius:999px;padding:3px 9px;'
           +(!o?'background:#EAF1F8;color:#37475C':(off?'background:#FDECE6;color:#8F2D13':'background:#E3F3EA;color:#2F7F55')),
         code,domain:dom,

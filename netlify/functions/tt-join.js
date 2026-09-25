@@ -6,8 +6,14 @@
  * Twin Thieves has two programs, TT36 (all 36 lessons) and TT10 (10 of
  * them). Each org:TTxx record holds its join code (joinCode), whether it is
  * switched off (joinDisabled) and an optional email-domain limit
- * (joinDomain). Codes are compared without regard to case. There is no
- * approved-email list: anyone with a working code joins.
+ * (joinDomain). Codes are compared without regard to case.
+ * Each program may also have an approved-email list, ttallow:TTxx
+ * ({ emails: [...] }), which only admins can read or write (the rules give
+ * members nothing under ttallow:). When that list is not empty, a code join
+ * is accepted only for a listed email, and any other answers 403 code
+ * 'not-listed'. An empty or missing list lets anyone with the code join. A
+ * damaged list refuses every code join (code 'list-unreadable') rather than
+ * open the program. Invites (below) do not check the list.
  *
  * The caller must have a verified email, and a Microsoft sign-in a confirmed
  * mailbox (as /api/join). Calls are rate-limited per account and per
@@ -149,6 +155,17 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
     const domain = String(org.joinDomain || '').trim().toLowerCase().replace(/^@/, '');
     if (domain && !email.endsWith('@' + domain))
       return reply(403, { error: label + ' is only for @' + domain + ' addresses. Sign in with that email.', code: 'domain' });
+
+    // The approved-email list: when it names anyone, only they join with the code.
+    const allowSnap = await col.doc('ttallow:' + id).get();
+    if (allowSnap.exists) {
+      const al = parseVal(allowSnap);
+      if (!al || !Array.isArray(al.emails))
+        return reply(403, { error: 'Could not check the approved list for this program. Ask the Jadin | Jones Team.', code: 'list-unreadable' });
+      const listed = al.emails.map(x => String(x || '').trim().toLowerCase()).filter(Boolean);
+      if (listed.length && listed.indexOf(email) < 0)
+        return reply(403, { error: "Your email isn't on the list for this program. Ask the Jadin | Jones Team to add you.", code: 'not-listed' });
+    }
 
     if (parseVal(await col.doc('rev:' + id + ':' + idkey).get()))
       return reply(403, { error: 'Your access to ' + label + ' has ended.', code: 'revoked' });
