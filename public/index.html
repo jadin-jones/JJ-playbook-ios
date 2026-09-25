@@ -5594,7 +5594,27 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 
 <sc-if value="{{ ttStudioIsMembers }}" hint-placeholder-val="{{ false }}">
-<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px"><p style="margin:0;font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C">{{ ttMemSummary }}</p><button sc-camel-on-click="{{ onTTMemReload }}" style="{{ ttBtnMini }}">Refresh</button></div>
+<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><p style="margin:0;font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C">{{ ttMemSummary }}</p><span style="display:flex;gap:6px"><button sc-camel-on-click="{{ onTTInvToggle }}" style="{{ ttBtnNavy }}">Invite</button><button sc-camel-on-click="{{ onTTMemReload }}" style="{{ ttBtnMini }}">Refresh</button></span></div>
+<sc-if value="{{ ttInvOpen }}" hint-placeholder-val="{{ false }}">
+<div style="background:#fff;border:1px solid #DCE6F0;border-left:4px solid #00A3E0;border-radius:14px;padding:16px;margin-bottom:12px">
+<p style="margin:0 0 4px;font-weight:900;font-size:15px;text-transform:uppercase;color:#0C1B2E">Invite by email</p>
+<p style="margin:0 0 12px;font-size:12.5px;line-height:1.5;color:#7E8D9C">One address per line (or separated by commas). Each person gets an email from the Jadin | Jones Team with a Join now link that works once, for that address, for 7 days, and the join code as a backup.</p>
+<div style="{{ ttK }}">Version</div>
+<sc-raw-select value="{{ ttInvProgram }}" sc-camel-on-change="{{ onTTInvProgram }}" style="{{ ttInp }};margin:6px 0 12px">
+<sc-for list="{{ ttInvPrograms }}" as="ip" hint-placeholder-count="2"><option value="{{ ip.value }}">{{ ip.label }}</option></sc-for>
+</sc-raw-select>
+<div style="{{ ttK }}">Email addresses</div>
+<textarea value="{{ ttInvText }}" sc-camel-on-change="{{ onTTInvText }}" placeholder="student1@school.org&#10;student2@school.org" style="{{ ttTextArea }};min-height:120px;margin:6px 0 4px;font-family:ui-monospace,Menlo,monospace;font-size:13px"></textarea>
+<p style="margin:0 0 12px;font-size:12px;color:#7E8D9C">{{ ttInvCount }}</p>
+<div style="display:flex;flex-wrap:wrap;gap:8px"><button sc-camel-on-click="{{ onTTInvSend }}" style="{{ ttBtnNavy }}">{{ ttInvSendLabel }}</button><button sc-camel-on-click="{{ onTTInvPreview }}" style="{{ ttBtnLine }}">Preview the email</button><button sc-camel-on-click="{{ onTTInvToggle }}" style="{{ ttBtnMini }}">Close</button></div>
+<sc-if value="{{ ttInvHasResult }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:14px;border-top:1px solid #EEF3F8;padding-top:12px">
+<p style="margin:0 0 8px;font-weight:800;font-size:12.5px;color:#0C1B2E">{{ ttInvModeNote }}</p>
+<sc-for list="{{ ttInvResults }}" as="ir" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0"><span style="font-size:12.5px;color:#0C1B2E">{{ ir.email }}</span><span style="{{ ir.style }}">{{ ir.text }}</span></div></sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
 <sc-if value="{{ ttMemLoading }}" hint-placeholder-val="{{ false }}"><p style="font-size:13px;color:#7E8D9C">Loading…</p></sc-if>
 <sc-if value="{{ ttMemEmpty }}" hint-placeholder-val="{{ false }}"><p style="font-size:13px;color:#7E8D9C">Nobody has joined yet.</p></sc-if>
 <sc-for list="{{ ttMemGroups }}" as="mg" hint-placeholder-count="2">
@@ -5602,9 +5622,12 @@ sc-if,sc-for{display:none!important}
 <p style="margin:2px 4px 6px;font-weight:900;font-size:13px;color:#0C1B2E">{{ mg.dom }} <span style="font-weight:700;font-size:11px;color:#7E8D9C">· {{ mg.count }}</span></p>
 <sc-for list="{{ mg.rows }}" as="mr" hint-placeholder-count="2">
 <div style="display:flex;align-items:center;gap:10px;border-top:1px solid #EEF3F8;padding:9px 4px">
-<span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:13.5px;color:#0C1B2E">{{ mr.name }}</span><span style="display:block;font-size:12px;color:#7E8D9C">{{ mr.email }} · {{ mr.ver }}</span></span>
-<span style="flex:none;font-weight:800;font-size:12px;color:#0C2647">{{ mr.prog }}</span>
-<button sc-camel-on-click="{{ mr.onRemove }}" style="flex:none;background:transparent;border:2px solid #D5502B;color:#8F2D13;border-radius:9px;padding:6px 10px;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Remove</button>
+<span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:13.5px;color:#0C1B2E">{{ mr.name }}</span><span style="display:block;font-size:12px;color:#7E8D9C">{{ mr.email }}{{ mr.ver }}</span></span>
+<span style="{{ mr.statusStyle }}">{{ mr.status }}</span>
+<sc-if value="{{ mr.hasProg }}" hint-placeholder-val="{{ true }}"><span style="flex:none;font-weight:800;font-size:12px;color:#0C2647">{{ mr.prog }}</span></sc-if>
+<sc-if value="{{ mr.canResend }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mr.onResend }}" style="{{ ttBtnMini }}">Resend</button></sc-if>
+<sc-if value="{{ mr.canCancel }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mr.onCancel }}" style="{{ ttBtnMini }}">Cancel invite</button></sc-if>
+<sc-if value="{{ mr.canRemove }}" hint-placeholder-val="{{ true }}"><button sc-camel-on-click="{{ mr.onRemove }}" style="flex:none;background:transparent;border:2px solid #D5502B;color:#8F2D13;border-radius:9px;padding:6px 10px;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Remove</button></sc-if>
 </div>
 </sc-for>
 </div>
@@ -8912,21 +8935,21 @@ async function ensureMember(code,opts){
    be longer than a Playbook code). Returns the server's JSON plus ok. A
    Microsoft sign-in that still needs its mailbox confirmed is sent the
    link, as ensureMember does. */
-async function ttJoinApi(code,first,last){
+async function ttJoinApi(code,first,last,invite){
   await authReady();
   const u=firebase.auth().currentUser;
   if(!u) return {ok:false,error:'Sign in first'};
   try{
     const r=await withTimeout(fetch('/api/tt-join',{method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
-      body:JSON.stringify({code,first,last})}),15000);
+      body:JSON.stringify(invite?{code,first,last,invite}:{code,first,last})}),15000);
     let j={}; try{ j=await r.json(); }catch(e){}
     if(r.ok&&j.ok) return j;
     const out={ok:false,status:r.status,reason:j.code||'',error:j.error||'Could not join. Check your connection and try again.'};
     if(out.reason==='ms-verify'){
       const s=await msVerifyApi({action:'send',code:cleanCode(code)});
       const how=' Open it, tap Continue on the page it opens, then join again.';
-      if(s.ok&&s.verified) return ttJoinApi(code,first,last);
+      if(s.ok&&s.verified) return ttJoinApi(code,first,last,invite);
       out.error=s.ok?'Check your email: we sent a link to '+u.email+' to confirm it is yours.'+how:(s.code==='wait'?s.error+how:s.error);
     }
     return out;
@@ -10243,6 +10266,16 @@ class Component extends DCLogic {
         q.delete('msv'); q.delete('c');
         history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash); }
     }catch(e){}
+    /* A Twin Thieves invite link (?tti=secret&ttc=CODE): kept for this tab
+       until they join, and taken out of the address bar. */
+    try{
+      const q=new URLSearchParams(location.search), t=q.get('tti');
+      if(t&&/^[A-Za-z0-9_-]{20,80}$/.test(t)){ sessionStorage.setItem('jj_tti',t);
+        const c=String(q.get('ttc')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,20);
+        if(c) sessionStorage.setItem('jj_tti_code',c); else sessionStorage.removeItem('jj_tti_code');
+        q.delete('tti'); q.delete('ttc');
+        history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash); }
+    }catch(e){}
     const signedIn=authReady();
     await _authFirst;
     /* Nobody signed in as the page opened means whoever arrives next signs in
@@ -10309,12 +10342,12 @@ class Component extends DCLogic {
       this.setState({booting:true});
       const progs=await this.myPrograms(me).catch(()=>null);
       if(progs&&progs.length)
-        return this.setState({booting:false,view:'gate',known:null,gatePrograms:progs,enterNewCode:false});
+        return this.setState(this.withTTInvite({booting:false,view:'gate',known:null,gatePrograms:progs,enterNewCode:false}));
       if(progs){
         if(saved) this.forgetSavedSession();
-        return this.setState({booting:false,view:'gate',known:null,gatePrograms:[],enterNewCode:false,joinCode:''});
+        return this.setState(this.withTTInvite({booting:false,view:'gate',known:null,gatePrograms:[],enterNewCode:false,joinCode:''}));
       }
-      if(!saved) return this.setState({booting:false,view:'gate',known,joinCode:known?known.code:''});
+      if(!saved) return this.setState(this.withTTInvite({booting:false,view:'gate',known,joinCode:known?known.code:''}));
     }
     if(saved){
       const chk=await this.checkSavedMembership(saved);
@@ -10336,7 +10369,7 @@ class Component extends DCLogic {
         await new Promise(r=>setTimeout(r,Math.min(600+ai*250,2500)));
       }
     }
-    this.setState({booting:false,view:'gate',known,joinCode:known?known.code:''});
+    this.setState(this.withTTInvite({booting:false,view:'gate',known,joinCode:known?known.code:''}));
   }
   /* Reads the three documents a launch needs straight from the device and opens
      the app on them. Returns false when anything is missing, so the ordinary
@@ -13535,7 +13568,10 @@ class Component extends DCLogic {
     /* Not a Playbook code: it may be Twin Thieves'. /api/join answered
        no-program first, so a Playbook join never gets here. */
     if(!mem.ok&&mem.reason==='no-program'){
-      const tt=await ttJoinApi(this.state.joinCode,first,last);
+      let inv=''; try{ inv=sessionStorage.getItem('jj_tti')||''; }catch(e){}
+      const tt=await ttJoinApi(this.state.joinCode,first,last,inv);
+      // Used or refused, an invite is tried once; a retry uses the code.
+      if(inv){ try{ sessionStorage.removeItem('jj_tti'); sessionStorage.removeItem('jj_tti_code'); }catch(e){} this.setState({gateNotice:''}); }
       if(tt.ok){ this._justJoined=true; const ok=await this.loadTTLeader(tt.code,slug(email),tt.name,email);
         this.setState({joining:false}); if(ok) this.toast('Welcome to Twin Thieves Leadership'); return; }
       if(tt.reason!=='no-code'){ this.setState({joining:false}); return this.toast(tt.error,true); }
@@ -15419,6 +15455,15 @@ class Component extends DCLogic {
     return list;
   }
   ttDone(id){ const p=this.state.ttProg||{}; return !!(p[id]&&p[id].doneAt); }
+  /* A Twin Thieves invite is waiting (from ?tti): open the code form with
+     the code filled in and say so. */
+  withTTInvite(patch){
+    let t='',c='';
+    try{ t=sessionStorage.getItem('jj_tti')||''; c=sessionStorage.getItem('jj_tti_code')||''; }catch(e){}
+    if(!t) return patch;
+    return Object.assign({},patch,{enterNewCode:true,joinCode:c||patch.joinCode||'',
+      gateNotice:"You've been invited to Twin Thieves Leadership. Enter your name, then tap Join."});
+  }
   /* Sign in to a Twin Thieves program: its own record (ttm:CODE:idkey, name,
      email and progress only) and the lesson library. Nothing of the
      Playbook's is read, started or scheduled. */
@@ -15498,15 +15543,82 @@ class Component extends DCLogic {
       this.setState({ttOrgs:(this.state.ttOrgs||[]).filter(o=>o&&o.code!==id).concat([rec])}); this.toast(msg||'Saved');
     })();
   }
+  /* POST /api/tt-invite (admins): { ok, mode, results } or { ok:false, error }. */
+  async ttInviteApi(body){
+    try{
+      await authReady();
+      const u=firebase.auth().currentUser; if(!u) return {ok:false,error:'Sign in first'};
+      const r=await withTimeout(fetch('/api/tt-invite',{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
+        body:JSON.stringify(body)}),30000);
+      let j={}; try{ j=await r.json(); }catch(e){}
+      return (r.ok&&j.ok)?j:{ok:false,error:j.error||'Could not reach the invite service'};
+    }catch(e){ return {ok:false,error:'Could not reach the invite service'}; }
+  }
+  /* Invite panel → Send. The server records each invite (email and status
+     only) and, as INVITE_SEND_MODE allows, emails it. The preview only
+     pretends. */
+  async ttSendInvites(){
+    const s=this.state;
+    const emails=String(s.ttInvText||'').split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);
+    if(!emails.length) return this.toast('Paste at least one email address',true);
+    if(emails.length>100) return this.toast('Up to 100 addresses at a time',true);
+    const program=s.ttInvProgram==='TT10'?'TT10':'TT36';
+    if(s.ttDemo){
+      // The same checks the server makes: not an email, listed twice, already invited or a member.
+      const now=Date.now(), rows=(s.ttInvites||[]).slice(), results=[], seen=new Set();
+      emails.forEach(e=>{ const em=e.toLowerCase();
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return results.push({email:e,result:'not-an-email'});
+        if(seen.has(em)) return results.push({email:em,result:'duplicate'}); seen.add(em);
+        if((s.ttMembers||[]).some(m=>m.email===em&&m.code===program)) return results.push({email:em,result:'already-a-member'});
+        if(rows.some(x=>x.email===em&&x.program===program&&x.status==='invited'&&x.expiresAt>now)) return results.push({email:em,result:'already-invited'});
+        rows.push({email:em,program,status:'invited',sentAt:now,expiresAt:now+7*86400000,delivery:'off'});
+        results.push({email:em,result:'recorded-not-sent'}); });
+      return this.setState({ttInvites:rows,ttInvResult:{mode:'off',results},ttInvText:''});
+    }
+    this.setState({ttInvBusy:true,ttInvResult:null});
+    const r=await this.ttInviteApi({action:'send',program,emails});
+    this.setState({ttInvBusy:false});
+    if(!r.ok) return this.toast(r.error,true);
+    this.setState({ttInvResult:{mode:r.mode,results:r.results||[]},ttInvText:''});
+    this.ttLoadMembers().catch(()=>{});
+  }
+  async ttInviteAction(action,inv){
+    if(action==='cancel'&&!window.confirm('Cancel the invite for '+inv.email+'? The link in their email stops working.')) return;
+    if(this.state.ttDemo){
+      const rows=(this.state.ttInvites||[]).map(x=>x.email===inv.email&&x.program===inv.program
+        ?Object.assign({},x,action==='cancel'?{status:'cancelled'}:{status:'invited',sentAt:Date.now(),expiresAt:Date.now()+7*86400000}):x);
+      return this.setState({ttInvites:rows},()=>this.toast(action==='cancel'?'Invite cancelled (preview)':'Invite resent (preview: nothing sent)'));
+    }
+    const r=await this.ttInviteApi({action,program:inv.program,email:inv.email});
+    if(!r.ok) return this.toast(r.error,true);
+    this.toast(action==='cancel'?'Invite cancelled':(r.mode==='off'?'New link recorded (sending is off on this site)':'Invite resent'));
+    this.ttLoadMembers().catch(()=>{});
+  }
+  async ttPreviewInviteEmail(){
+    if(this.state.ttDemo) return this.toast('The email preview needs the server; see docs/TWIN-THIEVES.md for how it looks');
+    const r=await this.ttInviteApi({action:'preview',program:this.state.ttInvProgram==='TT10'?'TT10':'TT36'});
+    if(!r.ok) return this.toast(r.error,true);
+    try{ const url=URL.createObjectURL(new Blob([r.html],{type:'text/html'})); window.open(url,'_blank','noopener'); }
+    catch(e){ this.toast('Could not open the preview',true); }
+  }
   async ttLoadMembers(){
-    if(this.state.ttDemo) return this.setState({ttMembers:[
+    if(this.state.ttDemo) return this.setState({ttInvites:this.state.ttInvites||[
+      {email:'dana@school.org',program:'TT36',status:'invited',sentAt:Date.now()-2*86400000,expiresAt:Date.now()+5*86400000,delivery:'off'},
+      {email:'eli@school.org',program:'TT36',status:'invited',sentAt:Date.now()-9*86400000,expiresAt:Date.now()-2*86400000,delivery:'off'},
+      {email:'ava@school.org',program:'TT36',status:'joined',sentAt:Date.now()-6*86400000,expiresAt:Date.now()+86400000,joinedAt:Date.now()-5*86400000,delivery:'off'}],
+      ttMembers:[
       {code:'TT36',idkey:'ava-school-org',name:'Ava Sample',email:'ava@school.org',progress:{tt01:{doneAt:1},tt02:{doneAt:1}}},
       {code:'TT36',idkey:'ben-school-org',name:'Ben Sample',email:'ben@school.org',progress:{}},
       {code:'TT10',idkey:'cam-acme-com',name:'Cam Sample',email:'cam@acme.com',progress:{tt04:{doneAt:1}}}]});
     this.setState({ttMemBusy:true});
     const rows=[];
-    for(const code of ['TT36','TT10']){ try{ (await slistDocs('ttm:'+code+':')).forEach(r=>{ if(r&&r.idkey) rows.push(Object.assign({code},r)); }); }catch(e){} }
-    this.setState({ttMembers:rows,ttMemBusy:false});
+    const invs=[];
+    for(const code of ['TT36','TT10']){
+      try{ (await slistDocs('ttm:'+code+':')).forEach(r=>{ if(r&&r.idkey) rows.push(Object.assign({code},r)); }); }catch(e){}
+      try{ (await slistDocs('ttinv:'+code+':')).forEach(r=>{ if(r&&r.email) invs.push(r); }); }catch(e){}
+    }
+    this.setState({ttMembers:rows,ttInvites:invs,ttMemBusy:false});
   }
   /* Remove: the same order as the Playbook's Remove, for this product only:
      a rev: tombstone, the code out of ttmembers/{email}.orgs, then the record. */
@@ -15638,16 +15750,51 @@ class Component extends DCLogic {
         toggleLabel:off?'Switch code on':'Switch code off',
         onToggle:()=>this.ttSaveOrg(id,{joinDisabled:!off},off?'Code switched on':'Code switched off')};
     });
-    // Members and progress, grouped by email domain (the organization, for a solo product).
-    const mem=s.ttMembers||[], groups={};
+    // Members and progress, grouped by email domain (the organization, for a
+    // solo product). Invites join the list: one row per person and version.
+    const mem=(s.ttMembers||[]).map(m=>Object.assign({},m,{isMember:true}));
+    const have=new Set(mem.map(m=>String(m.email||'').toLowerCase()+'|'+m.code));
+    (s.ttInvites||[]).forEach(inv=>{ const k=String(inv.email).toLowerCase()+'|'+inv.program;
+      const m=mem.find(x=>String(x.email||'').toLowerCase()+'|'+x.code===k);
+      if(m) m.invite=inv; else if(!have.has(k)) mem.push({email:inv.email,code:inv.program,invite:inv,isMember:false,name:''}); });
+    const groups={};
     mem.forEach(m=>{ const dom=String(m.email||'').split('@')[1]||'(no email)'; (groups[dom]=groups[dom]||[]).push(m); });
+    const day=t=>{ try{ return new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return ''; } };
+    const chip=(bg,fg)=>'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 8px;background:'+bg+';color:'+fg;
+    // Invite panel
+    v.ttInvOpen=!!s.ttInvOpen;
+    v.onTTInvToggle=()=>this.setState({ttInvOpen:!s.ttInvOpen,ttInvResult:null});
+    v.ttInvText=s.ttInvText||''; v.onTTInvText=e=>this.setState({ttInvText:e.target.value});
+    v.ttInvProgram=s.ttInvProgram==='TT10'?'TT10':'TT36'; v.onTTInvProgram=e=>this.setState({ttInvProgram:e.target.value});
+    v.ttInvPrograms=[{value:'TT36',label:'Twin Thieves Leadership (36 lessons)'},{value:'TT10',label:'Twin Thieves Leadership (10 lessons)'}];
+    v.ttInvCount=(()=>{ const n=String(s.ttInvText||'').split(/[\s,;]+/).filter(Boolean).length; return n?n+' address'+(n===1?'':'es'):''; })();
+    v.ttInvBusy=!!s.ttInvBusy; v.ttInvSendLabel=s.ttInvBusy?'Sending…':'Send invites';
+    v.onTTInvSend=()=>{ if(!s.ttInvBusy) this.ttSendInvites(); };
+    v.onTTInvPreview=()=>this.ttPreviewInviteEmail();
+    const RL={sent:'Sent','recorded-not-sent':'Recorded, not sent (sending is off on this site)','not-a-test-recipient':'Not sent: not on this site\'s test list',
+      'already-a-member':'Already a member','already-invited':'Already invited (use Resend)','duplicate':'Listed twice','not-an-email':'Not an email address',
+      'no-program':'Set up this version in Codes first','no-mail-setup':'Mail is not set up on this site','send-failed':'Could not send','rate-limited':'Too many invites this hour'};
+    const res=s.ttInvResult;
+    v.ttInvHasResult=!!res;
+    v.ttInvModeNote=!res?'':(res.mode==='off'?'Sending is off on this site: invites are recorded, and no email goes out.'
+      :(res.mode==='test'?'Test mode: only this site\'s test addresses get an email.':'Invites are emailed.'));
+    v.ttInvResults=(res&&res.results||[]).map(r=>({email:r.email,text:RL[r.result]||r.result,
+      style:'font-size:12.5px;color:'+(r.result==='sent'?'#2F7F55':(r.result==='recorded-not-sent'?'#5C4B00':'#8F2D13'))}));
     v.ttMemLoading=!!s.ttMemBusy; v.ttMemEmpty=!s.ttMemBusy&&!mem.length;
-    v.ttMemSummary=mem.length+' member'+(mem.length===1?'':'s')+' · '+Object.keys(groups).length+' organization'+(Object.keys(groups).length===1?'':'s');
+    const nMem=mem.filter(m=>m.isMember).length, nInv=mem.length-nMem;
+    v.ttMemSummary=nMem+' member'+(nMem===1?'':'s')+(nInv?' · '+nInv+' invite'+(nInv===1?'':'s'):'')+' · '+Object.keys(groups).length+' organization'+(Object.keys(groups).length===1?'':'s');
     v.ttMemGroups=Object.keys(groups).sort().map(dom=>({dom:'@'+dom,count:groups[dom].length+' member'+(groups[dom].length===1?'':'s'),
       rows:groups[dom].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(m=>{
         const tot=this.ttLessons(m.code==='TT10'?10:36).filter(l=>!l.closing).length||(m.code==='TT10'?10:36);
         const done=Object.keys(m.progress||{}).filter(k=>m.progress[k]&&m.progress[k].doneAt).length;
-        return {name:m.name||m.email,email:m.email,ver:m.code==='TT10'?'10 lessons':'36 lessons',prog:done+' of '+tot,
+        const inv=m.invite, st=m.isMember||(inv&&inv.status==='joined')?'joined'
+          :(inv&&inv.status==='cancelled'?'cancelled':(inv&&inv.expiresAt>Date.now()?'invited':'expired'));
+        return {name:m.name||m.email,email:m.isMember?m.email+' · ':'',ver:m.code==='TT10'?'10 lessons':'36 lessons',
+          prog:m.isMember?done+' of '+tot:'',hasProg:!!m.isMember,
+          status:st==='joined'?'Joined':(st==='invited'?'Invited '+day(inv.sentAt):(st==='expired'?'Expired':'Cancelled')),
+          statusStyle:st==='joined'?chip('#E3F3EA','#2F7F55'):(st==='invited'?chip('#EAF6FC','#0A6C96'):(st==='expired'?chip('#FFF7CC','#5C4B00'):chip('#EEF1F5','#7E8D9C'))),
+          canResend:!m.isMember&&(st==='invited'||st==='expired'||st==='cancelled'),canCancel:!m.isMember&&st==='invited',canRemove:!!m.isMember,
+          onResend:()=>this.ttInviteAction('resend',inv),onCancel:()=>this.ttInviteAction('cancel',inv),
           onRemove:()=>this.ttRemoveMember(m)}; })}));
     v.onTTMemReload=()=>this.ttLoadMembers();
   }
