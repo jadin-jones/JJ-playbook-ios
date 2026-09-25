@@ -9,7 +9,7 @@
  */
 const SITE_HOSTS = {
   'test-6b2ab': ['jjplaybook.netlify.app', 'playbook.jadin-jones.com'],
-  'jj-playbook-dev': ['jj-playbook-dev.netlify.app', 'dev.playbook.jadin-jones.com']
+  'jj-playbook-dev': ['jj-playbook-dev.netlify.app', 'dev.playbook.jadin-jones.com', 'jj-twinthieves-preview.netlify.app']
 };
 /* This site's own https origins; none if the project is not one of ours. */
 function siteOrigins() {
