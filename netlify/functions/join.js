@@ -63,7 +63,7 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
 
   let tok;
   try { tok = await auth().verifyIdToken(m[1], true); }
-  catch (e) { return reply(401, { error: 'Your sign-in has expired. Sign in again.' }); }
+  catch (e) {    console.error('join verify', e && e.code, e && e.message);return reply(401, { error: 'Your sign-in has expired. Sign in again.' }); }
 
   const email = String(tok.email || '').trim().toLowerCase();
   if (!email) return reply(403, { error: 'Your account has no email address' });
