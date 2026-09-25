@@ -13407,18 +13407,23 @@ class Component extends DCLogic {
     }catch(e){ console.warn('myPrograms',e); return null; }
     /* Twin Thieves programs are listed in their own ttmembers/{email}, which
        the Playbook's rules never read. A refused or failed read adds none. */
+    const ttCodes=new Set();
     try{
       const t=await withTimeout(db.collection('ttmembers').doc(em).get(),9000);
       const tto=(t.exists&&Array.isArray(t.get('orgs')))?t.get('orgs'):[];
-      orgs=orgs.concat(tto.filter(c=>c==='TT36'||c==='TT10'));
+      tto.filter(c=>c==='TT36'||c==='TT10').forEach(c=>ttCodes.add(c));
+      orgs=orgs.concat(Array.from(ttCodes));
     }catch(e){}
     const idkey=slug(em);
     const codes=Array.from(new Set(orgs.filter(c=>typeof c==='string'&&c)));
     const rows=await Promise.all(codes.map(async code=>{
       try{
+        /* A Twin Thieves program has no resp: record, and the rules refuse
+           reading one there, which would drop the whole card; its own ttm:
+           record stands in. Playbook programs read exactly as before. */
         const [rev,respPB,org,ttm]=await Promise.all([
           sgetStrict('rev:'+code+':'+idkey),
-          sgetStrict('resp:'+code+':'+idkey),
+          ttCodes.has(code)?Promise.resolve(null):sgetStrict('resp:'+code+':'+idkey),
           sgetStrict('org:'+code),
           // Twin Thieves' own record; a refused read never drops a Playbook program.
           sgetStrict('ttm:'+code+':'+idkey).catch(()=>null)]);
@@ -13506,7 +13511,7 @@ class Component extends DCLogic {
      group they are already in (opened from the app) just goes back to it. */
   async pickProgram(g){
     const s=this.state;
-    if(s.role==='leader'&&g.code===s.code) return this.setState({view:'home',gatePrograms:[],gateAddCode:''});
+    if(s.role==='leader'&&g.code===s.code) return this.setState({view:this.isTT()?'tthome':'home',gatePrograms:[],gateAddCode:''});
     this.setState({gatePickBusy:true});
     const ok=await this.loadLeader(g.code,g.idkey,g.name,currentUserEmail());
     this.setState(ok?{gatePickBusy:false,gatePrograms:[],gateAddCode:''}:{gatePickBusy:false,booting:false});
@@ -18630,7 +18635,7 @@ class Component extends DCLogic {
       +(addReady?'pointer':'default')+';background:'+(addReady?'#FADA01':'transparent')+';color:'+(addReady?'#0C2647':'#7E8D9C');
     v.gateFromApp=fromApp;
     v.gateBackToAppLabel='Back to '+((s.org&&s.org.name)||s.code||'the app');
-    v.onGateBackToApp=()=>this.setState({view:'home',gatePrograms:[],gateAddCode:''});
+    v.onGateBackToApp=()=>this.setState({view:this.isTT()?'tthome':'home',gatePrograms:[],gateAddCode:''});
     v.gateHasNotice=!!s.gateNotice; v.gateNotice=s.gateNotice||'';
     v.gateWelcomeBack=v.gateSignedIn&&!v.gatePick&&!!s.known&&!s.enterNewCode;
     v.gateShowForm=v.gateSignedIn&&!v.gatePick&&(!s.known||!!s.enterNewCode);
