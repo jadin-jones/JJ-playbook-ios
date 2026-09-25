@@ -8258,7 +8258,8 @@ const TT_BOOK_CHAPTERS=['Heartbreak','The Winning Formula','Great Leaders are Gr
   'From Breakdown to Breakthrough','Get To vs. Got To','Mudita',"The Farmer's Watch",'The Tightrope Walker','Surrender',
   'The State Championship Game','The 10-Year Reunion'];
 const TT_BOOK_SEED={1:[5],2:[4],3:[11,1],4:[11,1],6:[30],7:[29],8:[20],11:[24,1],12:[19],13:[19],14:[27],15:[27],
-  16:[28,1],17:[12,1],18:[12,1],20:[10,1],21:[3],22:[3],23:[19,1],24:[23,1],25:[12],26:[21],27:[17,1]};
+  16:[28,1],17:[12,1],18:[12,1],20:[10,1],21:[3],22:[3],23:[19,1],24:[23,1],25:[12],26:[21],27:[17,1],
+  28:[17,1],29:[17,1],30:[26],31:[19,1],32:[26,1],33:[29,1],34:[10],35:[10,1],36:[31]};
 const TT_COVER='assets/twin-thieves-cover.jpg';
 const TT_THANKS_ID='ttthanks';
 const ttId=n=>'tt'+String(n).padStart(2,'0');
@@ -15859,8 +15860,10 @@ class Component extends DCLogic {
       orgList:[{code:'SAMPLE26',name:'Sample Program A',cohort:'Preview',startDate:Date.now()},
                {code:'SAMPLE27',name:'Sample Program B',cohort:'Preview',startDate:Date.now()}],
       ttOrgs:[{code:'TT36',name:'Twin Thieves Leadership · 36 lessons',product:'tt',ttVersion:36,joinCode:'TWINTHIEVES36',joinDisabled:false,joinDomain:''}]});
+    // &lesson=N opens that lesson (1-36); Lesson 4 has the sample content.
+    let n=4; try{ n=parseInt(new URLSearchParams(location.search).get('lesson'),10)||4; }catch(e){}
     this.setState({booting:false,role:'leader',view:which==='lesson'?'ttlesson':'tthome',tab:'lessons',
-      ttLessonId:'tt04',ttTab:'overview',name:'Preview',org,ttLib:lib,ttProg:prog,ttDemo:true},()=>this.ttScrollSide());
+      ttLessonId:ttId(n>=1&&n<=TT_SEED.length?n:4),ttTab:'overview',name:'Preview',org,ttLib:lib,ttProg:prog,ttDemo:true},()=>this.ttScrollSide());
   }
   /* View-model for the Twin Thieves screens and the Studio product switcher. */
   ttRender(v,W){
