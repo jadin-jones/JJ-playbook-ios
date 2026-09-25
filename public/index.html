@@ -5387,7 +5387,6 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 </div>
 </div>
-<div style="{{ ttFitRowStyle }}">
 <sc-if value="{{ ttNotThanks }}" hint-placeholder-val="{{ true }}">
 <div style="{{ ttQCardStyle }}">
 <sc-if value="{{ ttHasDiscussion }}" hint-placeholder-val="{{ true }}">
@@ -5399,7 +5398,7 @@ sc-if,sc-for{display:none!important}
 <ul style="margin:0 0 14px;padding-left:20px"><sc-for list="{{ ttAdditional }}" as="q" hint-placeholder-count="3"><li style="font-size:14px;line-height:1.55;color:#37475C;margin-bottom:6px">{{ q.text }}</li></sc-for></ul>
 </sc-if>
 <sc-if value="{{ ttNoQuestions }}" hint-placeholder-val="{{ false }}"><p style="margin:0 0 14px;font-size:13px;color:#7E8D9C">No questions for this lesson yet.</p></sc-if>
-<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:auto">
+<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
 <sc-for list="{{ ttHandouts }}" as="h" hint-placeholder-count="1"><button sc-camel-on-click="{{ h.onTap }}" style="background:transparent;border:2px solid #00A3E0;color:#0C2647;border-radius:10px;padding:10px 16px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">{{ h.label }}</button></sc-for>
 <button sc-camel-on-click="{{ onTTDone }}" style="{{ ttDoneStyle }}">{{ ttDoneLabel }}</button>
 </div>
@@ -5410,6 +5409,17 @@ sc-if,sc-for{display:none!important}
 <p style="margin:0;font-weight:900;font-size:18px;text-transform:uppercase;color:#0C1B2E">Thank you!</p>
 <p style="margin:8px 0 0;font-size:14px;line-height:1.55;color:#37475C">{{ ttProgressText }}</p>
 </div>
+</sc-if>
+<div style="{{ ttFitRowStyle }}">
+<sc-if value="{{ ttHasBook }}" hint-placeholder-val="{{ true }}">
+<section style="{{ ttBookCardStyle }}">
+<img src="{{ ttCover }}" alt="The Twin Thieves book cover" style="{{ ttCoverStyle }}">
+<div style="min-width:0">
+<p style="margin:0 0 6px;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#00A3E0">In the book</p>
+<p style="margin:0;font-weight:900;font-size:17px;line-height:1.3;color:#0C1B2E">{{ ttBookLine }}</p>
+<p style="margin:8px 0 0;font-size:13.5px;line-height:1.5;color:#37475C">Read this chapter alongside the lesson.</p>
+</div>
+</section>
 </sc-if>
 <section style="{{ ttFitCardStyle }}">
 <p style="margin:0 0 auto;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#FADA01">Where this fits</p>
@@ -5493,6 +5503,10 @@ sc-if,sc-for{display:none!important}
 <div style="{{ ttK }}">Fundamental</div>
 <sc-raw-select value="{{ ttEdFund }}" sc-camel-on-change="{{ onTTEdFund }}" style="{{ ttInp }};margin:6px 0 12px">
 <sc-for list="{{ ttFundOptions }}" as="fo" hint-placeholder-count="10"><option value="{{ fo.value }}">{{ fo.label }}</option></sc-for>
+</sc-raw-select>
+<div style="{{ ttK }}">Book chapter<sc-if value="{{ ttEdBookReview }}" hint-placeholder-val="{{ false }}"> <span style="display:inline-block;margin-left:6px;font-weight:800;font-size:9.5px;letter-spacing:.06em;border-radius:999px;padding:2px 8px;background:#FFF4C2;color:#7A5A00">Needs review</span></sc-if></div>
+<sc-raw-select value="{{ ttEdBook }}" sc-camel-on-change="{{ onTTEdBook }}" style="{{ ttInp }};margin:6px 0 12px">
+<sc-for list="{{ ttBookOptions }}" as="bo" hint-placeholder-count="37"><option value="{{ bo.value }}">{{ bo.label }}</option></sc-for>
 </sc-raw-select>
 <div style="{{ ttK }}">Video URL</div>
 <input type="url" value="{{ ttEdVideo }}" sc-camel-on-change="{{ onTTEdVideo }}" placeholder="https://www.youtube.com/watch?v=…" style="{{ ttInp }};margin:6px 0 4px">
@@ -8233,16 +8247,38 @@ const TT_SEED=[
   ['trust','Smokejumpers'],['trust','Trust Bank'],['trust','Trust Triangle'],
   ['feedback','Catching Champions'],['feedback','Crucial Conversations'],['feedback','1Up, 1Forward'],['feedback','Ask, Tell, Ask'],
   ['starfish','Overview'],['starfish','Your Regular, Their Memorable'],['starfish','Mudita']];
+/* The book's 36 chapters, and each lesson's chapter by lesson number:
+   [chapter, needs review]. A best guess is marked for review in Studio;
+   choosing a chapter there clears it. Lessons not listed have none. */
+const TT_BOOK_CHAPTERS=['Heartbreak','The Winning Formula','Great Leaders are Great Listeners','Who Owns the Culture?',
+  'The Twin Thieves','The Survival Brain','The Counterpunch to Fear','Servant Leadership','The Cocoon Cutter',
+  'The Starfish Story','10-80-10','Above the Line','Ubuntu','Go to the Edge','The Leadership Blueprint','Winning Hearts',
+  'The Trust Framework','True Accountability','Into the Storm','Water the Bamboo',"Don't Sink the Ship",'Purpose > Pain',
+  'Story Time','The Little Things','Unconditional Love','Catching Champions','E+R=O','Attack Murphy',
+  'From Breakdown to Breakthrough','Get To vs. Got To','Mudita',"The Farmer's Watch",'The Tightrope Walker','Surrender',
+  'The State Championship Game','The 10-Year Reunion'];
+const TT_BOOK_SEED={1:[5],2:[4],3:[11,1],4:[11,1],6:[30],7:[29],8:[20],11:[24,1],12:[19],13:[19],14:[27],15:[27],
+  16:[28,1],17:[12,1],18:[12,1],20:[10,1],21:[3],22:[3],23:[19,1],24:[23,1],25:[12],26:[21],27:[17,1]};
+const TT_COVER='assets/twin-thieves-cover.jpg';
 const TT_THANKS_ID='ttthanks';
 const ttId=n=>'tt'+String(n).padStart(2,'0');
 /* The library as the Studio saves it: every lesson once, plus the two
    versions' orders. Editing a lesson changes it in both versions. */
 function ttSeedLibrary(){
-  const lessons=TT_SEED.map(([fund,title],i)=>({id:ttId(i+1),fund,title,videoUrl:'',summary:'',
-    transcript:'',chapters:[],discussion:[],additional:[],handouts:[]}));
+  const lessons=TT_SEED.map(([fund,title],i)=>Object.assign({id:ttId(i+1),fund,title,videoUrl:'',summary:'',
+    transcript:'',chapters:[],discussion:[],additional:[],handouts:[]},ttBookSeed(ttId(i+1))));
   lessons.push({id:TT_THANKS_ID,fund:'thanks',title:'Thank you!',closing:true,videoUrl:'',summary:'',
     transcript:'',chapters:[],discussion:[],additional:[],handouts:[]});
   return {lessons,order36:lessons.filter(l=>!l.closing).map(l=>l.id),order10:[]};
+}
+/* A lesson's book chapter: { bookChapter: 1-36 or null, bookReview }. A
+   library saved before chapters existed takes the seed's, by lesson id. */
+function ttBookSeed(id){ const b=TT_BOOK_SEED[parseInt(String(id).slice(2),10)]; return {bookChapter:b?b[0]:null,bookReview:!!(b&&b[1])}; }
+function ttBook(l){
+  if(!l||l.closing) return {bookChapter:null,bookReview:false};
+  if(!('bookChapter' in l)) return ttBookSeed(l.id);
+  const n=parseInt(l.bookChapter,10);
+  return {bookChapter:n>=1&&n<=TT_BOOK_CHAPTERS.length?n:null,bookReview:!!l.bookReview};
 }
 /* Sample content for the design preview only (?ttpreview=). Never saved. */
 const TT_SAMPLE_L4={
@@ -15662,7 +15698,8 @@ class Component extends DCLogic {
       +all.filter(l=>!l.closing&&!miss(l).length).length+' complete';
     v.ttStudioRows=all.map(l=>{ const m=l.closing?[]:miss(l);
       return {num:l.closing?'—':String(l.n),fund:(TT_FUND_NAMES[l.fund]||'').toUpperCase()||'CLOSING',title:l.title,
-        chips:m.length?m.map(x=>({text:'No '+x.toLowerCase(),miss:true,ok:false})):[{text:l.closing?'Closing page':'Ready',ok:true,miss:false}],
+        chips:(m.length?m.map(x=>({text:'No '+x.toLowerCase(),miss:true,ok:false})):[{text:l.closing?'Closing page':'Ready',ok:true,miss:false}])
+          .concat(ttBook(l).bookReview?[{text:'Book chapter: needs review',miss:true,ok:false}]:[]),
         chipStyle:'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 8px;margin:0 4px 4px 0;background:#FDECE6;color:#8F2D13',
         okStyle:'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 8px;background:#E3F3EA;color:#2F7F55',
         onEdit:()=>{ this.setState({ttEditId:l.id,ttDraft:JSON.parse(JSON.stringify(by[l.id]||l))}); window.scrollTo(0,0); },
@@ -15678,6 +15715,10 @@ class Component extends DCLogic {
       v.ttEdTitle=d.title||''; v.onTTEdTitle=e=>set({title:e.target.value});
       v.ttEdFund=d.fund||'overview'; v.onTTEdFund=e=>set({fund:e.target.value});
       v.ttFundOptions=TT_FUND_ORDER.map(k=>({value:k,label:TT_FUND_NAMES[k]}));
+      const db=ttBook(d);
+      v.ttEdBook=db.bookChapter?String(db.bookChapter):''; v.ttEdBookReview=db.bookReview;
+      v.onTTEdBook=e=>{ const n=parseInt(e.target.value,10); set({bookChapter:n>0?n:null,bookReview:false}); };
+      v.ttBookOptions=[{value:'',label:'None'}].concat(TT_BOOK_CHAPTERS.map((t,i)=>({value:String(i+1),label:'Chapter '+(i+1)+' · '+t})));
       v.ttEdVideo=d.videoUrl||''; v.onTTEdVideo=e=>set({videoUrl:e.target.value.trim()});
       const vk=ttVideo(d.videoUrl).kind;
       v.ttEdVideoNote=!d.videoUrl?'YouTube, Vimeo, Google Drive or a direct MP4 link.'
@@ -15698,7 +15739,7 @@ class Component extends DCLogic {
         onLabel:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.chapters||[])); a[i].label=e.target.value; set({chapters:a}); },
         onRemove:()=>{ const a=(this.state.ttDraft.chapters||[]).slice(); a.splice(i,1); set({chapters:a}); }}));
       v.onTTAddChap=()=>set({chapters:(d.chapters||[]).concat([{t:'0:00',label:''}])});
-      const clean=()=>{ const x=JSON.parse(JSON.stringify(this.state.ttDraft));
+      const clean=()=>{ const x=Object.assign(JSON.parse(JSON.stringify(this.state.ttDraft)),ttBook(this.state.ttDraft));
         x.title=String(x.title||'').trim()||'Untitled';
         ['discussion','additional'].forEach(k=>{ x[k]=(x[k]||[]).map(q=>String(q||'').trim()).filter(Boolean); });
         x.handouts=(x.handouts||[]).filter(h=>h&&String(h.label||'').trim()).map(h=>({label:String(h.label).trim(),url:String(h.url||'').trim()}));
@@ -15906,16 +15947,22 @@ class Component extends DCLogic {
       const hl=TT_PYR.some(p=>p.id===cur.fund)?cur.fund:null;
       const pyr=this.pyramidVM(TT_PYR,{highlight:hl,readOnly:true});
       v.ttCells=pyr.cells; v.ttCellLabels=pyr.cellLabels;
-      /* The questions card (left) and "Where this fits" (right) share a row on
-         wide screens, the same height (the pyramid centered in its card, the
-         buttons at the foot of the questions); on phones they stack, questions
-         first, full width. */
-      const card='border-radius:14px;box-sizing:border-box;display:flex;flex-direction:column;';
-      v.ttFitRowStyle=W?'display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;margin-top:14px':'display:block';
+      /* The questions (with the handouts and Mark complete at their foot) are
+         full width. Below them, on wide screens, "In the book" (left) and
+         "Where this fits" (right) share a row at the same height; with no
+         chapter, the pyramid card sits centered on its own. On phones:
+         questions, the book, then the pyramid. */
+      const bk=ttBook(cur), ch=bk.bookChapter;
+      v.ttHasBook=!!ch; v.ttCover=TT_COVER;
+      v.ttBookLine=ch?'Chapter '+ch+' · '+TT_BOOK_CHAPTERS[ch-1]:'';
+      const card='border-radius:14px;box-sizing:border-box;display:flex;flex-direction:column;margin-top:14px;';
+      v.ttFitRowStyle=W?(ch?'display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch':'display:flex;justify-content:center'):'display:block';
       v.ttFitCardStyle=card+'justify-content:center;background:linear-gradient(150deg,#123663,#0C2647 62%,#0A1F3A);border:1px solid #1E4C7D;padding:12px 14px 12px;'
-        +(W?'':'margin-top:14px');
-      v.ttQCardStyle=card+'background:#fff;border:1px solid #DCE6F0;padding:16px;'+(W?'':'margin-top:14px');
-      v.ttThanksCardStyle=card+'justify-content:center;background:#fff;border:1px solid #DCE6F0;padding:18px 16px;text-align:center;'+(W?'':'margin-top:14px');
+        +(W&&!ch?'width:calc(50% - 7px)':'');
+      v.ttBookCardStyle=card+'flex-direction:row;align-items:center;gap:16px;background:#fff;border:1px solid #DCE6F0;padding:16px';
+      v.ttCoverStyle='flex:none;width:'+(W?'38%':'96px')+';max-width:150px;height:auto;border-radius:6px;box-shadow:0 6px 18px rgba(12,38,71,.22)';
+      v.ttQCardStyle=card+'background:#fff;border:1px solid #DCE6F0;padding:16px';
+      v.ttThanksCardStyle=card+'justify-content:center;background:#fff;border:1px solid #DCE6F0;padding:18px 16px;text-align:center';
       const pm=TT_PYR.find(p=>p.id===hl);
       v.ttFitText=pm?(pm.name+' · '+TIER_LABEL[pm.tier]):'All nine fundamentals of the pyramid';
       v.onTTHome=()=>{ this.setState({view:'tthome',tab:'lessons'}); window.scrollTo(0,0); };
