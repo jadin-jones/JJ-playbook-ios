@@ -36,6 +36,7 @@ const V=o=>({value:JSON.stringify(o)});
     await setDoc(doc(d,'ttmembers','tia@s.org'),{orgs:['TT36']}); await setDoc(doc(d,'ttmembers','zed@s.org'),{orgs:['TT36']});
     await setDoc(J('ttlib:master'),V({lessons:[]}));
     await setDoc(J('program:master'),V({modules:[]}));
+    await setDoc(J('ttinv:TT36:abc'),Object.assign(V({email:'tia@s.org',program:'TT36',status:'invited'}),{tokenHash:'h'}));
     await setDoc(J('org:TT36'),V({product:'tt',ttVersion:36,joinCode:'TWINTHIEVES36'}));
     await setDoc(J('org:TT10'),V({product:'tt',ttVersion:10,joinCode:'TWINTHIEVES10'}));
     await setDoc(J('ttm:TT36:tia-s-org'),Object.assign(V({name:'Tia',progress:{}}),{ownerEmail:'tia@s.org'}));
@@ -75,6 +76,10 @@ const V=o=>({value:JSON.stringify(o)});
    ['TT isolation: student reads a Playbook org',false,()=>getDoc(J(tia,'org:T1'))],
    ['TT isolation: student reads a Playbook member',false,()=>getDoc(J(tia,'resp:T1:ann-a-com'))],
    ['TT isolation: student reads knowledge:master',false,()=>getDoc(J(tia,'knowledge:master'))],
+   ['TT invites: student reads an invite (even their own)',false,()=>getDoc(J(tia,'ttinv:TT36:abc'))],
+   ['TT invites: Playbook member reads an invite',false,()=>getDoc(J(ann,'ttinv:TT36:abc'))],
+   ['TT invites: student writes an invite',false,()=>setDoc(J(tia,'ttinv:TT36:abc'),V({status:'joined'}),{merge:true})],
+   ['TT invites: admin reads an invite',true,()=>getDoc(J(adm,'ttinv:TT36:abc'))],
   ];
   const tests=[
    ['member reads own resp',true,()=>getDoc(J(ann,'resp:T1:ann-a-com'))],

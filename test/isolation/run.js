@@ -35,13 +35,21 @@ function makeStore() {
   const ref = (c, id) => ({ c, id, get: async () => snap(id, docs[c + '/' + id]),
     set: async (v, o) => { writes.push(c + '/' + id); docs[c + '/' + id] = Object.assign(o && o.merge ? (docs[c + '/' + id] || {}) : {}, v); } });
   const coll = c => ({ doc: id => ref(c, id),
-    where: (f, op, lo) => ({ where: (f2, op2, hi) => ({ get: async () => ({ docs: Object.keys(docs).filter(k => k.startsWith(c + '/'))
+    where: (f, op, lo) => op === '=='
+      ? { limit: () => ({ get: async () => ({ docs: Object.keys(docs).filter(k => k.startsWith(c + '/') && docs[k][f] === lo)
+          .map(k => snap(k.slice(c.length + 1), docs[k])) }) }) }
+      : ({ where: (f2, op2, hi) => ({ get: async () => ({ docs: Object.keys(docs).filter(k => k.startsWith(c + '/'))
       .map(k => k.slice(c.length + 1)).filter(id => id >= lo && id < hi).map(id => snap(id, docs[c + '/' + id])) }) }) }) });
   const db = () => ({ collection: coll, runTransaction: async fn => fn({
     get: r => r.get(),
     set: (r, v) => { writes.push(r.c + '/' + r.id); docs[r.c + '/' + r.id] = Object.assign({}, v); },
     update: (r, v) => { writes.push(r.c + '/' + r.id); Object.assign(docs[r.c + '/' + r.id], v); } }) });
   return { docs, writes, db };
+}
+const SENT = [];
+{
+  const nm = require.resolve('nodemailer', { paths: [ROOT] });
+  require.cache[nm] = { id: nm, filename: nm, loaded: true, exports: { createTransport: () => ({ sendMail: async m => { SENT.push(m); return { messageId: 'x' }; } }) } };
 }
 function loadFn(file, store, users) {
   const lib = path.join(ROOT, 'netlify/lib/firebase-admin.js'), ms = path.join(ROOT, 'netlify/lib/ms-verify.js');
@@ -140,6 +148,66 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
       /const TT_DEMO_HOSTS=\['localhost','127\.0\.0\.1','jj-twinthieves-preview\.netlify\.app'\];/.test(html));
   }
 
+
+  // ---- 6. Invites: admin-only, email and status only, links once / on time / for that address. ----
+  {
+    const st = makeStore();
+    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves Leadership · 36 lessons', product: 'tt', ttVersion: 36, joinCode: 'TWINTHIEVES36' });
+    st.docs['jj_playbook/org:TT10'] = V({ name: 'Twin Thieves Leadership · 10 lessons', product: 'tt', ttVersion: 10, joinCode: 'TWINTHIEVES10' });
+    const users = { ADM: U('charlie@jadin-jones.com'), MSA: U('charlie@jadin-jones.com', 'microsoft.com'), T: U('tia@s.org'), Z: U('zed@s.org') };
+    process.env.URL = 'https://jj-twinthieves-preview.netlify.app';
+    const inviteCall = async (tok, body) => { const h = loadFn('tt-invite.js', st, users); const r = await call(h, tok, body); return { code: r.statusCode, body: JSON.parse(r.body) }; };
+    delete process.env.INVITE_SEND_MODE; SENT.length = 0;
+    let r = await inviteCall('T', { action: 'send', program: 'TT36', emails: ['tia@s.org'] });
+    ok('invite: a student cannot send invites', r.code === 403, JSON.stringify(r.body));
+    r = await inviteCall('MSA', { action: 'send', program: 'TT36', emails: ['tia@s.org'] });
+    ok('invite: an admin address signed in through Microsoft cannot send invites', r.code === 403, JSON.stringify(r.body));
+    r = await inviteCall('ADM', { action: 'send', program: 'TT36', emails: ['Tia@S.org', 'tia@s.org', 'not-an-email'] });
+    ok('invite: sending off by default: recorded, nothing sent', r.code === 200 && r.body.mode === 'off' && SENT.length === 0
+      && r.body.results[0].result === 'recorded-not-sent' && r.body.results[1].result === 'duplicate' && r.body.results[2].result === 'not-an-email', JSON.stringify(r.body));
+    const ids = Object.keys(st.docs).filter(k => k.indexOf('jj_playbook/ttinv:') === 0);
+    const inv = ids.length === 1 ? st.docs[ids[0]] : null, invVal = inv ? JSON.parse(inv.value) : {};
+    ok('invite: stores only the email and invite status (and the link\'s hash)',
+      !!inv && Object.keys(invVal).sort().join(',') === 'delivery,email,expiresAt,joinedAt,program,sendCount,sentAt,status'
+      && Object.keys(inv).sort().join(',') === 'tokenHash,value' && invVal.email === 'tia@s.org', inv ? Object.keys(invVal).join(',') : 'none');
+    ok('invite: the link expires after 7 days', Math.abs(invVal.expiresAt - invVal.sentAt - 7 * 86400000) < 5000);
+    process.env.INVITE_SEND_MODE = 'test'; process.env.INVITE_TEST_RECIPIENTS = 'zed@s.org'; process.env.INVITE_SMTP_URL = 'smtps://x:y@smtp.example.com:465';
+    r = await inviteCall('ADM', { action: 'send', program: 'TT10', emails: ['zed@s.org', 'someone@else.org'] });
+    ok('invite: test mode sends only to test recipients', r.code === 200 && SENT.length === 1 && SENT[0].to === 'zed@s.org'
+      && r.body.results[1].result === 'not-a-test-recipient' && !Object.keys(st.docs).some(k => k.indexOf('ttinv:TT10') > 0 && JSON.parse(st.docs[k].value).email === 'someone@else.org'), JSON.stringify(r.body));
+    const mail = SENT[0] || {};
+    ok('invite: from "Jadin | Jones Team" <charlie@jadin-jones.com>, replies to charlie@', mail.from === '"Jadin | Jones Team" <charlie@jadin-jones.com>' && mail.replyTo === 'charlie@jadin-jones.com', mail.from);
+    ok('invite: the email says 10 lessons for the 10-lesson version, with the code and a Join now link',
+      /series of 10 short video lessons/.test(mail.text || '') && /TWINTHIEVES10/.test(mail.text || '') && /Join now/.test(mail.html || '')
+      && /https:\/\/jj-twinthieves-preview\.netlify\.app\/\?tti=[A-Za-z0-9_-]{40,}&ttc=TWINTHIEVES10/.test(mail.text || ''), (mail.text || '').slice(0, 200));
+    const secret = ((mail.text || '').match(/tti=([A-Za-z0-9_-]+)/) || [])[1];
+    const join = loadFn('tt-join.js', st, users);
+    let j = await call(join, 'T', { invite: secret, first: 'Tia', last: 'Lee' });
+    ok('invite: the link refuses a different signed-in address', j.statusCode === 403 && JSON.parse(j.body).code === 'invite-email', j.body);
+    j = await call(join, 'Z', { invite: secret, first: 'Zed', last: 'Q' });
+    ok('invite: the invited address joins with the link', j.statusCode === 200 && JSON.parse(j.body).code === 'TT10' && JSON.parse(j.body).invited === true, j.body);
+    const z = Object.keys(st.docs).find(k => k.indexOf('ttinv:TT10') > 0);
+    ok('invite: the invite is marked joined and its hash cleared', !!z && JSON.parse(st.docs[z].value).status === 'joined' && st.docs[z].tokenHash === '');
+    j = await call(join, 'Z', { invite: secret, first: 'Zed', last: 'Q' });
+    ok('invite: the link works only once', j.statusCode === 404 && JSON.parse(j.body).code === 'invite-invalid', j.body);
+    // expiry and resend
+    SENT.length = 0; process.env.INVITE_TEST_RECIPIENTS = 'zed@s.org,tia@s.org';
+    await inviteCall('ADM', { action: 'resend', program: 'TT36', email: 'tia@s.org' });
+    const s1 = ((SENT[0] || {}).text || '').match(/tti=([A-Za-z0-9_-]+)/)[1];
+    await inviteCall('ADM', { action: 'resend', program: 'TT36', email: 'tia@s.org' });
+    const s2 = ((SENT[1] || {}).text || '').match(/tti=([A-Za-z0-9_-]+)/)[1];
+    j = await call(loadFn('tt-join.js', st, users), 'T', { invite: s1, first: 'Tia', last: 'Lee' });
+    ok('invite: Resend makes the old link stop working', j.statusCode === 404 && JSON.parse(j.body).code === 'invite-invalid', j.body);
+    const tkey = Object.keys(st.docs).find(k => k.indexOf('ttinv:TT36') > 0);
+    const tv = JSON.parse(st.docs[tkey].value); tv.expiresAt = Date.now() - 1000; st.docs[tkey].value = JSON.stringify(tv);
+    j = await call(loadFn('tt-join.js', st, users), 'T', { invite: s2, first: 'Tia', last: 'Lee' });
+    ok('invite: an expired link is refused', j.statusCode === 410 && JSON.parse(j.body).code === 'invite-expired', j.body);
+    r = await inviteCall('ADM', { action: 'cancel', program: 'TT36', email: 'tia@s.org' });
+    j = await call(loadFn('tt-join.js', st, users), 'T', { invite: s2, first: 'Tia', last: 'Lee' });
+    ok('invite: a cancelled invite\'s link is refused', r.code === 200 && j.statusCode === 404, j.body);
+    ok('invite: never writes members/, resp: or push:', !st.writes.some(w => /^members\/|\/resp:|\/push:/.test(w)), st.writes.join(','));
+    delete process.env.INVITE_SEND_MODE; delete process.env.INVITE_TEST_RECIPIENTS; delete process.env.INVITE_SMTP_URL;
+  }
   console.log(bad ? bad + ' of ' + n + ' FAILED' : 'ALL ' + n + ' PASSED');
   process.exit(bad ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });
