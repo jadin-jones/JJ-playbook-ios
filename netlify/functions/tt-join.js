@@ -88,7 +88,7 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
   if (!m) return reply(401, { error: 'Sign in first' });
   let tok;
   try { tok = await auth().verifyIdToken(m[1], true); }
-   catch (e) { console.error('tt-join verify', e && e.code, e && e.message); return reply(401, { error: 'Your sign-in has expired. Sign in again.' }); }  
+  catch (e) { return reply(401, { error: 'Your sign-in has expired. Sign in again.' }); }
   const email = String(tok.email || '').trim().toLowerCase();
   if (!email) return reply(403, { error: 'Your account has no email address' });
   if (tok.email_verified !== true) return reply(403, { error: 'Verify your email address first', code: 'unverified' });
