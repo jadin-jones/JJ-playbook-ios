@@ -36,6 +36,12 @@
   to = "/.netlify/functions/tt-join"
   status = 200
 
+# Twin Thieves email invites, sent from Studio (admins only).
+[[redirects]]
+  from = "/api/tt-invite"
+  to = "/.netlify/functions/tt-invite"
+  status = 200
+
 # People answering a peer or team link reach their round via /api/peer.
 [[redirects]]
   from = "/api/peer"
