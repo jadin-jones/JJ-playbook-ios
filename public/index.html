@@ -679,7 +679,7 @@ sc-if,sc-for{display:none!important}
 <div data-jj-gate-right>
 <sc-if value="{{ gateNeedsSignIn }}" hint-placeholder-val="{{ false }}">
 <div style="animation:jjIn .3s ease both;text-align:center">
-<p style="font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 8px">Sign in to your playbook</p>
+<p style="font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 8px">{{ gateSignInTitle }}</p>
 <p style="font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 18px">{{ gateSignInHint }}</p>
 <sc-if value="{{ gateHasNotice }}" hint-placeholder-val="{{ false }}">
 <p style="color:#9FD7B5;font-weight:700;font-size:13.5px;line-height:1.5;margin:-6px 0 16px">{{ gateNotice }}</p>
@@ -8087,7 +8087,9 @@ Or upload an image
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:940}}">
-/* Dev hosts: any host containing "dev", and the Twin Thieves preview site. */
+/* Dev hosts: any host containing "dev", and the Twin Thieves preview site.
+   Every other host is live (test-6b2ab), including the Twin Thieves live
+   site, twinthieves.jadin-jones.com. */
 const DEV_HOST=location.hostname.indexOf("dev")>-1||location.hostname==='jj-twinthieves-preview.netlify.app';
 const FIREBASE_CONFIG=DEV_HOST?{apiKey:"AIzaSyBuWZtJiL6Plizs6GkAtZvvipBy9Cs5KJY",authDomain:"jj-playbook-dev.firebaseapp.com",projectId:"jj-playbook-dev",storageBucket:"jj-playbook-dev.firebasestorage.app",messagingSenderId:"330195639799",appId:"1:330195639799:web:ebbfe5631dfe5ae0af22f2"}:{apiKey:"AIzaSyAgcRPj65snd_CxN-zs8v3EXiOsDcLaxI4",authDomain:"test-6b2ab.firebaseapp.com",projectId:"test-6b2ab",storageBucket:"test-6b2ab.firebasestorage.app",messagingSenderId:"468112905284",appId:"1:468112905284:web:5073dffaece8633bc9d811"};
 /* Google and Microsoft sign-in hand off through Firebase's helper at
@@ -8101,16 +8103,21 @@ const FIREBASE_CONFIG=DEV_HOST?{apiKey:"AIzaSyBuWZtJiL6Plizs6GkAtZvvipBy9Cs5KJY"
    client, and each Dev host on jj-playbook-dev's (docs/GO-LIVE.md).
    The project itself is picked above by host: any host containing "dev"
    (jj-playbook-dev.netlify.app, dev.playbook.jadin-jones.com) is Dev, and
-   jjplaybook.netlify.app and playbook.jadin-jones.com are live. */
+   jjplaybook.netlify.app, playbook.jadin-jones.com and
+   twinthieves.jadin-jones.com are live. */
 const AUTH_OWN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com','jj-twinthieves-preview.netlify.app',
-  'jjplaybook.netlify.app','playbook.jadin-jones.com'];
+  'jjplaybook.netlify.app','playbook.jadin-jones.com','twinthieves.jadin-jones.com'];
 /* Microsoft sign-in is offered where its Entra app lists the host's
    /__/auth/handler. On live that app is a stopgap in the personal Azure
    directory, and the provider is switched on in test-6b2ab only after the live
    rules are published; until then the button answers that it is not on yet. */
 const MS_SIGNIN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com','jj-twinthieves-preview.netlify.app',
-  'jjplaybook.netlify.app','playbook.jadin-jones.com'];
+  'jjplaybook.netlify.app','playbook.jadin-jones.com','twinthieves.jadin-jones.com'];
 const msSignInHere=()=>MS_SIGNIN_HOSTS.indexOf(location.hostname)>=0;
+/* The Twin Thieves sites (preview on Dev, live on test-6b2ab). Only the
+   sign-in screen's wording changes on them. */
+const TT_HOSTS=['jj-twinthieves-preview.netlify.app','twinthieves.jadin-jones.com'];
+const ttHostHere=()=>TT_HOSTS.indexOf(location.hostname)>=0;
 if(AUTH_OWN_HOSTS.indexOf(location.hostname)>=0) FIREBASE_CONFIG.authDomain=location.hostname;
 const COLL='jj_playbook';
 // Two editions of the same nine-fundamental format. Y1 keeps the original
@@ -18550,6 +18557,7 @@ class Component extends DCLogic {
     const inApp=this.isNativeApp();
     v.gateShowGoogle=!inApp;
     v.gateShowMicrosoft=!inApp&&msSignInHere();
+    v.gateSignInTitle=ttHostHere()?'Sign in to Jadin | Jones':'Sign in to your playbook';
     v.gateSignInHint=inApp
       ?'Sign in with your email and password. Use the email your program invited you with. First time? Tap Forgot password to set one.'
       :'Use the email your program invited you with. First time? Continue with Google, or tap Forgot password to set one.';

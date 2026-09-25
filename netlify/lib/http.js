@@ -8,7 +8,7 @@
  * or an exception's message.
  */
 const SITE_HOSTS = {
-  'test-6b2ab': ['jjplaybook.netlify.app', 'playbook.jadin-jones.com'],
+  'test-6b2ab': ['jjplaybook.netlify.app', 'playbook.jadin-jones.com', 'twinthieves.jadin-jones.com'],
   'jj-playbook-dev': ['jj-playbook-dev.netlify.app', 'dev.playbook.jadin-jones.com', 'jj-twinthieves-preview.netlify.app']
 };
 /* This site's own https origins; none if the project is not one of ours. */
