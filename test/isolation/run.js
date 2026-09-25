@@ -208,6 +208,71 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('invite: never writes members/, resp: or push:', !st.writes.some(w => /^members\/|\/resp:|\/push:/.test(w)), st.writes.join(','));
     delete process.env.INVITE_SEND_MODE; delete process.env.INVITE_TEST_RECIPIENTS; delete process.env.INVITE_SMTP_URL;
   }
+  // ---- 7. Approved-email list (ttallow:TTxx): code joins only for listed emails; invites unaffected. ----
+  {
+    const st = makeStore();
+    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves Leadership · 36 lessons', product: 'tt', ttVersion: 36, joinCode: 'TWINTHIEVES36' });
+    st.docs['jj_playbook/org:TT10'] = V({ name: 'Twin Thieves Leadership · 10 lessons', product: 'tt', ttVersion: 10, joinCode: 'TWINTHIEVES10' });
+    st.docs['jj_playbook/ttallow:TT36'] = V({ emails: ['Tia@S.org', 'amy@s.org'] });
+    st.docs['jj_playbook/ttallow:TT10'] = V({ emails: [] });
+    const users = { ADM: U('charlie@jadin-jones.com'), T: U('tia@s.org'), Z: U('zed@s.org'), Q: U('quin@s.org') };
+    const tt = loadFn('tt-join.js', st, users);
+    let r = await call(tt, 'T', { code: 'TWINTHIEVES36', first: 'Tia', last: 'Lee' });
+    ok('allow list: a listed email joins with the code (not case-sensitive)', r.statusCode === 200 && JSON.parse(r.body).code === 'TT36', r.body);
+    r = await call(tt, 'Z', { code: 'TWINTHIEVES36', first: 'Zed', last: 'Q' });
+    ok('allow list: an unlisted email is refused with the agreed wording',
+      r.statusCode === 403 && JSON.parse(r.body).code === 'not-listed'
+      && JSON.parse(r.body).error === "Your email isn't on the list for this program. Ask the Jadin | Jones Team to add you.", r.body);
+    ok('allow list: the refused join writes nothing', !st.writes.some(w => w.indexOf('zed') >= 0), st.writes.join(','));
+    r = await call(tt, 'Z', { code: 'TWINTHIEVES10', first: 'Zed', last: 'Q' });
+    ok('allow list: an empty list lets anyone with the code join', r.statusCode === 200 && JSON.parse(r.body).code === 'TT10', r.body);
+    st.docs['jj_playbook/ttallow:TT10'] = { value: '{not json' };
+    r = await call(tt, 'Q', { code: 'TWINTHIEVES10', first: 'Quin', last: 'R' });
+    ok('allow list: a damaged list refuses the code join (fails closed)', r.statusCode === 403 && JSON.parse(r.body).code === 'list-unreadable', r.body);
+    process.env.URL = 'https://jj-twinthieves-preview.netlify.app'; delete process.env.INVITE_SEND_MODE; SENT.length = 0;
+    process.env.INVITE_SEND_MODE = 'test'; process.env.INVITE_TEST_RECIPIENTS = 'quin@s.org'; process.env.INVITE_SMTP_URL = 'smtps://x:y@smtp.example.com:465';
+    await call(loadFn('tt-invite.js', st, users), 'ADM', { action: 'send', program: 'TT36', emails: ['quin@s.org'] });
+    const secret = (((SENT[0] || {}).text || '').match(/tti=([A-Za-z0-9_-]+)/) || [])[1];
+    r = await call(loadFn('tt-join.js', st, users), 'Q', { invite: secret, first: 'Quin', last: 'R' });
+    ok('allow list: an invite still joins an address that is not on the list', !!secret && r.statusCode === 200 && JSON.parse(r.body).code === 'TT36', r.body);
+    delete process.env.INVITE_SEND_MODE; delete process.env.INVITE_TEST_RECIPIENTS; delete process.env.INVITE_SMTP_URL;
+    const join = loadFn('join.js', st, { A: U('ann@a.com') });
+    st.docs['jj_playbook/org:PLAYBOOK26'] = V({ name: 'Playbook 26', allowlist: [] });
+    r = await call(join, 'A', { code: 'playbook26' });
+    ok('allow list: the Playbook join is untouched by it', r.statusCode === 200 && JSON.parse(r.body).code === 'PLAYBOOK26', r.body);
+  }
+
+  // ---- 8. Hosts, sign-in wording, My groups, and no leftover debug logging. ----
+  {
+    const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
+    const line = re => { const m = html.match(re); return m ? m[0] : ''; };
+    const pick = host => {
+      const src = [line(/const DEV_HOST=.*;/), line(/const FIREBASE_CONFIG=.*;/), line(/const PUSH_VAPID_KEY=.*;/),
+        line(/const AUTH_OWN_HOSTS=\[[^\]]*\];/), line(/const MS_SIGNIN_HOSTS=\[[^\]]*\];/), line(/const TT_HOSTS=\[[^\]]*\];/)].join('\n');
+      return new Function('location', src + '\nreturn {p:FIREBASE_CONFIG.projectId,k:PUSH_VAPID_KEY.slice(0,9),own:AUTH_OWN_HOSTS.indexOf(location.hostname)>=0,ms:MS_SIGNIN_HOSTS.indexOf(location.hostname)>=0,tt:TT_HOSTS.indexOf(location.hostname)>=0};')({ hostname: host });
+    };
+    const want = { 'jjplaybook.netlify.app': 'test-6b2ab', 'playbook.jadin-jones.com': 'test-6b2ab', 'twinthieves.jadin-jones.com': 'test-6b2ab',
+      'jj-playbook-dev.netlify.app': 'jj-playbook-dev', 'dev.playbook.jadin-jones.com': 'jj-playbook-dev', 'jj-twinthieves-preview.netlify.app': 'jj-playbook-dev' };
+    const got = Object.keys(want).map(h => [h, pick(h)]);
+    ok('hosts: each host picks its project and VAPID key (twinthieves.jadin-jones.com is live)',
+      got.every(([h, g]) => g.p === want[h] && g.k === (want[h] === 'test-6b2ab' ? 'BInNmntOm' : 'BC6VSCl7r')), JSON.stringify(got));
+    ok('hosts: every one of our hosts signs in through its own /__/auth and offers Microsoft', got.every(([, g]) => g.own && g.ms), JSON.stringify(got));
+    ok('hosts: only the two Twin Thieves hosts count as Twin Thieves', got.every(([h, g]) => g.tt === /twinthieves/.test(h)), JSON.stringify(got));
+    const { SITE_HOSTS } = require(path.join(ROOT, 'netlify/lib/http.js'));
+    ok('hosts: live CORS adds only twinthieves.jadin-jones.com; Dev unchanged',
+      SITE_HOSTS['test-6b2ab'].join(',') === 'jjplaybook.netlify.app,playbook.jadin-jones.com,twinthieves.jadin-jones.com'
+      && SITE_HOSTS['jj-playbook-dev'].join(',') === 'jj-playbook-dev.netlify.app,dev.playbook.jadin-jones.com,jj-twinthieves-preview.netlify.app', JSON.stringify(SITE_HOSTS));
+    ok('sign-in: "Sign in to Jadin | Jones" only on Twin Thieves hosts, the Playbook wording elsewhere',
+      /v\.gateSignInTitle=ttHostHere\(\)\?'Sign in to Jadin \| Jones':'Sign in to your playbook';/.test(html) && />\{\{ gateSignInTitle \}\}<\/p>/.test(html));
+    ok('my groups: a Twin Thieves program skips the resp: read the rules refuse',
+      /ttCodes\.has\(code\)\?Promise\.resolve\(null\):sgetStrict\('resp:'\+code\+':'\+idkey\)/.test(html));
+    ok('my groups: "you are here" and Back return a Twin Thieves member to Twin Thieves',
+      /g\.code===s\.code\) return this\.setState\(\{view:this\.isTT\(\)\?'tthome':'home'/.test(html)
+      && /onGateBackToApp=\(\)=>this\.setState\(\{view:this\.isTT\(\)\?'tthome':'home'/.test(html));
+    const j1 = fs.readFileSync(path.join(ROOT, 'netlify/functions/join.js'), 'utf8'), j2 = fs.readFileSync(path.join(ROOT, 'netlify/functions/tt-join.js'), 'utf8');
+    ok('logging: the temporary sign-in error logs are gone', !/verify', e && e\.code, e && e\.message/.test(j1 + j2));
+  }
+
   console.log(bad ? bad + ' of ' + n + ' FAILED' : 'ALL ' + n + ' PASSED');
   process.exit(bad ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

@@ -43,12 +43,17 @@ const V=o=>({value:JSON.stringify(o)});
     await setDoc(J('ttm:TT36:zed-s-org'),Object.assign(V({name:'Zed',progress:{}}),{ownerEmail:'zed@s.org'}));
     await setDoc(J('rev:TT36:gone-s-org'),V({email:'gone@s.org'}));
     await setDoc(doc(d,'ttmembers','gone@s.org'),{orgs:['TT36']});
+    await setDoc(J('ttallow:TT36'),V({emails:['tia@s.org','amy@s.org']}));
+    // dual@a.com is in the Playbook's T1 and Twin Thieves' TT36.
+    await setDoc(doc(d,'members','dual@a.com'),{orgs:['T1']}); await setDoc(doc(d,'ttmembers','dual@a.com'),{orgs:['TT36']});
+    await setDoc(J('ttm:TT36:dual-a-com'),Object.assign(V({name:'Dual',progress:{}}),{ownerEmail:'dual@a.com'}));
   });
   const who=(uid,email,prov)=>env.authenticatedContext(uid,{email,email_verified:true,firebase:{sign_in_provider:prov||'google.com'}}).firestore();
   const ann=who('uid-ann','ann@a.com'), bob=who('uid-bob','bob@a.com'), adm=who('uid-c','charlie@jadin-jones.com'),
         admMs=who('uid-cms','charlie@jadin-jones.com','microsoft.com'), mm1=who('uid-mm1','mm@a.com','microsoft.com'), mm2=who('uid-mm2','mm@a.com','microsoft.com');
   const J=(db,id)=>doc(db,'jj_playbook',id);
   const tia=who('uid-tia','tia@s.org'), gone=who('uid-gone','gone@s.org');
+  const dual=who('uid-dual','dual@a.com');
   const TT=[
    ['TT: student reads the lesson library',true,()=>getDoc(J(tia,'ttlib:master'))],
    ['TT: Playbook member reads the lesson library',false,()=>getDoc(J(ann,'ttlib:master'))],
@@ -80,6 +85,16 @@ const V=o=>({value:JSON.stringify(o)});
    ['TT invites: Playbook member reads an invite',false,()=>getDoc(J(ann,'ttinv:TT36:abc'))],
    ['TT invites: student writes an invite',false,()=>setDoc(J(tia,'ttinv:TT36:abc'),V({status:'joined'}),{merge:true})],
    ['TT invites: admin reads an invite',true,()=>getDoc(J(adm,'ttinv:TT36:abc'))],
+   ['TT approved list: student reads it (even listed)',false,()=>getDoc(J(tia,'ttallow:TT36'))],
+   ['TT approved list: Playbook member reads it',false,()=>getDoc(J(ann,'ttallow:TT36'))],
+   ['TT approved list: student writes it',false,()=>setDoc(J(tia,'ttallow:TT36'),V({emails:[]}))],
+   ['TT approved list: admin reads it',true,()=>getDoc(J(adm,'ttallow:TT36'))],
+   ['TT approved list: admin writes it',true,()=>setDoc(J(adm,'ttallow:TT10'),V({emails:['a@b.org']}))],
+   ['TT approved list: Microsoft admin writes it',false,()=>setDoc(J(admMs,'ttallow:TT10'),V({emails:[]}))],
+   ['TT both products: reads own ttm: record',true,()=>getDoc(J(dual,'ttm:TT36:dual-a-com'))],
+   ['TT both products: reads own missing TT36 tombstone',true,()=>getDoc(J(dual,'rev:TT36:dual-a-com'))],
+   ['TT both products: reads org:TT36',true,()=>getDoc(J(dual,'org:TT36'))],
+   ['TT both products: a resp:TT36 read is refused (why My groups reads ttm: instead)',false,()=>getDoc(J(dual,'resp:TT36:dual-a-com'))],
   ];
   const tests=[
    ['member reads own resp',true,()=>getDoc(J(ann,'resp:T1:ann-a-com'))],

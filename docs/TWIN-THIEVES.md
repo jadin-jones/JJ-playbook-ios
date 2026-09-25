@@ -16,9 +16,9 @@ A second product in the same app, on the branch `feature/twin-thieves`
 | Studio | Championship Playbook view (`orgList` excludes Twin Thieves) | Twin Thieves Leadership view (its own data) |
 
 Checks:
-- `node test/isolation/run.js`: 30 checks, no network.
-- `npm --prefix test/rules install && npm --prefix test/rules test`: 72 rules
-  cases, the Playbook's 46 unchanged plus 26 Twin Thieves ones.
+- `node test/isolation/run.js`: 61 checks, no network.
+- `npm --prefix test/rules install && npm --prefix test/rules test`: 86 rules
+  cases, the Playbook's 46 unchanged plus 40 Twin Thieves ones.
 
 ## Codes
 
@@ -28,8 +28,21 @@ Checks:
 - **Rotate** suggests a new code.
 - **Switch code off** stops new joins.
 - **Email-domain limit** accepts only one domain.
+- **Approved emails** (one per line, then **Save list**): when the list is
+  not empty, `/api/tt-join` accepts a code join only for a listed email.
+  Anyone else sees "Your email isn't on the list for this program. Ask the
+  Jadin | Jones Team to add you." An empty list lets anyone with the code
+  join. Invite links don't check the list. The join code printed in an
+  invite email does check it, so an invited address that isn't on the list
+  can join only through the link.
 
-Codes are compared without regard to case. There is no approved-email list.
+Codes are compared without regard to case. The approved list is stored in
+`ttallow:TT36` / `ttallow:TT10` (`{ emails, updatedAt }`), apart from the
+program record, because every member of a program can read `org:TTxx`.
+Only admins can read `ttallow:` or write to it: the rules give members
+nothing under that prefix, so `firestore.rules` did not change. A damaged
+list fails closed: every code join is refused, and Studio won't save over
+the list until it can read it.
 `/api/tt-join` allows 20 tries an hour per account and 60 an hour per
 connection. A rev: tombstone (Studio → Members → Remove) ends access.
 
@@ -100,6 +113,38 @@ else counts as `off`:
 `?ttpreview=home`, `?ttpreview=lesson` and `?ttpreview=studio` show sample
 content with no sign-in and save nothing. They work only on localhost, a
 Codespace (`*.app.github.dev`) or `jj-twinthieves-preview.netlify.app`.
+
+## Signing in and My groups
+
+- On the Twin Thieves hosts (`TT_HOSTS`: the preview site and
+  twinthieves.jadin-jones.com), the sign-in heading says "Sign in to
+  Jadin | Jones". Every other host keeps "Sign in to your playbook".
+- My groups lists Playbook programs first, then Twin Thieves programs under
+  their own heading. Tapping a Twin Thieves program opens Twin Thieves.
+  `myPrograms` reads a Twin Thieves program's `ttm:` record and never its
+  `resp:` record. The rules refuse a `resp:TTxx` read, and before this fix
+  that refusal dropped the program from the list.
+
+## Live site: twinthieves.jadin-jones.com
+
+This host uses the **live** project, test-6b2ab. It has no "dev" in its
+name, so it gets the live Firebase config and VAPID key without any special
+case. The code also adds it to `AUTH_OWN_HOSTS`, `MS_SIGNIN_HOSTS` and
+the live CORS list (`SITE_HOSTS['test-6b2ab']` in `netlify/lib/http.js`).
+
+Before it works, the owner must set up these (live project only, and only
+when they choose to):
+- Firebase → test-6b2ab → Authentication → Authorized domains:
+  `twinthieves.jadin-jones.com`.
+- Google Cloud → test-6b2ab → the OAuth web client: JavaScript origin
+  `https://twinthieves.jadin-jones.com` and redirect URI
+  `https://twinthieves.jadin-jones.com/__/auth/handler`.
+- The live Microsoft (Entra) app: redirect URI
+  `https://twinthieves.jadin-jones.com/__/auth/handler`.
+- The Netlify site that serves the host: the live service account's env
+  (`FIREBASE_PROJECT_ID` = `test-6b2ab`), a DNS record for the subdomain,
+  and `URL` for invite links.
+- The Twin Thieves rules section published on test-6b2ab.
 
 ## Preview site
 
