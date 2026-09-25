@@ -47,27 +47,71 @@ Kept: name, email and which lessons are complete, with the time. Nothing
 else: no location, photo, answers, chat, notifications or other people's
 data. Decisions for the owner are in the summary that came with this build.
 
+## Invites (Studio → Twin Thieves → Members → Invite)
+
+An admin pastes addresses (one per line), picks the 36- or 10-lesson
+version and sends. Each person gets an email from **"Jadin | Jones Team"
+<charlie@jadin-jones.com>** with a Join now link and the join code as a
+backup.
+- The link works once, only for that address, and for 7 days.
+- Resend makes a fresh link, and the old one stops working.
+- Cancel invite stops the link.
+- Members shows each person's status: Invited (with the date), Joined,
+  Expired or Cancelled.
+
+- **Wording:** `netlify/lib/invite-products.js`. The subject, lines, button and
+  sign-off live there with `{product}`, `{lessonCount}`, `{email}`, `{date}`,
+  `{site}` and `{CODE}` placeholders, and editing them needs no code change.
+  Another product (the Playbook, later) is another entry in the same file.
+- **Stored:** `ttinv:<program>:<hash of the email>`, holding the email and
+  invite status (status, sent, expires, joined, delivery, send count) plus the
+  hash of the link's secret. Admins only: no member can read it.
+- **Server:** `/api/tt-invite`, admins only (not through Microsoft), with 30
+  calls an hour per connection and 200 invite emails an hour per admin.
+  `/api/tt-join` accepts the link.
+
+**Sending** follows `INVITE_SEND_MODE` on the Netlify site, and anything
+else counts as `off`:
+
+| Value | What happens |
+|---|---|
+| `off` (or unset) | nothing is sent; the invite is recorded, and Studio says "Recorded, not sent" |
+| `test` | only addresses in `INVITE_TEST_RECIPIENTS` (comma-separated) get an email; others are refused |
+| `on` | everyone gets an email. Live only, and only when the owner says so |
+
+**Setup before any email goes out:**
+1. charlie@jadin-jones.com: 2-Step Verification on, then create an app
+   password named "Twin Thieves invites" (the Workspace admin must allow app
+   passwords).
+2. Netlify env on the site:
+   - `INVITE_SMTP_URL` = `smtps://charlie%40jadin-jones.com:APP_PASSWORD@smtp.gmail.com:465`
+   - `INVITE_SEND_MODE` = `test`
+   - `INVITE_TEST_RECIPIENTS` = your own addresses
+3. **DKIM for jadin-jones.com**, which none of its DNS records have yet: Google Admin
+   → Apps → Google Workspace → Gmail → Authenticate email → Generate new
+   record, add that TXT record at GoDaddy, then Start authentication. SPF
+   already allows Google (`_spf.google.com`), and DMARC is `p=none`.
+4. The invite function uses nodemailer 10, which needs Node 20 or later for the
+   Netlify functions. If a send fails with a Node version error, set
+   `AWS_LAMBDA_JS_RUNTIME` = `nodejs20.x` on the site.
+
 ## Design preview
 
 `?ttpreview=home`, `?ttpreview=lesson` and `?ttpreview=studio` show sample
 content with no sign-in and save nothing. They work only on localhost, a
 Codespace (`*.app.github.dev`) or `jj-twinthieves-preview.netlify.app`.
 
-## Preview site: waiting for approval (not applied)
+## Preview site
 
 The branch deploys to **jj-twinthieves-preview.netlify.app** on the Dev
 Firebase project (jj-playbook-dev).
 
-**Important:** the app chooses its Firebase project by host ("dev" in the
-hostname means Dev), and `jj-twinthieves-preview` does not contain "dev". Until
-the code change below is applied, that site would talk to the **live**
-project, test-6b2ab. Apply it before the site builds this branch.
+The app chooses its Firebase project by host ("dev" in the hostname means
+Dev), and `jj-twinthieves-preview` does not contain "dev". Commit `2cabb6c`
+(from `docs/twin-thieves-preview-hosts.patch`) adds the preview host to the
+Dev side, so it uses jj-playbook-dev.
 
-### 1. Code (`docs/twin-thieves-preview-hosts.patch`, one commit)
-
-```
-git apply docs/twin-thieves-preview-hosts.patch
-```
+### 1. Code (applied in `2cabb6c`)
 - The Dev project and Dev VAPID key on the preview host (`DEV_HOST`).
 - The preview host in `AUTH_OWN_HOSTS`, so sign-in hands off through its
   own `/__/auth`.
