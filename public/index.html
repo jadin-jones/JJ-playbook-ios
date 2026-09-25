@@ -5450,17 +5450,31 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 
-<sc-if value="{{ showAdminTT }}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{ showAdmin }}" hint-placeholder-val="{{ false }}">
 <div style="padding:16px 14px 0;animation:jjIn .28s ease both">
-<div style="display:flex;gap:4px;background:#fff;border:1px solid #DCE6F0;padding:4px;border-radius:10px;margin-bottom:12px">
-<sc-for list="{{ prodTabs }}" as="pt" hint-placeholder-count="2"><button sc-camel-on-click="{{ pt.onTap }}" style="{{ pt.style }}">{{ pt.label }}</button></sc-for>
+<div style="display:flex;gap:4px;background:#fff;border:1px solid #DCE6F0;padding:4px;border-radius:10px;margin-bottom:10px;overflow-x:auto">
+<sc-for list="{{ adminTabs }}" as="at" hint-placeholder-count="3">
+<button sc-camel-on-click="{{ at.onTap }}" style="{{ at.style }}">{{ at.label }}</button>
+</sc-for>
 </div>
-<div style="background:#0C2647;border-radius:14px;padding:16px;border-left:6px solid #FADA01">
-<span style="display:inline-block;background:#FADA01;color:#0C2647;font-weight:900;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;border-radius:6px;padding:3px 8px">Twin Thieves view</span>
-<h2 style="margin:8px 0 2px;font-weight:900;font-size:22px;line-height:1.1;text-transform:uppercase;color:#fff">Twin Thieves Leadership</h2>
-<p style="margin:0;font-size:12.5px;color:#A9BDD6">Its own lessons, versions, codes and members. Nothing here appears in the Playbook's Studio, and nothing of the Playbook's appears here.</p>
+<sc-if value="{{ adminOrgCrumb }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;flex-wrap:wrap">
+<button sc-camel-on-click="{{ onAdminAllOrgs }}" style="flex:none;background:none;border:none;padding:0;font-family:inherit;font-weight:800;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#7E8D9C;cursor:pointer;min-height:40px">&larr; All organizations</button>
+<span style="flex:1;min-width:0;font-weight:900;font-size:17px;letter-spacing:-.01em;color:#0C1B2E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ adminOrgName }}</span>
+<span style="flex:none;font-weight:900;font-size:10.5px;letter-spacing:.12em;background:#0C2647;color:#FADA01;padding:5px 9px;border-radius:5px">{{ adminOrgCode }}</span>
 </div>
-<div style="display:flex;flex-wrap:wrap;gap:6px;margin:12px 0">
+</sc-if>
+<sc-if value="{{ adminHasSubTabs }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:7px;margin-bottom:10px;overflow-x:auto">
+<sc-for list="{{ adminSubTabs }}" as="as" hint-placeholder-count="4">
+<button sc-camel-on-click="{{ as.onTap }}" style="{{ as.style }}">{{ as.label }}</button>
+</sc-for>
+</div>
+</sc-if>
+<p style="margin:0 0 16px;font-size:12.5px;line-height:1.55;color:#7E8D9C">{{ adminTabNote }}</p>
+
+<sc-if value="{{ adminIsTT }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:7px;margin-bottom:12px;overflow-x:auto">
 <sc-for list="{{ ttStudioTabs }}" as="st" hint-placeholder-count="4"><button sc-camel-on-click="{{ st.onTap }}" style="{{ st.style }}">{{ st.label }}</button></sc-for>
 </div>
 <sc-if value="{{ ttLibUnsaved }}" hint-placeholder-val="{{ false }}">
@@ -5594,34 +5608,8 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-for>
 </sc-if>
-</div>
 </sc-if>
 
-<sc-if value="{{ showAdmin }}" hint-placeholder-val="{{ false }}">
-<div style="padding:16px 14px 0;animation:jjIn .28s ease both">
-<div style="display:flex;gap:4px;background:#fff;border:1px solid #DCE6F0;padding:4px;border-radius:10px;margin-bottom:12px">
-<sc-for list="{{ prodTabs }}" as="pt" hint-placeholder-count="2"><button sc-camel-on-click="{{ pt.onTap }}" style="{{ pt.style }}">{{ pt.label }}</button></sc-for>
-</div>
-<div style="display:flex;gap:4px;background:#fff;border:1px solid #DCE6F0;padding:4px;border-radius:10px;margin-bottom:10px">
-<sc-for list="{{ adminTabs }}" as="at" hint-placeholder-count="3">
-<button sc-camel-on-click="{{ at.onTap }}" style="{{ at.style }}">{{ at.label }}</button>
-</sc-for>
-</div>
-<sc-if value="{{ adminOrgCrumb }}" hint-placeholder-val="{{ false }}">
-<div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;flex-wrap:wrap">
-<button sc-camel-on-click="{{ onAdminAllOrgs }}" style="flex:none;background:none;border:none;padding:0;font-family:inherit;font-weight:800;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#7E8D9C;cursor:pointer;min-height:40px">&larr; All organizations</button>
-<span style="flex:1;min-width:0;font-weight:900;font-size:17px;letter-spacing:-.01em;color:#0C1B2E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ adminOrgName }}</span>
-<span style="flex:none;font-weight:900;font-size:10.5px;letter-spacing:.12em;background:#0C2647;color:#FADA01;padding:5px 9px;border-radius:5px">{{ adminOrgCode }}</span>
-</div>
-</sc-if>
-<sc-if value="{{ adminHasSubTabs }}" hint-placeholder-val="{{ true }}">
-<div style="display:flex;gap:7px;margin-bottom:10px;overflow-x:auto">
-<sc-for list="{{ adminSubTabs }}" as="as" hint-placeholder-count="4">
-<button sc-camel-on-click="{{ as.onTap }}" style="{{ as.style }}">{{ as.label }}</button>
-</sc-for>
-</div>
-</sc-if>
-<p style="margin:0 0 16px;font-size:12.5px;line-height:1.55;color:#7E8D9C">{{ adminTabNote }}</p>
 
 <sc-if value="{{ admin.isOrgs }}" hint-placeholder-val="{{ true }}">
 <div>
@@ -15546,8 +15534,8 @@ class Component extends DCLogic {
       ttTextArea:INPS+';min-height:74px;resize:vertical;line-height:1.5'});
     v.ttStudioTabs=[['lessons','Lessons'],['versions','Versions'],['codes','Codes'],['members','Members & progress']].map(([k,label])=>({label,
       onTap:()=>{ this.setState({ttAdminTab:k,ttEditId:null,ttDraft:null}); if(k==='members') this.ttLoadMembers().catch(()=>{}); },
-      style:'border:0;border-radius:999px;padding:7px 12px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;'
-        +(tab===k?'background:#0C2647;color:#FADA01':'background:#EAF1F8;color:#37475C')}));
+      // The same pill as Studio's own sub-tabs (Leaders, Completion, …).
+      style:'flex:none;font-family:inherit;border-radius:999px;padding:8px 14px;font-weight:800;font-size:11px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;white-space:nowrap;min-height:40px;border:1.5px solid '+(tab===k?'#00A3E0':'#DCE6F0')+';background:'+(tab===k?'#EAF6FC':'#fff')+';color:'+(tab===k?'#0A6C96':'#7E8D9C')}));
     v.ttStudioIsLessons=tab==='lessons'; v.ttStudioIsVersions=tab==='versions';
     v.ttStudioIsCodes=tab==='codes'; v.ttStudioIsMembers=tab==='members';
     v.ttLibUnsaved=!s.ttDemo&&!s.ttLibSaved;
@@ -15673,8 +15661,13 @@ class Component extends DCLogic {
     const prog={tt01:{doneAt:1},tt02:{doneAt:1},tt03:{doneAt:1}};
     const org={code:'TT36',name:'Twin Thieves Leadership',product:'tt',ttVersion:36};
     _gateSignIn=false;
-    if(which==='studio') return this.setState({booting:false,role:'admin',view:'admin',adminTab:'orgs',
-      adminProduct:'tt',ttAdminTab:'lessons',orgList:[],name:'Preview',ttLib:lib,ttProg:prog,ttDemo:true,org,ttLibSaved:true,
+    /* Studio opens on its Twin Thieves tab, with the real tabs around it and
+       two sample Playbook programs so Organizations has something to show. */
+    if(which==='studio') return this.setState({booting:false,role:'admin',view:'admin',adminTab:'tt',
+      ttAdminTab:'lessons',name:'Preview',ttLib:lib,ttProg:prog,ttDemo:true,org:null,ttLibSaved:true,
+      program:{modules:[]},draftProgram:{modules:[],edition:'y1'},edition:'y1',
+      orgList:[{code:'SAMPLE26',name:'Sample Program A',cohort:'Preview',startDate:Date.now()},
+               {code:'SAMPLE27',name:'Sample Program B',cohort:'Preview',startDate:Date.now()}],
       ttOrgs:[{code:'TT36',name:'Twin Thieves Leadership · 36 lessons',product:'tt',ttVersion:36,joinCode:'TWINTHIEVES36',joinDisabled:false,joinDomain:''}]});
     this.setState({booting:false,role:'leader',view:which==='lesson'?'ttlesson':'tthome',tab:'lessons',
       ttLessonId:'tt04',ttTab:'overview',name:'Preview',org,ttLib:lib,ttProg:prog,ttDemo:true},()=>this.ttScrollSide());
@@ -15685,18 +15678,11 @@ class Component extends DCLogic {
     const K='font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;';
     v.ttDemo=!!s.ttDemo;
     v.ttKicker='Twin Thieves Leadership · '+ver+' lessons';
-    // Studio: which product's view is showing. Programs without a product are the Playbook's.
-    const prodTT=s.role==='admin'&&s.adminProduct==='tt';
-    v.prodTabs=[['pb','Championship Playbook'],['tt','Twin Thieves Leadership']].map(([k,label])=>{
-      const on=(k==='tt')===prodTT;
-      return {label,onTap:()=>{ this.setState({adminProduct:k}); if(k==='tt') this.ttStudioLoad().catch(()=>{}); },
-        style:'flex:1 1 0;border:0;border-radius:8px;padding:10px 8px;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;'
-          +(on?(k==='tt'?'background:#FADA01;color:#0C2647':'background:#0C2647;color:#fff'):'background:transparent;color:#7E8D9C')};
-    });
-    v.showAdminTT=v.showAdmin&&prodTT; v.showAdmin=v.showAdmin&&!prodTT;
-    if(v.showAdminTT) this.ttStudioVM(v);
+    // Studio: the Twin Thieves tab.
+    v.adminIsTT=!!v.showAdmin&&s.adminTab==='tt';
+    if(v.adminIsTT) this.ttStudioVM(v);
     v.ttBackToStudio=!!s.ttFromStudio;
-    v.onTTBackToStudio=()=>{ const back={role:'admin',view:'admin',adminProduct:'tt',ttFromStudio:false,ttPreviewing:false};
+    v.onTTBackToStudio=()=>{ const back={role:'admin',view:'admin',adminTab:'tt',ttFromStudio:false,ttPreviewing:false};
       if(s.ttPreviewing){ back.ttLib=this._ttStudioLib||s.ttLib; back.org=s.ttDemo?s.org:null; }
       this.setState(back); window.scrollTo(0,0); };
     if(!tt) return;
@@ -16847,7 +16833,7 @@ class Component extends DCLogic {
     /* On a narrow screen the mark alone carries the brand, so the wordmark
        steps aside and gives the organization name the width. */
     v.wordmarkL1='The Championship'; v.wordmarkL2='Teams Playbook';
-    v.navProductLabel=(this.isTT()||(s.role==='admin'&&s.adminProduct==='tt'))?'Twin Thieves':'The Playbook';
+    v.navProductLabel=(this.isTT()&&s.role!=='admin')?'Twin Thieves':'The Playbook';
     v.wordmarkStyle=(s.wide?'display:block':'display:none')
       +';flex:0 1 auto;min-width:0;font-weight:700;font-size:8px;letter-spacing:.22em;'
       +'text-transform:uppercase;color:#7E8D9C;line-height:1.3;overflow:hidden;text-overflow:ellipsis';
@@ -21810,15 +21796,16 @@ class Component extends DCLogic {
        Three do the naming instead: who you work with, what you send them, what
        they read. The four org views nest under the first as a second row. */
     const AT_GROUP={orgs:'orgs',roster:'orgs',progress:'orgs',scores:'orgs',
-      settings:'orgs',schedule:'orgs',content:s.activeOrg?'orgs':'program',coach:'coach'};
+      settings:'orgs',schedule:'orgs',content:s.activeOrg?'orgs':'program',coach:'coach',tt:'tt'};
     const grp=AT_GROUP[s.adminTab]||'orgs';
     const goTab=k=>{ this.setState({adminTab:k,selectedLeader:null});
       const cur=this.state.activeOrg||'';
       if(k==='scores') this.loadScores(this.state.scoreOrg||cur);
       if(k==='settings') this.loadActivity(cur);
-      if(k==='content'&&cur) this.setContentOrg(cur); };
+      if(k==='content'&&cur) this.setContentOrg(cur);
+      if(k==='tt') this.ttStudioLoad().catch(()=>{}); };
     const primary=[{k:'orgs',l:'Organizations',g:'orgs'},{k:'content',l:'Master program',g:'program'},
-      {k:'coach',l:'Coach knowledge',g:'coach'}];
+      {k:'coach',l:'Coach knowledge',g:'coach'},{k:'tt',l:'Twin Thieves',g:'tt'}];
     v.adminTabs=primary.map(t=>({label:t.l,
       onTap:()=>{ this.setState({activeOrg:null,contentOrg:'',openOrg:null,selectedLeader:null});
         goTab(t.k); },
@@ -21838,6 +21825,7 @@ class Component extends DCLogic {
     v.adminSubTabs=subs.map(t=>({label:t.l,onTap:()=>goTab(t.k),
       style:'flex:none;font-family:inherit;border-radius:999px;padding:8px 14px;font-weight:800;font-size:11px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;white-space:nowrap;min-height:40px;border:1.5px solid '+(s.adminTab===t.k?'#00A3E0':'#DCE6F0')+';background:'+(s.adminTab===t.k?'#EAF6FC':'#fff')+';color:'+(s.adminTab===t.k?'#0A6C96':'#7E8D9C')}));
     v.adminTabNote={orgs:'Every organization you run. Open one to see its people, progress and setup.',
+      tt:'Twin Thieves Leadership: its own lessons, versions, codes and members. Its programs never appear under Organizations, and nothing of the Playbook\'s appears here.',
       roster:'The leaders inside one organization — open a name to read their work.',
       progress:'Who has finished what, activity by activity.',
       scores:'Assessment scores, self and 360.',
@@ -24365,10 +24353,7 @@ class Component extends DCLogic {
       ((sidebar?'grid-column:1/-1;grid-row:1;':'')+'position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-left:'+(W?'30px':'16px')+';padding-right:'+(W?'30px':'16px')+';padding-top:calc('+(W?'14px':'11px')+' + env(safe-area-inset-top));padding-bottom:'+(W?'14px':'11px')+';background:rgba(243,247,251,.94);backdrop-filter:blur(10px);border-bottom:1px solid #DCE6F0');
     /* Twin Thieves: its own name in the header, and in Studio a yellow
        accent so the Twin Thieves view is never mistaken for the Playbook's. */
-    if(s.role==='admin'&&s.adminProduct==='tt'){
-      v.headerStyle+=';border-bottom:3px solid #FADA01'; v.whoKicker='Studio · Twin Thieves';
-      v.wordmarkL1='Twin Thieves'; v.wordmarkL2='Leadership';
-    } else if(this.isTT()){
+    if(this.isTT()&&s.role!=='admin'){
       v.whoKicker='Twin Thieves · '+this.ttVersion()+' lessons'; v.wordmarkL1='Twin Thieves'; v.wordmarkL2='Leadership';
     }
     const tourPad=s.tourStep!=null?(sidebar?250:270):0;
