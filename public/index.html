@@ -5388,23 +5388,6 @@ sc-if,sc-for{display:none!important}
 </div>
 </div>
 <div style="{{ ttFitRowStyle }}">
-<section style="{{ ttFitCardStyle }}">
-<p style="margin:0 0 auto;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#FADA01">Where this fits</p>
-<svg sc-camel-view-box="-6 4 312 252" style="width:100%;height:auto;display:block;margin:6px auto 0;overflow:visible" aria-hidden="true">
-<sc-for list="{{ ttCells }}" as="c" hint-placeholder-count="9">
-<g sc-camel-on-click="{{ c.onTap }}" style="{{ c.gStyle }}">
-<polygon points="{{ c.points }}" fill="{{ c.fill }}" stroke="rgba(255,255,255,.28)" stroke-width="1"></polygon>
-<image href="{{ c.icon }}" x="{{ c.ix }}" y="{{ c.iy }}" width="{{ c.isz }}" height="{{ c.isz }}" opacity="{{ c.iconOpacity }}" sc-camel-preserve-aspect-ratio="xMidYMid meet" style="pointer-events:none"></image>
-</g>
-</sc-for>
-<sc-for list="{{ ttCellLabels }}" as="l" hint-placeholder-count="12">
-<foreignObject x="{{ l.x }}" y="{{ l.y }}" width="{{ l.w }}" height="{{ l.h }}" style="overflow:visible;pointer-events:none">
-<div style="{{ l.style }}">{{ l.text }}</div>
-</foreignObject>
-</sc-for>
-</svg>
-<p style="margin:6px 0 auto;text-align:center;font-weight:700;font-size:12px;color:#A9BDD6">{{ ttFitText }}</p>
-</section>
 <sc-if value="{{ ttNotThanks }}" hint-placeholder-val="{{ true }}">
 <div style="{{ ttQCardStyle }}">
 <sc-if value="{{ ttHasDiscussion }}" hint-placeholder-val="{{ true }}">
@@ -5428,6 +5411,23 @@ sc-if,sc-for{display:none!important}
 <p style="margin:8px 0 0;font-size:14px;line-height:1.55;color:#37475C">{{ ttProgressText }}</p>
 </div>
 </sc-if>
+<section style="{{ ttFitCardStyle }}">
+<p style="margin:0 0 auto;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#FADA01">Where this fits</p>
+<svg sc-camel-view-box="-6 4 312 252" style="width:100%;height:auto;display:block;margin:6px auto 0;overflow:visible" aria-hidden="true">
+<sc-for list="{{ ttCells }}" as="c" hint-placeholder-count="9">
+<g sc-camel-on-click="{{ c.onTap }}" style="{{ c.gStyle }}">
+<polygon points="{{ c.points }}" fill="{{ c.fill }}" stroke="rgba(255,255,255,.28)" stroke-width="1"></polygon>
+<image href="{{ c.icon }}" x="{{ c.ix }}" y="{{ c.iy }}" width="{{ c.isz }}" height="{{ c.isz }}" opacity="{{ c.iconOpacity }}" sc-camel-preserve-aspect-ratio="xMidYMid meet" style="pointer-events:none"></image>
+</g>
+</sc-for>
+<sc-for list="{{ ttCellLabels }}" as="l" hint-placeholder-count="12">
+<foreignObject x="{{ l.x }}" y="{{ l.y }}" width="{{ l.w }}" height="{{ l.h }}" style="overflow:visible;pointer-events:none">
+<div style="{{ l.style }}">{{ l.text }}</div>
+</foreignObject>
+</sc-for>
+</svg>
+<p style="margin:6px 0 auto;text-align:center;font-weight:700;font-size:12px;color:#A9BDD6">{{ ttFitText }}</p>
+</section>
 </div>
 <sc-if value="{{ ttHasNextLesson }}" hint-placeholder-val="{{ false }}">
 <button sc-camel-on-click="{{ onTTNext }}" style="width:100%;margin-top:14px;background:transparent;border:2px solid #C6D4E2;color:#0C2647;border-radius:10px;padding:12px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">{{ ttNextLabel }} ›</button>
@@ -15906,9 +15906,10 @@ class Component extends DCLogic {
       const hl=TT_PYR.some(p=>p.id===cur.fund)?cur.fund:null;
       const pyr=this.pyramidVM(TT_PYR,{highlight:hl,readOnly:true});
       v.ttCells=pyr.cells; v.ttCellLabels=pyr.cellLabels;
-      /* "Where this fits" sits beside the questions card on wide screens, the
-         two the same height (the pyramid centered in its card, the buttons at
-         the foot of the questions); on phones they stack, full width. */
+      /* The questions card (left) and "Where this fits" (right) share a row on
+         wide screens, the same height (the pyramid centered in its card, the
+         buttons at the foot of the questions); on phones they stack, questions
+         first, full width. */
       const card='border-radius:14px;box-sizing:border-box;display:flex;flex-direction:column;';
       v.ttFitRowStyle=W?'display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;margin-top:14px':'display:block';
       v.ttFitCardStyle=card+'justify-content:center;background:linear-gradient(150deg,#123663,#0C2647 62%,#0A1F3A);border:1px solid #1E4C7D;padding:12px 14px 12px;'
