@@ -5387,9 +5387,10 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 </div>
 </div>
-<section style="background:linear-gradient(150deg,#123663,#0C2647 62%,#0A1F3A);border:1px solid #1E4C7D;border-radius:14px;padding:18px 16px 16px;margin-top:14px">
+<div style="{{ ttFitRowStyle }}">
+<section style="{{ ttFitCardStyle }}">
 <p style="margin:0;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#FADA01">Where this fits</p>
-<svg sc-camel-view-box="-4 0 308 258" style="width:100%;max-width:620px;height:auto;display:block;margin:14px auto 4px;overflow:visible" aria-hidden="true">
+<svg sc-camel-view-box="-6 4 312 252" style="width:100%;height:auto;display:block;margin:6px auto 0;overflow:visible" aria-hidden="true">
 <sc-for list="{{ ttCells }}" as="c" hint-placeholder-count="9">
 <g sc-camel-on-click="{{ c.onTap }}" style="{{ c.gStyle }}">
 <polygon points="{{ c.points }}" fill="{{ c.fill }}" stroke="rgba(255,255,255,.28)" stroke-width="1"></polygon>
@@ -5402,10 +5403,10 @@ sc-if,sc-for{display:none!important}
 </foreignObject>
 </sc-for>
 </svg>
-<p style="margin:8px 0 0;text-align:center;font-weight:700;font-size:13px;color:#A9BDD6">{{ ttFitText }}</p>
+<p style="margin:6px 0 0;text-align:center;font-weight:700;font-size:12px;color:#A9BDD6">{{ ttFitText }}</p>
 </section>
 <sc-if value="{{ ttNotThanks }}" hint-placeholder-val="{{ true }}">
-<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:16px;margin-top:14px">
+<div style="{{ ttQCardStyle }}">
 <sc-if value="{{ ttHasDiscussion }}" hint-placeholder-val="{{ true }}">
 <h3 style="margin:0 0 8px;font-weight:900;font-size:15px;text-transform:uppercase;color:#0C1B2E">Discussion questions</h3>
 <ul style="margin:0 0 14px;padding-left:20px"><sc-for list="{{ ttDiscussion }}" as="q" hint-placeholder-count="1"><li style="font-size:14px;line-height:1.55;color:#37475C;margin-bottom:6px">{{ q.text }}</li></sc-for></ul>
@@ -5422,11 +5423,12 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 <sc-if value="{{ ttIsThanks }}" hint-placeholder-val="{{ false }}">
-<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:18px 16px;margin-top:14px;text-align:center">
+<div style="{{ ttThanksCardStyle }}">
 <p style="margin:0;font-weight:900;font-size:18px;text-transform:uppercase;color:#0C1B2E">Thank you!</p>
 <p style="margin:8px 0 0;font-size:14px;line-height:1.55;color:#37475C">{{ ttProgressText }}</p>
 </div>
 </sc-if>
+</div>
 <sc-if value="{{ ttHasNextLesson }}" hint-placeholder-val="{{ false }}">
 <button sc-camel-on-click="{{ onTTNext }}" style="width:100%;margin-top:14px;background:transparent;border:2px solid #C6D4E2;color:#0C2647;border-radius:10px;padding:12px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">{{ ttNextLabel }} ›</button>
 </sc-if>
@@ -8209,6 +8211,8 @@ const TT_SEED=[
   ['feedback','Catching Champions'],['feedback','Crucial Conversations'],['feedback','1Up, 1Forward'],['feedback','Ask, Tell, Ask'],
   ['starfish','Overview'],['starfish','Your Regular, Their Memorable'],['starfish','Mudita']];
 const TT_THANKS_ID='ttthanks';
+/* "Where this fits" layout on the lesson page: 'a' centered on its own row, 'b' beside the questions. */
+const TT_FIT_LAYOUT='a';
 const ttId=n=>'tt'+String(n).padStart(2,'0');
 /* The library as the Studio saves it: every lesson once, plus the two
    versions' orders. Editing a lesson changes it in both versions. */
@@ -15659,6 +15663,7 @@ class Component extends DCLogic {
   startTTDemo(which){
     const lib=ttSeedLibrary(), l4=lib.lessons.find(l=>l.id==='tt04'); Object.assign(l4,TT_SAMPLE_L4);
     const prog={tt01:{doneAt:1},tt02:{doneAt:1},tt03:{doneAt:1}};
+    let fit=''; try{ fit=new URLSearchParams(location.search).get('fit')||''; }catch(e){}
     const org={code:'TT36',name:'Twin Thieves Leadership',product:'tt',ttVersion:36};
     _gateSignIn=false;
     /* Studio opens on its Twin Thieves tab, with the real tabs around it and
@@ -15670,7 +15675,7 @@ class Component extends DCLogic {
                {code:'SAMPLE27',name:'Sample Program B',cohort:'Preview',startDate:Date.now()}],
       ttOrgs:[{code:'TT36',name:'Twin Thieves Leadership · 36 lessons',product:'tt',ttVersion:36,joinCode:'TWINTHIEVES36',joinDisabled:false,joinDomain:''}]});
     this.setState({booting:false,role:'leader',view:which==='lesson'?'ttlesson':'tthome',tab:'lessons',
-      ttLessonId:'tt04',ttTab:'overview',name:'Preview',org,ttLib:lib,ttProg:prog,ttDemo:true},()=>this.ttScrollSide());
+      ttLessonId:'tt04',ttTab:'overview',name:'Preview',org,ttLib:lib,ttProg:prog,ttDemo:true,ttFit:fit==='b'?'b':(fit==='a'?'a':'')},()=>this.ttScrollSide());
   }
   /* View-model for the Twin Thieves screens and the Studio product switcher. */
   ttRender(v,W){
@@ -15757,6 +15762,16 @@ class Component extends DCLogic {
       const hl=TT_PYR.some(p=>p.id===cur.fund)?cur.fund:null;
       const pyr=this.pyramidVM(TT_PYR,{highlight:hl,readOnly:true});
       v.ttCells=pyr.cells; v.ttCellLabels=pyr.cellLabels;
+      /* "Where this fits" at about half the lesson column. Layout A: centered
+         on its own row. Layout B: beside the questions card. Phones: full
+         width in both. (TT_FIT_LAYOUT; the preview's &fit=a|b overrides.) */
+      const fitB=W&&(s.ttFit||TT_FIT_LAYOUT)==='b';
+      const card='border-radius:14px;box-sizing:border-box;';
+      v.ttFitRowStyle=fitB?'display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;margin-top:14px':'display:block';
+      v.ttFitCardStyle=card+'background:linear-gradient(150deg,#123663,#0C2647 62%,#0A1F3A);border:1px solid #1E4C7D;padding:12px 14px 12px;'
+        +(fitB?'':('margin:14px auto 0;width:'+(W?'50%':'100%')));
+      v.ttQCardStyle=card+'background:#fff;border:1px solid #DCE6F0;padding:16px;'+(fitB?'':'margin-top:14px');
+      v.ttThanksCardStyle=card+'background:#fff;border:1px solid #DCE6F0;padding:18px 16px;text-align:center;'+(fitB?'':'margin-top:14px');
       const pm=TT_PYR.find(p=>p.id===hl);
       v.ttFitText=pm?(pm.name+' · '+TIER_LABEL[pm.tier]):'All nine fundamentals of the pyramid';
       v.onTTHome=()=>{ this.setState({view:'tthome',tab:'lessons'}); window.scrollTo(0,0); };
@@ -15824,7 +15839,7 @@ class Component extends DCLogic {
         const size=Math.max(gSize,Math.min(targetSize,(availCell-ownLen*PYR_LS)/ownRatio));
         const lead=size+1.4;
         const isz=PYR_ICON*Math.min(1.25,Math.max(1,targetSize/gSize));
-        const tagSize=size*0.92, tagLead=tagSize+1.4, tagH=isHl?2*tagLead+3:0;
+        const tagSize=size, tagLead=tagSize+1.4, tagH=isHl?2*tagLead+3:0;
         const blockH=isz+5+lines.length*lead+tagH;
         const top=cy-blockH/2+(n===1?11:0), iy=top, firstBaseline=top+isz+5+size;
         const ink=done?'#0C2647':(locked?'#7E8D9C':'#FFFFFF');
