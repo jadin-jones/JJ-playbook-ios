@@ -32,6 +32,7 @@ const V=o=>({value:JSON.stringify(o)});
     await setDoc(J('knowledge:misses'),V({items:[{q:'a member question'}]}));
     await setDoc(J('demo:ann-a-com:1'),V({token:'t'}));
     await setDoc(doc(d,'rateLimits','x'),{count:1});
+    await setDoc(J('program:master'),V({modules:[{id:'m1',items:[{id:'i1',mediaUrl:'https://x/1.mp4'}]}]}));
   });
   const who=(uid,email,prov)=>env.authenticatedContext(uid,{email,email_verified:true,firebase:{sign_in_provider:prov||'google.com'}}).firestore();
   const ann=who('uid-ann','ann@a.com'), bob=who('uid-bob','bob@a.com'), adm=who('uid-c','charlie@jadin-jones.com'),
@@ -66,6 +67,10 @@ const V=o=>({value:JSON.stringify(o)});
    ['admin writes org leads',true,()=>setDoc(J(adm,'org:T1'),V({name:'T',leads:['bob@a.com']}),{merge:true})],
    ['Microsoft admin writes org',false,()=>setDoc(J(admMs,'org:T1'),V({}),{merge:true})],
    ['admin reads colleague resp',true,()=>getDoc(J(adm,'resp:T1:bob-a-com'))],
+   ['admin saves a session with more videos',true,()=>setDoc(J(adm,'program:master'),V({modules:[{id:'m1',items:[{id:'i1',mediaUrl:'https://x/1.mp4',mediaTitle:'Part 1',moreVideos:[{id:'v-a',title:'Part 2',url:'https://x/2.mp4'},{id:'v-b',title:'Part 3',url:'https://x/3.mp4'}]}]}]}),{merge:true})],
+   ['admin saves more videos for one organization',true,()=>setDoc(J(adm,'program:override:T1'),V({m1:{items:{i1:{moreVideos:[{id:'v-a',title:'Part 2',url:'https://x/2.mp4'},{id:'v-b',title:'Part 3',url:'https://x/3.mp4'}]}}}}),{merge:true})],
+   ['member reads a session with more videos',true,()=>getDoc(J(ann,'program:master'))],
+   ['member saves more videos',false,()=>setDoc(J(ann,'program:master'),V({modules:[{id:'m1',items:[{id:'i1',moreVideos:[{id:'v-a',title:'Part 2',url:'https://x/2.mp4'},{id:'v-b',title:'Part 3',url:'https://x/3.mp4'}]}]}]}),{merge:true})],
    ['member writes chat',true,()=>setDoc(J(ann,'chat:T1'),{messages:[{t:1}]},{merge:true})],
    ['Microsoft member, unconfirmed, reads own members doc',false,()=>getDoc(doc(mm1,'members','mm@a.com'))],
    ['Microsoft member, unconfirmed, reads org',false,()=>getDoc(J(mm1,'org:T1'))],
