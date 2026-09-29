@@ -21,7 +21,7 @@
  * Netlify's own URL. The web API key is the app's public one for the project.
  */
 const crypto = require('crypto');
-const { db, auth, missingEnv } = require('../lib/firebase-admin');
+const { db, auth, missingEnv, tokenFailure } = require('../lib/firebase-admin');
 const { isMicrosoft, isConfirmed } = require('../lib/ms-verify');
 const { withCors, ownOrigin } = require('../lib/http');
 const { allow, clientIp, HOUR } = require('../lib/rate-limit');
@@ -72,7 +72,7 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
   if (!m) return reply(401, { error: 'Sign in first' });
   let tok;
   try { tok = await auth().verifyIdToken(m[1], true); }
-  catch (e) { return reply(401, { error: 'Your sign-in has expired. Sign in again.' }); }
+  catch (e) { const f = tokenFailure(e); return reply(f.status, { error: f.error, code: f.code }); }
   if (!isMicrosoft(tok)) return reply(400, { error: 'Only needed for Microsoft sign-in', code: 'not-microsoft' });
   const email = String(tok.email || '').trim().toLowerCase();
   if (!email) return reply(403, { error: 'Your account has no email address' });

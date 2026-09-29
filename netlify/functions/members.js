@@ -37,7 +37,7 @@
  * Env: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
  * (see netlify/lib/firebase-admin.js).
  */
-const { admin, db, auth, missingEnv } = require('../lib/firebase-admin');
+const { admin, db, auth, missingEnv, tokenFailure } = require('../lib/firebase-admin');
 const { isMicrosoft, isConfirmed } = require('../lib/ms-verify');
 const { withCors } = require('../lib/http');
 const { ADMINS } = require('../lib/admins');
@@ -129,7 +129,7 @@ async function caller(event, code) {
   if (!m) return { refuse: reply(401, { error: 'Sign in first' }) };
   let tok;
   try { tok = await auth().verifyIdToken(m[1], true); }
-  catch (e) { return { refuse: reply(401, { error: 'Your sign-in has expired. Sign in again.' }) }; }
+  catch (e) { const f = tokenFailure(e); return { refuse: reply(f.status, { error: f.error, code: f.code }) }; }
   const email = lower(tok.email);
   if (!email) return { refuse: reply(403, { error: 'Your account has no email address' }) };
   if (tok.email_verified !== true) return { refuse: reply(403, { error: 'Verify your email address first', code: 'unverified' }) };
