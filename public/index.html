@@ -516,6 +516,32 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:#00A3E0;box-sh
 @keyframes jjFall{0%{transform:translateY(-14vh) rotate(0)}100%{transform:translateY(112vh) rotate(760deg)}}
 @keyframes jjSpin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* Desktop only: the sign-in gate is one wide card in two columns, the
+   playbook on the left and signing in on the right. The page is exactly one
+   window tall: the shell is a full-height column, main takes everything
+   below the header, and the gate fills main and centres the card in it,
+   with equal space above and below. The card is laid out at a fixed
+   1096px-wide design size and then zoomed as a whole by --jj-gz, which
+   fitGateZoom() sets from the window (about 88% of its height, up to 2x,
+   never more than fits); the page container widens with it. A fine pointer
+   that can hover plus 1200px keeps phones and tablets, iPads in landscape
+   included, exactly as they are, and a browser without :has() keeps the
+   single column rather than squeezing two. */
+@supports selector(:has(a)){
+@media (min-width:1200px) and (hover:hover) and (pointer:fine){
+  [data-jj-shell]:has([data-jj-gate]){max-width:calc(1096px * var(--jj-gz,1) + 24px)!important}
+  [data-jj-shell]:has([data-jj-gate]) main{padding-top:0!important;padding-bottom:0!important;display:flex;flex-direction:column}
+  [data-jj-gate]{padding:16px 12px!important;flex:1 0 auto;display:flex;flex-direction:column;justify-content:center}
+  [data-jj-gate-card]{flex:0 0 auto;align-self:center;box-sizing:border-box;width:1096px;zoom:var(--jj-gz,1);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;align-items:stretch;padding:32px 52px!important}
+  [data-jj-gate-left],[data-jj-gate-right]{display:flex;flex-direction:column;justify-content:center}
+  [data-jj-gate-left] img[alt="Jadin Jones"]{height:40px!important;margin-bottom:14px!important}
+  [data-jj-gate-left] h1{font-size:34px!important}
+  [data-jj-gate-left] svg{width:auto!important;max-width:100%;height:300px!important;margin:14px auto 0!important}
+  [data-jj-gate-right]{border-left:1px solid rgba(255,255,255,.12);padding-left:56px}
+  [data-jj-gate-right] [style*="max-width:300px"]{max-width:360px!important}
+}
+}
+@keyframes jjBlockGlow{0%,100%{filter:none}40%{filter:brightness(1.22) drop-shadow(0 0 7px rgba(250,218,1,.7))}}
 @keyframes jjSplashIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
 /* Every tap answers. A button that gives nothing back on press reads as broken
    on a phone, and the whole app is buttons — so the feedback is global rather
@@ -564,7 +590,7 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 <div style="{{ shellOuterStyle }}">
-<div style="{{ shellStyle }}">
+<div data-jj-shell style="{{ shellStyle }}">
 
 <header style="{{ headerStyle }}">
 <div style="display:flex;align-items:center;gap:9px;min-width:0;flex:1 1 auto;overflow:hidden">
@@ -614,8 +640,9 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 <sc-if value="{{ showGate }}" hint-placeholder-val="{{ false }}">
-<div style="padding:18px 12px 0;animation:jjIn .3s ease both">
-<div style="background:#0C2647;border-radius:18px;padding:26px 18px 24px;text-align:center">
+<div data-jj-gate style="padding:18px 12px 0;animation:jjIn .3s ease both">
+<div data-jj-gate-card style="background:#0C2647;border-radius:18px;padding:26px 18px 24px;text-align:center">
+<div data-jj-gate-left>
 <img src="assets/6dab1893.png" alt="Jadin Jones" style="height:46px;width:auto;display:block;margin:0 auto 16px;filter:brightness(0) invert(1)">
 <h1 style="font-weight:900;font-size:30px;line-height:.98;margin:0;letter-spacing:-.5px;text-transform:uppercase;color:#FFFFFF">The <span style="color:#FADA01">Championship<br>Teams</span> Playbook</h1>
 <svg sc-camel-view-box="-62 4 364 256" style="width:100%;height:auto;display:block;margin:16px 0 2px;overflow:visible">
@@ -632,6 +659,7 @@ sc-if,sc-for{display:none!important}
 </foreignObject>
 </sc-for>
 </svg>
+<p style="text-align:center;font-size:11px;font-weight:800;line-height:1.4;letter-spacing:.14em;text-transform:uppercase;color:#6FC0EA;margin:8px 0 0;animation:jjFadeIn .6s ease 2.4s both">{{ gateTapHint }}</p>
 <sc-if value="{{ gateHasSel }}" hint-placeholder-val="{{ false }}">
 <div style="display:flex;align-items:flex-start;gap:12px;background:#0C2647;border-radius:13px;padding:13px 14px;margin:10px 0 16px;animation:jjIn .22s ease both">
 <span style="width:40px;height:40px;flex:none;border-radius:10px;background:#FADA01;display:flex;align-items:center;justify-content:center"><img src="{{ gateSelIcon }}" alt="" style="width:24px;height:24px;object-fit:contain"></span>
@@ -645,11 +673,84 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ gateNoSel }}" hint-placeholder-val="{{ true }}">
 <p style="text-align:center;font-size:13px;line-height:1.55;color:#7E8D9C;margin:10px 4px 14px">Nine fundamentals of leadership — learned for yourself, then led with your team. One block at a time, all the way to the top.</p>
 </sc-if>
+</div>
+<div data-jj-gate-right>
+<sc-if value="{{ gateNeedsSignIn }}" hint-placeholder-val="{{ false }}">
+<div style="animation:jjIn .3s ease both;text-align:center">
+<p style="font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 8px">Sign in to your playbook</p>
+<p style="font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 18px">{{ gateSignInHint }}</p>
+<sc-if value="{{ gateHasNotice }}" hint-placeholder-val="{{ false }}">
+<p style="color:#9FD7B5;font-weight:700;font-size:13.5px;line-height:1.5;margin:-6px 0 16px">{{ gateNotice }}</p>
+</sc-if>
+<sc-if value="{{ gateShowGoogle }}" hint-placeholder-val="{{ true }}">
+<button sc-camel-on-click="{{ onGateGoogle }}" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:300px;margin:0 auto;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:999px;padding:14px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.25)"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 2.9-2.2 5.4-4.7 7.1l7.6 5.9c4.4-4.1 6.9-10.1 6.9-17.5z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>{{ gateGoogleCta }}</button>
+<sc-if value="{{ gateShowMicrosoft }}" hint-placeholder-val="{{ true }}">
+<button sc-camel-on-click="{{ onGateMicrosoft }}" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:300px;margin:12px auto 0;background:#FFFFFF;color:#0C1B2E;border:2px solid #FFFFFF;border-radius:999px;padding:14px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.25)"><svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true"><path fill="#F25022" d="M1 1h9v9H1z"/><path fill="#7FBA00" d="M11 1h9v9h-9z"/><path fill="#00A4EF" d="M1 11h9v9H1z"/><path fill="#FFB900" d="M11 11h9v9h-9z"/></svg>{{ gateMicrosoftCta }}</button>
+</sc-if>
+</sc-if>
+<sc-if value="{{ gateHasSignInErr }}" hint-placeholder-val="{{ false }}">
+<p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ gateSignInErr }}</p>
+</sc-if>
+<sc-if value="{{ gateShowGoogle }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;gap:12px;max-width:300px;margin:20px auto 16px;color:#7E8D9C;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase"><span style="flex:1;height:1px;background:rgba(255,255,255,.18)"></span>or<span style="flex:1;height:1px;background:rgba(255,255,255,.18)"></span></div>
+</sc-if>
+<form sc-camel-on-submit="{{ onPwSubmit }}" style="margin:0">
+<input type="email" name="email" value="{{ pwEmail }}" sc-camel-on-change="{{ onPwEmail }}" sc-camel-auto-complete="email" sc-camel-auto-capitalize="none" sc-camel-spell-check="false" placeholder="Email address" style="{{ pwInpStyle }}">
+<input type="password" name="password" value="{{ pwPass }}" sc-camel-on-change="{{ onPwPass }}" sc-camel-auto-complete="{{ pwPassAuto }}" placeholder="{{ pwPassPh }}" style="{{ pwInpStyle }}">
+<button type="submit" style="display:block;width:100%;max-width:300px;margin:4px auto 0;background:transparent;color:#FFFFFF;border:2px solid #FFFFFF;border-radius:999px;padding:13px 18px;font-weight:800;font-size:15px;font-family:inherit;cursor:pointer">{{ pwCta }}</button>
+</form>
+<sc-if value="{{ pwShowForgot }}" hint-placeholder-val="{{ true }}">
+<p style="text-align:center;font-size:12.5px;line-height:1.5;margin:10px 0 0"><button sc-camel-on-click="{{ onPwForgot }}" style="background:none;border:none;padding:0;font:inherit;color:#7E8D9C;text-decoration:underline;cursor:pointer">Forgot password?</button></p>
+</sc-if>
+<sc-if value="{{ pwHasErr }}" hint-placeholder-val="{{ false }}">
+<p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ pwErr }}</p>
+</sc-if>
+<sc-if value="{{ pwHasMsg }}" hint-placeholder-val="{{ false }}">
+<p style="color:#9FD7B5;font-size:13px;line-height:1.5;margin:14px 0 0">{{ pwMsg }}</p>
+</sc-if>
+<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:14px 0 0">New account from your program lead? Type your email and tap Forgot password to set one.</p>
+</div>
+</sc-if>
+<sc-if value="{{ gateVerify }}" hint-placeholder-val="{{ false }}">
+<div style="animation:jjIn .3s ease both;text-align:center">
+<p style="font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 8px">Check your email</p>
+<p style="font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 18px">We sent a link to <span style="color:#FFFFFF;font-weight:700">{{ verifyEmail }}</span>. Open it to confirm this address, then come back here.</p>
+<button sc-camel-on-click="{{ onVerifyCheck }}" style="display:block;width:100%;max-width:300px;margin:0 auto;background:#FADA01;color:#0C2647;border:2px solid #FADA01;border-radius:999px;padding:14px 18px;font-weight:900;font-size:14px;letter-spacing:.04em;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(250,218,1,.35)">{{ verifyCta }}</button>
+<button sc-camel-on-click="{{ onVerifyResend }}" style="display:block;width:100%;max-width:300px;margin:10px auto 0;background:transparent;color:#FFFFFF;border:1.5px solid rgba(255,255,255,.35);border-radius:999px;padding:12px 18px;font-weight:800;font-size:13px;font-family:inherit;cursor:pointer">Resend the email</button>
+<sc-if value="{{ verifyHasMsg }}" hint-placeholder-val="{{ false }}">
+<p style="color:#9FD7B5;font-size:13px;line-height:1.5;margin:14px 0 0">{{ verifyMsg }}</p>
+</sc-if>
+<sc-if value="{{ verifyHasErr }}" hint-placeholder-val="{{ false }}">
+<p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ verifyErr }}</p>
+</sc-if>
+<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:16px 0 0">Wrong address? <button sc-camel-on-click="{{ onGateSwitchAccount }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Use a different account</button></p>
+</div>
+</sc-if>
+<sc-if value="{{ gateSignedIn }}" hint-placeholder-val="{{ false }}">
+<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:10px 0 0">Signed in as <span style="color:#FFFFFF;font-weight:700">{{ gateAuthEmail }}</span> · <button sc-camel-on-click="{{ onGateSwitchAccount }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Use a different account</button></p>
+</sc-if>
 <sc-if value="{{ gateWelcomeBack }}" hint-placeholder-val="{{ false }}">
 <div style="animation:jjIn .3s ease both">
 <p style="text-align:center;font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 16px">Hey! Welcome back, {{ knownLeaderName }}.</p>
 <button sc-camel-on-click="{{ onResume }}" style="display:block;width:100%;max-width:260px;margin:0 auto;background:#FADA01;color:#0C2647;border:2px solid #FADA01;border-radius:999px;padding:16px;font-weight:900;font-size:14px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;box-shadow:0 6px 22px rgba(250,218,1,.45)">{{ resumeCta }}</button>
 <p style="text-align:center;font-size:13px;color:#7E8D9C;margin:14px 0 0">Not you? <button sc-camel-on-click="{{ onUseDifferentCode }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Enter a different code</button></p>
+</div>
+</sc-if>
+<sc-if value="{{ gatePick }}" hint-placeholder-val="{{ false }}">
+<div style="animation:jjIn .3s ease both">
+<p style="text-align:center;font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 6px">My groups</p>
+<p style="text-align:center;font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 14px">Tap a group to open it.</p>
+<sc-for list="{{ gatePickList }}" as="gp" hint-placeholder-count="2">
+<button sc-camel-on-click="{{ gp.onPick }}" style="{{ gp.style }}"><span style="display:block;font-weight:900;font-size:15px;line-height:1.2">{{ gp.label }}</span><span style="display:block;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-top:3px">{{ gp.sub }}</span></button>
+</sc-for>
+<p style="text-align:center;font-weight:900;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#6FC0EA;margin:18px 0 8px">Have a new code?</p>
+<form sc-camel-on-submit="{{ onGateAddSubmit }}" style="display:flex;gap:8px;max-width:300px;margin:0 auto">
+<input type="text" value="{{ gateAddCode }}" sc-camel-on-change="{{ onGateAddCode }}" sc-camel-auto-capitalize="characters" sc-camel-spell-check="false" placeholder="GROUP CODE" style="flex:1;min-width:0;box-sizing:border-box;background:#fff;border:1.5px solid #C6D4E2;border-radius:999px;padding:12px 16px;font-size:16px;font-family:inherit;font-weight:800;letter-spacing:.08em;color:#0C1B2E">
+<button type="submit" style="{{ gateAddBtnStyle }}">{{ gateAddBtnLabel }}</button>
+</form>
+<sc-if value="{{ gateFromApp }}" hint-placeholder-val="{{ false }}">
+<p style="text-align:center;font-size:13px;color:#7E8D9C;margin:16px 0 0"><button sc-camel-on-click="{{ onGateBackToApp }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">{{ gateBackToAppLabel }}</button></p>
+</sc-if>
 </div>
 </sc-if>
 <sc-if value="{{ gateShowForm }}" hint-placeholder-val="{{ true }}">
@@ -684,25 +785,13 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 <button sc-camel-on-click="{{ onJoin }}" style="width:100%;background:#FADA01;color:#0C2647;border:2px solid #FADA01;border-radius:10px;padding:15px;font-weight:900;font-size:14px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:0 6px 18px rgba(250,218,1,.35);margin-top:4px">{{ joinCta }}</button>
 </div>
+<sc-if value="{{ gateBackToPick }}" hint-placeholder-val="{{ false }}">
+<p style="text-align:center;font-size:13px;color:#7E8D9C;margin:14px 0 0"><button sc-camel-on-click="{{ onBackToPick }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Back to my programs</button></p>
+</sc-if>
 </div>
 </sc-if>
 </div>
 </div>
-</sc-if>
-
-<sc-if value="{{ showAdminLogin }}" hint-placeholder-val="{{ false }}">
-<div style="padding:26px 18px 0;animation:jjIn .3s ease both">
-<div style="font-weight:800;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#00A3E0">Studio</div>
-<h1 style="font-weight:900;font-size:28px;line-height:1;margin:8px 0 0;text-transform:uppercase;color:#0C1B2E">Admin access</h1>
-<p style="color:#37475C;font-size:13.5px;line-height:1.6;margin:10px 0 20px">You'll be editing the live program every organization reads from.</p>
-<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:18px">
-<div style="font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-bottom:6px">Your name</div>
-<input type="text" value="{{ adminName }}" sc-camel-on-change="{{ onAdminName }}" placeholder="Jadin Jones" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:9px;padding:12px 13px;font-size:16px;font-weight:700;margin-bottom:14px">
-<div style="font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-bottom:6px">Access phrase</div>
-<input type="password" value="{{ adminPass }}" sc-camel-on-change="{{ onAdminPass }}" placeholder="••••••••" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:9px;padding:12px 13px;font-size:16px;font-weight:700;letter-spacing:.1em">
-<button sc-camel-on-click="{{ onAdminLogin }}" style="width:100%;background:#0C2647;color:#FFFFFF;border:2px solid #0C2647;border-radius:10px;padding:15px;font-weight:900;font-size:14px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;margin-top:16px">Enter studio</button>
-</div>
-<button sc-camel-on-click="{{ onBackToGate }}" style="display:block;width:100%;text-align:center;margin-top:18px;background:none;border:none;font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9DAAB8;cursor:pointer;padding:8px">← Leader sign-in</button>
 </div>
 </sc-if>
 
@@ -1065,6 +1154,13 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 
+<sc-if value="{{ pf.offline }}" hint-placeholder-val="{{ false }}">
+<div style="background:#fff;border:1px solid #DCE6F0;border-radius:16px;padding:26px 20px;text-align:left">
+<div style="font-weight:900;font-size:20px;line-height:1.15;text-transform:uppercase;color:#0C1B2E">Could not load the form</div>
+<p style="font-size:13.5px;line-height:1.65;color:#37475C;margin:10px 0 0">Check your connection and reload this page. If it keeps happening, ask the person who sent the link.</p>
+</div>
+</sc-if>
+
 <sc-if value="{{ pf.closed }}" hint-placeholder-val="{{ false }}">
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:16px;padding:26px 20px">
 <div style="font-weight:900;font-size:20px;line-height:1.15;text-transform:uppercase;color:#0C1B2E">This round has closed</div>
@@ -1392,8 +1488,8 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 <sc-if value="{{ peer.confirming }}" hint-placeholder-val="{{ false }}">
 <div style="background:#FFF4EF;border:1px solid #E9A98F;border-radius:12px;padding:14px 15px;margin-top:14px">
-<div style="font-weight:900;font-size:13px;text-transform:uppercase;letter-spacing:.02em;color:#8F2D13">Delete every peer response?</div>
-<p style="font-size:12.5px;line-height:1.6;color:#8F2D13;margin:6px 0 12px">This deletes the link, every score and every written answer. It cannot be recovered, and anyone who has not replied yet will lose their chance.</p>
+<div style="font-weight:900;font-size:13px;text-transform:uppercase;letter-spacing:.02em;color:#8F2D13">{{ peer.delTitle }}</div>
+<p style="font-size:12.5px;line-height:1.6;color:#8F2D13;margin:6px 0 12px">{{ peer.delBody }}</p>
 <div style="display:flex;gap:8px">
 <button sc-camel-on-click="{{ peer.onConfirmDelete }}" style="flex:1;background:#D5502B;color:#FFFFFF;border:2px solid #D5502B;border-radius:9px;padding:11px;font-weight:900;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Delete permanently</button>
 <button sc-camel-on-click="{{ peer.onCancelDelete }}" style="flex:none;background:transparent;color:#8F2D13;border:2px solid #E9A98F;border-radius:9px;padding:11px 15px;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Keep</button>
@@ -1403,6 +1499,12 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 
+<sc-if value="{{ peer.waiting }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+<p style="flex:1;min-width:0;font-size:12.5px;line-height:1.55;color:#37475C;margin:0">{{ peer.waitNote }}</p>
+<button sc-camel-on-click="{{ peer.onRefresh }}" style="flex:none;background:transparent;color:#0C1B2E;border:2px solid #C6D4E2;border-radius:9px;padding:10px 14px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Refresh</button>
+</div>
+</sc-if>
 <sc-if value="{{ peer.noRound }}" hint-placeholder-val="{{ true }}">
 <div>
 <button sc-camel-on-click="{{ peer.onOpenRound }}" style="{{ peer.openBtnStyle }}">{{ peer.openCta }}</button>
@@ -1418,6 +1520,12 @@ sc-if,sc-for{display:none!important}
 <div style="font-weight:800;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#D4B400">Whole group</div>
 <div style="font-weight:900;font-size:18px;line-height:1.12;text-transform:uppercase;color:#0C1B2E;margin-top:6px">Team Assessment</div>
 
+<sc-if value="{{ teamCard.waiting }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+<p style="flex:1;min-width:0;font-size:12.5px;line-height:1.55;color:#37475C;margin:0">{{ teamCard.waitNote }}</p>
+<button sc-camel-on-click="{{ teamCard.onRefresh }}" style="flex:none;background:transparent;color:#0C1B2E;border:2px solid #C6D4E2;border-radius:9px;padding:10px 14px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Refresh</button>
+</div>
+</sc-if>
 <sc-if value="{{ teamCard.noRound }}" hint-placeholder-val="{{ true }}">
 <div>
 <button sc-camel-on-click="{{ teamCard.onOpenRound }}" style="{{ teamCard.openBtnStyle }}">{{ teamCard.openCta }}</button>
@@ -4845,6 +4953,12 @@ sc-if,sc-for{display:none!important}
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:16px;padding:16px;margin-bottom:12px">
 <div style="font-weight:900;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#0C1B2E">Team Assessment Results</div>
 
+<sc-if value="{{ orgDash.team.waiting }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+<p style="flex:1;min-width:0;font-size:12.5px;line-height:1.55;color:#37475C;margin:0">{{ orgDash.team.waitNote }}</p>
+<button sc-camel-on-click="{{ orgDash.team.onRefresh }}" style="flex:none;background:transparent;color:#0C1B2E;border:2px solid #C6D4E2;border-radius:9px;padding:10px 14px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Refresh</button>
+</div>
+</sc-if>
 <sc-if value="{{ orgDash.team.noRound }}" hint-placeholder-val="{{ true }}">
 <div>
 <p style="font-size:12.5px;line-height:1.6;color:#37475C;margin:8px 0 12px">{{ orgDash.team.intro }}</p>
@@ -4979,46 +5093,14 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ showMe }}" hint-placeholder-val="{{ false }}">
 <div style="padding:18px 14px 0;animation:jjIn .28s ease both">
 <h2 style="font-weight:900;font-size:26px;margin:0 0 16px;text-transform:uppercase;letter-spacing:.01em;color:#0C1B2E">My Profile</h2>
-<sc-if value="{{ hasGroups }}" hint-placeholder-val="{{ false }}">
-<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;margin-bottom:16px;overflow:hidden">
-<button sc-camel-on-click="{{ onToggleGroups }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;padding:14px;font-family:inherit;cursor:pointer;min-height:52px">
+<button sc-camel-on-click="{{ onOpenMyGroups }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:#fff;border:1px solid #DCE6F0;border-radius:14px;margin-bottom:16px;padding:14px;font-family:inherit;cursor:pointer;min-height:52px">
 <span style="flex:1;min-width:0">
 <span style="display:block;font-weight:900;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#9DAAB8">My groups</span>
 <span style="display:block;font-weight:800;font-size:14px;color:#0C1B2E;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ groupsCurrent }}</span>
 <span style="display:block;font-size:11px;color:#9DAAB8;margin-top:2px">{{ groupsLabel }}</span>
 </span>
-<span style="flex:none;width:26px;height:26px;border-radius:50%;background:#F6F9FC;border:1px solid #DCE6F0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#37475C">{{ groupsCaret }}</span>
+<span style="flex:none;width:26px;height:26px;border-radius:50%;background:#F6F9FC;border:1px solid #DCE6F0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#37475C">&rsaquo;</span>
 </button>
-<sc-if value="{{ groupsOpen }}" hint-placeholder-val="{{ false }}">
-<div style="padding:0 14px 14px;border-top:1px solid #EAF1F8">
-<div style="height:12px"></div>
-<sc-for list="{{ groups }}" as="mg" hint-placeholder-count="2">
-<button sc-camel-on-click="{{ mg.onPick }}" style="{{ mg.style }}">
-<span style="{{ mg.markStyle }}"></span>
-<span style="flex:1;min-width:0">
-<span style="display:block;font-weight:800;font-size:14px;color:#0C1B2E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ mg.name }}</span>
-<span style="display:block;font-size:11px;color:#9DAAB8;margin-top:2px">{{ mg.meta }}</span>
-</span>
-</button>
-</sc-for>
-<sc-if value="{{ addOpen }}" hint-placeholder-val="{{ false }}">
-<div style="margin-top:10px;padding-top:12px;border-top:1px solid #EAF1F8">
-<div style="font-weight:900;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#7E8D9C;margin-bottom:7px">Join another group</div>
-<p style="font-size:11.5px;line-height:1.5;color:#9DAAB8;margin:0 0 9px;text-wrap:pretty">Enter the group&rsquo;s code. We use the name and email already on your account.</p>
-<input type="text" value="{{ addCode }}" sc-camel-on-change="{{ onAddCode }}" placeholder="GROUP CODE" style="width:100%;background:#fff;border:1.5px solid #C6D4E2;border-radius:9px;padding:12px 13px;font-size:16px;font-family:inherit;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#0C1B2E">
-<div style="display:flex;gap:8px;margin-top:9px">
-<button sc-camel-on-click="{{ onCancelAdd }}" style="flex:none;background:transparent;border:1.5px solid #C6D4E2;color:#7E8D9C;border-radius:9px;padding:12px 16px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;min-height:44px">Cancel</button>
-<button sc-camel-on-click="{{ onJoinCode }}" style="{{ addBtnStyle }}">{{ addBtnLabel }}</button>
-</div>
-</div>
-</sc-if>
-<sc-if value="{{ addClosed }}" hint-placeholder-val="{{ true }}">
-<button sc-camel-on-click="{{ onOpenAdd }}" style="width:100%;margin-top:10px;background:transparent;border:1.5px dashed #C6D4E2;color:#0C1B2E;border-radius:10px;padding:12px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;min-height:44px">Join another group</button>
-</sc-if>
-</div>
-</sc-if>
-</div>
-</sc-if>
 <sc-if value="{{ isOrgLead }}" hint-placeholder-val="{{ false }}">
 <button sc-camel-on-click="{{ onOpenOrgDash }}" style="display:flex;align-items:center;gap:12px;width:100%;background:#E4F2E7;border:1px solid #A9D4B6;border-left:4px solid #3E9E6A;border-radius:14px;padding:15px 16px;margin-bottom:12px;cursor:pointer;text-align:left">
 <span style="flex:1;min-width:0">
@@ -5103,7 +5185,7 @@ sc-if,sc-for{display:none!important}
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:16px;margin-bottom:12px">
 <div style="font-weight:800;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C">Notifications</div>
 <p style="margin:6px 0 0;font-size:13.5px;color:#0C1B2E;line-height:1.55">Get new sessions, check-ins and team messages on your lock screen.</p>
-<button sc-camel-on-click="{{ onEnablePush }}" style="{{ pushBtnStyle }}">{{ pushLabel }}</button>
+<button sc-camel-on-click="{{ onTogglePush }}" role="switch" aria-checked="{{ pushAria }}" style="display:flex;align-items:center;gap:12px;width:100%;margin-top:12px;background:#F6F9FC;border:1.5px solid #DCE6F0;border-radius:11px;padding:12px 13px;font-family:inherit;text-align:left;cursor:pointer;min-height:52px"><span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:13.5px;color:#0C1B2E">{{ pushLabel }}</span><span style="display:block;font-size:12px;color:#7E8D9C;margin-top:2px">{{ pushSub }}</span></span><span style="{{ pushTrackStyle }}"><span style="{{ pushKnobStyle }}"></span></span></button>
 <sc-if value="{{ hasPushMsg }}" hint-placeholder-val="{{ false }}">
 <p style="margin:9px 0 0;font-size:12.5px;color:#7E8D9C;line-height:1.5">{{ pushMsg }}</p>
 </sc-if>
@@ -5859,6 +5941,41 @@ Or upload a file — text, .vtt, .srt or an MP4
 <p style="font-size:12.5px;line-height:1.6;color:#8F2D13;margin:7px 0 0">{{ admin.speed.errorMsg }}</p>
 </div>
 </sc-if>
+
+<div style="height:2px;background:#DCE6F0;margin:20px 0 16px"></div>
+<div style="font-weight:900;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#0C1B2E;margin-bottom:4px">Peer round migration</div>
+<p style="font-size:11.5px;color:#9DAAB8;margin:0 0 12px">One-off. Moves old peer and team rounds to keys the new rules can check.</p>
+<div style="background:#fff;border:1px solid #DCE6F0;border-radius:16px;padding:17px;margin-bottom:12px">
+<p style="font-size:12.5px;line-height:1.6;color:#7E8D9C;margin:0 0 14px">Dry run lists every old round and what would happen to it, and changes nothing. Run for real moves only the rounds this dry run listed as ready, and only if they still pass every check. Anything else is reported, not moved.</p>
+<div style="display:flex;gap:10px">
+<button sc-camel-on-click="{{ admin.mig.onDry }}" style="{{ admin.mig.dryStyle }}">{{ admin.mig.dryLabel }}</button>
+<button sc-camel-on-click="{{ admin.mig.onRun }}" style="{{ admin.mig.runStyle }}">{{ admin.mig.runLabel }}</button>
+</div>
+<sc-if value="{{ admin.mig.hasErr }}" hint-placeholder-val="{{ false }}">
+<p style="font-size:12.5px;line-height:1.6;color:#8F2D13;margin:12px 0 0">{{ admin.mig.err }}</p>
+</sc-if>
+<sc-if value="{{ admin.mig.has }}" hint-placeholder-val="{{ false }}">
+<p style="font-size:12.5px;line-height:1.6;color:#0C1B2E;font-weight:700;margin:14px 0 0">{{ admin.mig.summary }}</p>
+</sc-if>
+<sc-if value="{{ admin.mig.hasReady }}" hint-placeholder-val="{{ false }}">
+<div style="font-weight:900;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#2F7F55;margin:14px 0 6px">Ready to move</div>
+<sc-for list="{{ admin.mig.ready }}" as="mg" hint-placeholder-count="2">
+<div style="border-top:1px solid #EEF2F6;padding:7px 0"><div style="font-size:12px;font-weight:800;color:#0C1B2E;word-break:break-all">{{ mg.line }}</div><div style="font-size:11.5px;color:#7E8D9C;word-break:break-all">{{ mg.sub }}</div></div>
+</sc-for>
+</sc-if>
+<sc-if value="{{ admin.mig.hasSkipped }}" hint-placeholder-val="{{ false }}">
+<div style="font-weight:900;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8F2D13;margin:14px 0 6px">Skipped — left alone</div>
+<sc-for list="{{ admin.mig.skipped }}" as="ms" hint-placeholder-count="1">
+<div style="border-top:1px solid #EEF2F6;padding:7px 0"><div style="font-size:12px;font-weight:800;color:#0C1B2E;word-break:break-all">{{ ms.line }}</div><div style="font-size:11.5px;color:#7E8D9C;word-break:break-all">{{ ms.sub }}</div></div>
+</sc-for>
+</sc-if>
+<sc-if value="{{ admin.mig.hasResults }}" hint-placeholder-val="{{ false }}">
+<div style="font-weight:900;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#0C1B2E;margin:14px 0 6px">Results</div>
+<sc-for list="{{ admin.mig.results }}" as="mx" hint-placeholder-count="2">
+<div style="border-top:1px solid #EEF2F6;padding:7px 0"><div style="font-size:12px;font-weight:800;color:#0C1B2E;word-break:break-all">{{ mx.line }}</div><div style="font-size:11.5px;color:#7E8D9C">{{ mx.sub }}</div></div>
+</sc-for>
+</sc-if>
+</div>
 </div>
 </sc-if>
 
@@ -7606,6 +7723,28 @@ Or upload an image
 </x-dc>
 <script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:940}}">
 const FIREBASE_CONFIG=(location.hostname.indexOf("dev")>-1)?{apiKey:"AIzaSyBuWZtJiL6Plizs6GkAtZvvipBy9Cs5KJY",authDomain:"jj-playbook-dev.firebaseapp.com",projectId:"jj-playbook-dev",storageBucket:"jj-playbook-dev.firebasestorage.app",messagingSenderId:"330195639799",appId:"1:330195639799:web:ebbfe5631dfe5ae0af22f2"}:{apiKey:"AIzaSyAgcRPj65snd_CxN-zs8v3EXiOsDcLaxI4",authDomain:"test-6b2ab.firebaseapp.com",projectId:"test-6b2ab",storageBucket:"test-6b2ab.firebasestorage.app",messagingSenderId:"468112905284",appId:"1:468112905284:web:5073dffaece8633bc9d811"};
+/* Google and Microsoft sign-in hand off through Firebase's helper at
+   <authDomain>/__/auth. On these hosts that helper is served from the site
+   itself (netlify/functions/auth-proxy.js), so the handoff is first-party and
+   Safari keeps it. A host goes on this list only once
+   https://<host>/__/auth/handler is an authorized redirect URI on that
+   project's Google OAuth client (and, where Microsoft sign-in is offered, on
+   its Microsoft (Entra) app registration); every other host keeps
+   firebaseapp.com. Each live host needs that URI on test-6b2ab's Google OAuth
+   client, and each Dev host on jj-playbook-dev's (docs/GO-LIVE.md).
+   The project itself is picked above by host: any host containing "dev"
+   (jj-playbook-dev.netlify.app, dev.playbook.jadin-jones.com) is Dev, and
+   jjplaybook.netlify.app and playbook.jadin-jones.com are live. */
+const AUTH_OWN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com',
+  'jjplaybook.netlify.app','playbook.jadin-jones.com'];
+/* Microsoft sign-in is offered where its Entra app lists the host's
+   /__/auth/handler. On live that app is a stopgap in the personal Azure
+   directory, and the provider is switched on in test-6b2ab only after the live
+   rules are published; until then the button answers that it is not on yet. */
+const MS_SIGNIN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com',
+  'jjplaybook.netlify.app','playbook.jadin-jones.com'];
+const msSignInHere=()=>MS_SIGNIN_HOSTS.indexOf(location.hostname)>=0;
+if(AUTH_OWN_HOSTS.indexOf(location.hostname)>=0) FIREBASE_CONFIG.authDomain=location.hostname;
 const COLL='jj_playbook';
 // Two editions of the same nine-fundamental format. Y1 keeps the original
 // storage keys so every organization and every response already out there
@@ -8160,8 +8299,56 @@ async function sha256Hex(str){
 }
 // no O/0, I/1, S/5, B/8 — these get read aloud and typed by hand
 const PEER_ALPHA='ACDEFGHJKLMNPQRTUVWXY34679';
-function peerToken(){ let s=''; for(let i=0;i<6;i++) s+=PEER_ALPHA[Math.floor(Math.random()*PEER_ALPHA.length)]; return s; }
+// New rounds get 10 characters; links already sent with 6 keep working.
+function peerToken(n){ let s=''; for(let i=0;i<(n||10);i++) s+=PEER_ALPHA[Math.floor(Math.random()*PEER_ALPHA.length)]; return s; }
 function peerLink(t){ try{ return location.origin+location.pathname+'?r='+t; }catch(e){ return '?r='+t; } }
+/* Peer and team rounds live at peer:CODE:TOKEN, so the V3 rules can check the
+   program. The link carries only the token; /api/peer finds the round from it. */
+function peerKey(code,token){ return 'peer:'+code+':'+token; }
+/* Until the migration has run, a round may still sit at its old key,
+   peer:TOKEN. Reads try the new key, then the old one, and remember which
+   held it, so a save or the live watch goes back to the same place. */
+const _peerSrc={};
+async function sgetPeer(code,token){
+  const nk=peerKey(code,token), ok='peer:'+token;
+  let d=await sget(nk); if(d){ _peerSrc[token]=nk; return d; }
+  d=await sget(ok); if(d){ _peerSrc[token]=ok; return d; }
+  return null;
+}
+function peerKeyOf(code,token){ return _peerSrc[token]||peerKey(code,token); }
+/* Deletes the round wherever it is: the new key always, the old key too when
+   the round was read from there or still exists there. False if any delete
+   was refused, so the caller keeps the round and says so. */
+async function sdelPeer(code,token){
+  const ok='peer:'+token, keys=[peerKey(code,token)];
+  if(_peerSrc[token]===ok||(await sget(ok))) keys.push(ok);
+  for(const k of keys) if(!(await sdel(k))) return false;
+  delete _peerSrc[token];
+  return true;
+}
+/* A token no round in any program uses yet. Only /api/peer can see every
+   program, and only its "missing" answer counts as free. Anything else,
+   including no answer at all, returns null so the round is not opened. */
+async function newPeerToken(){
+  for(let i=0;i<3;i++){
+    const t=peerToken(), r=await peerApi('GET',{t});
+    if(r.status===404&&r.code==='missing') return t;
+    if(r.status!==200&&r.status!==409) return null;
+  }
+  return null;
+}
+/* /api/peer, for the people answering a link: no sign-in, no Firestore.
+   Returns the server's JSON plus status; ok only when the server said so.
+   No answer at all comes back as status 0, code 'offline'. */
+async function peerApi(method,body){
+  try{
+    const r=await withTimeout(method==='GET'
+      ?fetch('/api/peer?t='+encodeURIComponent(body.t),{cache:'no-store'})
+      :fetch('/api/peer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),12000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    return Object.assign({},j,{status:r.status,ok:r.ok&&j.ok===true});
+  }catch(e){ console.error('peerApi',e); return {ok:false,status:0,code:'offline'}; }
+}
 function peerAgg(doc){
   const rs=(doc&&doc.responses)||[];
   if(!rs.length) return {n:0,avg:{},total:0,open:[]};
@@ -8209,13 +8396,31 @@ function fb(){ try{ if(_db) return _db; if(typeof firebase==='undefined') return
    authReady() does two jobs: it loads the Auth SDK, AND it does not resolve
    until a real signed-in user exists — showing a login overlay in the
    meantime. Every read/write below awaits this, so nothing touches Firestore
-   before someone is actually authenticated. */
+   before someone is actually authenticated.
+   A signed-in user whose email is not verified yet (a new email/password
+   account) does not count: they wait in _authPending, and authReady() only
+   resolves once authCheckVerified() sees the link was clicked. Google
+   accounts arrive verified. */
 let _authWait=null;
 let _authUser=null;
+let _authPending=null;
+let _authRes=null;
+/* Settles once Firebase has finished any Google redirect this page load came
+   back from; _authRedirectMsg then holds what went wrong, if anything. */
+let _authRedirect=Promise.resolve();
+let _authRedirectMsg='';
+/* The gate page owns sign-in: while _gateSignIn is set the overlay stays
+   hidden and the gate shows Continue with Google instead. _authFirst settles
+   once Firebase knows whether anyone is signed in (null if nobody, or if the
+   Auth SDK failed to load), so boot can tell "signed out" from "still checking". */
+let _gateSignIn=false;
+let _authFirstRes;
+const _authFirst=new Promise(r=>{ _authFirstRes=r; });
 function authReady(){
   if(_authUser) return Promise.resolve(true);
   if(_authWait) return _authWait;
   _authWait=new Promise(async res=>{
+    _authRes=res;
     try{
       await fbReady();
       if(!firebase.auth){
@@ -8224,17 +8429,91 @@ function authReady(){
           s.onload=ok; s.onerror=bad; document.head.appendChild(s); });
       }
       if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      _authRedirect=_checkGoogleRedirect();
       firebase.auth().onAuthStateChanged(user=>{
+        /* Every sign-in passes here, a saved one included: an admin address
+           signed in through Microsoft is never let in (see _msAdmin). */
+        if(_msAdmin(user)){
+          _authUser=null; _authPending=null; _authBlockMsg=ADMIN_MS_MSG;
+          _authFirstRes(null);
+          firebase.auth().signOut().catch(e=>console.error('signOut msAdmin',e));
+          return;
+        }
+        /* The saved copy of the user can say "unverified" after the link was
+           clicked in another tab or the mail app, so ask Firebase once. */
+        if(user&&!user.emailVerified){
+          _authUser=null; _authPending=user;
+          authCheckVerified().then(ok=>{ if(!ok) _authFirstRes(user); });
+          return;
+        }
+        _authPending=null;
         _authUser=user;
+        _authFirstRes(user);
         if(user){ _hideLoginOverlay(); res(true); }
         else{ _showLoginOverlay(); }
       });
-    }catch(e){ console.error("authReady",e); _authWait=null; res(false); }
+    }catch(e){ console.error("authReady",e); _authWait=null; _authFirstRes(null); res(false); }
   });
   return _authWait;
 }
 function currentUserEmail(){ return _authUser?_authUser.email:null; }
+/* Firestore only lets a member read a program once members/{email}.orgs holds
+   its code, and only the server may write that list. /api/join checks the
+   same door the app does (program exists, not revoked, on the approved list)
+   and adds the code. Must run before any read of that program. Admins read
+   everything already, so they skip the round trip. */
+const ADMIN_EMAILS=['charlie@jadin-jones.com','lucas@jadin-jones.com','review@jadin-jones.com'];
+const isAdminEmail=e=>ADMIN_EMAILS.indexOf(String(e||'').trim().toLowerCase())>=0;
+/* A Microsoft sign-in's first join needs its mailbox confirmed once
+   (/api/join answers 'ms-verify'). With sendLink — a join the person just
+   tapped — the link is sent straight away and the message says what to do;
+   background checks only report it. */
+async function ensureMember(code,opts){
+  await authReady();
+  const u=firebase.auth().currentUser;
+  if(!u) return {ok:false,error:'Sign in first'};
+  if(isAdminEmail(u.email)) return {ok:true,admin:true};
+  try{
+    const token=await u.getIdToken();
+    const r=await withTimeout(fetch('/api/join',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({code})}),15000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    if(r.ok&&j.ok) return j;
+    const out={ok:false,status:r.status,reason:j.code||'',
+      error:j.error||'Could not join — check your connection and try again'};
+    if(out.reason==='ms-verify'&&opts&&opts.sendLink){
+      const s=await msVerifyApi({action:'send',code});
+      const how=' Open it, tap Continue on the page it opens, then join again.';
+      if(s.ok&&s.verified) return ensureMember(code);
+      out.error=s.ok?'Check your email — we sent a link to '+u.email+' to confirm it is yours.'+how
+        :(s.code==='wait'?s.error+how:s.error);
+    }
+    return out;
+  }catch(e){
+    console.error('ensureMember',e);
+    return {ok:false,error:'Could not join — check your connection and try again'};
+  }
+}
+/* /api/ms-verify: {action:'send'} emails the one-time link, {action:'confirm',t}
+   checks the secret the link carried. Returns the server's JSON plus ok. */
+async function msVerifyApi(body){
+  try{
+    await authReady();
+    const u=firebase.auth().currentUser;
+    if(!u) return {ok:false,error:'Sign in first'};
+    const r=await withTimeout(fetch('/api/ms-verify',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
+      body:JSON.stringify(body)}),15000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    return Object.assign({},j,{ok:!!(r.ok&&j.ok),error:j.error||'Could not reach the server — check your connection and try again'});
+  }catch(e){
+    console.error('msVerifyApi',e);
+    return {ok:false,error:'Could not reach the server — check your connection and try again'};
+  }
+}
 function _showLoginOverlay(){
+  if(_gateSignIn) return;
   if(document.getElementById('jj-login-gate')) return;
   const div=document.createElement('div');
   div.id='jj-login-gate';
@@ -8257,18 +8536,230 @@ function _hideLoginOverlay(){
   const el=document.getElementById('jj-login-gate');
   if(el) el.remove();
 }
-async function _doGoogleSignIn(){
+function _doGoogleSignIn(onErr){ return _doOAuthSignIn('google',onErr); }
+/* Google or Microsoft, the same way: a redirect on phones, a popup elsewhere,
+   both through the authDomain above (this site's own /__/auth on
+   AUTH_OWN_HOSTS). Microsoft lets an organisation's admins put any address
+   on an account, so its email is not trusted until the person clicks our
+   verification link: an unverified Microsoft sign-in waits in _authPending
+   like a new email/password account. Resolves to {verify:email} when the gate
+   should show Check your email, otherwise undefined. */
+const OAUTH_NAME={google:'Google',microsoft:'Microsoft'};
+function _oauthProvider(kind){
+  if(kind==='microsoft'){
+    const p=new firebase.auth.OAuthProvider('microsoft.com');
+    p.setCustomParameters({prompt:'select_account'});
+    return p;
+  }
+  return new firebase.auth.GoogleAuthProvider();
+}
+/* Admin access goes by email, and any Microsoft tenant can put any address on
+   an account, so an admin address signed in through Microsoft is never
+   treated as admin: it is signed straight out. (The rules fix refuses admin
+   for microsoft.com sign-ins too; this is the app's half.) */
+const ADMIN_MS_MSG='Admins must sign in with Google or email and password.';
+let _authBlockMsg='';
+function _msAdmin(u){
+  if(!u) return false;
+  const pd=(u.providerData||[]).filter(Boolean);
+  return pd.some(p=>p.providerId==='microsoft.com')
+    &&(isAdminEmail(u.email)||pd.some(p=>isAdminEmail(p.email)));
+}
+/* After a Microsoft sign-in: an admin address, or no email, means no way in,
+   so sign straight out; an unverified one is sent the link. Returns
+   {verify, sent} or {error}. */
+async function _afterMicrosoft(u){
+  if(_msAdmin(u)){
+    try{ await firebase.auth().signOut(); }catch(e){}
+    return {error:ADMIN_MS_MSG};
+  }
+  if(!u||u.emailVerified) return {};
+  if(!u.email){
+    try{ await firebase.auth().signOut(); }catch(e){}
+    return {error:'Your Microsoft account did not share an email address, so it cannot be used here. Use Google or email and password.'};
+  }
+  try{ await _withContinueUrl(s=>u.sendEmailVerification(s)); return {verify:u.email,sent:true}; }
+  catch(e){ console.error('sendEmailVerification',e); return {verify:u.email,sent:false}; }
+}
+async function _doOAuthSignIn(kind,onErr){
   const errEl=document.getElementById('jj-login-error');
   try{
     if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-    const provider=new firebase.auth.GoogleAuthProvider();
+    const provider=_oauthProvider(kind);
     const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if(isMobile){ await firebase.auth().signInWithRedirect(provider); }
-    else{ await firebase.auth().signInWithPopup(provider); }
+    if(isMobile){
+      try{ sessionStorage.setItem('jj_oauth_redirect',kind+':'+Date.now()); }catch(e){}
+      await firebase.auth().signInWithRedirect(provider);
+      return;
+    }
+    const r=await firebase.auth().signInWithPopup(provider);
+    if(kind!=='microsoft') return;
+    const a=await _afterMicrosoft(r&&r.user);
+    if(a.error) throw {code:'jj/refused',message:a.error};
+    return a.verify?a:undefined;
   }catch(e){
-    console.error('signIn',e);
-    if(errEl) errEl.textContent='Sign-in failed. Please try again.';
+    console.error('signIn',kind,e);
+    try{ sessionStorage.removeItem('jj_oauth_redirect'); }catch(x){}
+    const msg=(e&&e.code==='jj/refused')?e.message:authErrMsg(e,kind);
+    if(errEl) errEl.textContent=msg;
+    if(typeof onErr==='function') onErr(msg);
   }
+}
+/* Back from Google's or Microsoft's page. An error from the redirect is
+   reported. So is the quiet failure: the browser blocked the cross-site
+   handoff, so the redirect ends with no error and nobody signed in. The mark
+   set before leaving tells that apart from an ordinary page load, and says
+   which provider it was. An unverified Microsoft sign-in is sent the link
+   here; _authRedirectVerifyErr says if that email did not go. */
+let _authRedirectVerifyErr='';
+/* True when this page load is the return from a Google or Microsoft redirect
+   that signed someone in: a fresh sign-in, even though the page opened with
+   them already signed in. */
+let _authRedirectUser=false;
+async function _checkGoogleRedirect(){
+  let mark='';
+  try{ mark=String(sessionStorage.getItem('jj_oauth_redirect')||'');
+    sessionStorage.removeItem('jj_oauth_redirect'); }catch(e){}
+  const kind=mark.split(':')[0]==='microsoft'?'microsoft':'google';
+  const left=Number(mark.split(':')[1]||0);
+  const wasRedirect=left>0&&Date.now()-left<15*60*1000;
+  try{
+    const r=await withTimeout(firebase.auth().getRedirectResult(),10000);
+    if(r&&r.user) _authRedirectUser=true;
+    const info=(r&&r.additionalUserInfo)||{};
+    if(r&&r.user&&(info.providerId==='microsoft.com'||kind==='microsoft')){
+      const a=await _afterMicrosoft(r.user);
+      if(a.error) _authRedirectMsg=a.error;
+      else if(a.verify&&!a.sent) _authRedirectVerifyErr='Signed in, but the verification email did not send. Tap Resend the email.';
+      return;
+    }
+    if(wasRedirect&&!(r&&r.user)&&!firebase.auth().currentUser)
+      _authRedirectMsg=OAUTH_NAME[kind]+' sign-in did not finish in this browser. Try again, or use email and password below.';
+  }catch(e){
+    console.error('getRedirectResult',e);
+    if(wasRedirect) _authRedirectMsg=authErrMsg(e,kind);
+  }
+}
+/* Email and password. Each helper returns {ok:true,...} or {ok:false,error}
+   with a message fit for the gate. Messages never say whether an email has an
+   account. There is no sign-up here: an admin creates email accounts in
+   Firebase, and the person sets a password with Forgot password. */
+function authErrMsg(e,kind){
+  const c=(e&&e.code)||'';
+  const bad='Email or password is incorrect.';
+  if(kind==='microsoft'){
+    /* One account per email and no linking, so a Microsoft sign-in for an
+       address that already has a Google or email/password account is refused. */
+    if(c==='auth/account-exists-with-different-credential'||c==='auth/credential-already-in-use'||c==='auth/email-already-in-use')
+      return 'This email already has an account that signs in with Google or with email and password. Sign in that way instead — Microsoft cannot be added to an existing account.';
+    if(c==='auth/operation-not-allowed') return 'Microsoft sign-in is not turned on yet. Use Google or email and password for now.';
+    const m=String((e&&e.message)||'');
+    // AADSTS50011: this site's /__/auth/handler is not a redirect URI on the Entra app.
+    if(/AADSTS50011/.test(m))
+      return 'Microsoft sign-in isn’t set up correctly for this site. Use Google or email and password for now.';
+    // Company tenants can refuse unverified or unapproved apps (other Entra AADSTS errors).
+    if(/AADSTS/.test(m))
+      return 'Your organisation’s Microsoft settings blocked this sign-in — an administrator may need to approve JJ Playbook. Use Google or email and password for now.';
+    if(c==='auth/invalid-credential'||c==='auth/internal-error')
+      return 'Microsoft sign-in did not work. Try again, or use Google or email and password.';
+  }
+  const who=OAUTH_NAME[kind]||'Google';
+  return ({
+    'auth/invalid-email':'That email address does not look right.',
+    'auth/missing-email':'Enter your email address.',
+    'auth/missing-password':'Enter your password.',
+    'auth/invalid-credential':bad,
+    'auth/invalid-login-credentials':bad,
+    'auth/wrong-password':bad,
+    'auth/user-not-found':bad,
+    'auth/too-many-requests':'Too many tries. Wait a few minutes and try again.',
+    'auth/network-request-failed':'Could not reach sign-in. Check your connection and try again.',
+    'auth/user-disabled':'This account has been turned off. Check with your program lead.',
+    // Sign-up is off in Firebase: only accounts an admin created can sign in.
+    'auth/admin-restricted-operation':'There is no account for you yet. Ask your program lead to set one up.',
+    'auth/operation-not-allowed':'Email sign-in is not turned on yet. Use Continue with Google for now.',
+    // Google or Microsoft (popup or redirect)
+    'auth/popup-closed-by-user':who+' sign-in was closed before it finished. Try again.',
+    'auth/cancelled-popup-request':who+' sign-in was closed before it finished. Try again.',
+    'auth/popup-blocked':'Your browser blocked the '+who+' window. Allow pop-ups for this site, or use email and password.',
+    'auth/web-storage-unsupported':'This browser is blocking what sign-in needs to work. Try a normal (not private) window, or use email and password.',
+    'auth/unauthorized-domain':who+' sign-in is not set up for this address yet. Use email and password for now.',
+    'auth/account-exists-with-different-credential':'This email already signs in another way — with email and password or with Microsoft. Use that instead, or reset your password.'
+  })[c]||'Sign-in failed. Please try again.';
+}
+function _authLoaded(){ return typeof firebase!=='undefined'&&!!firebase.auth&&firebase.apps.length>0; }
+const _authNotLoaded={ok:false,error:'Sign-in is still loading. Try again in a moment.'};
+/* Links in Firebase's emails come back to this page. The iOS app's own
+   origin is not an authorized domain, so fall back to Firebase's default. */
+async function _withContinueUrl(send){
+  try{ await send({url:location.origin+location.pathname}); }
+  catch(e){
+    if(e&&(e.code==='auth/unauthorized-continue-uri'||e.code==='auth/invalid-continue-uri'
+      ||e.code==='auth/missing-continue-uri')) await send(undefined);
+    else throw e;
+  }
+}
+async function authEmailSignIn(email,pw){
+  if(!_authLoaded()) return _authNotLoaded;
+  try{
+    const r=await firebase.auth().signInWithEmailAndPassword(String(email||'').trim(),String(pw||''));
+    return {ok:true,verified:!!(r.user&&r.user.emailVerified)};
+  }catch(e){ console.error('authEmailSignIn',e); return {ok:false,error:authErrMsg(e)}; }
+}
+async function authResendVerify(){
+  if(!_authLoaded()) return _authNotLoaded;
+  const u=_authPending||firebase.auth().currentUser;
+  if(!u) return {ok:false,error:'Sign in first.'};
+  try{ await _withContinueUrl(s=>u.sendEmailVerification(s)); return {ok:true}; }
+  catch(e){ console.error('authResendVerify',e); return {ok:false,error:authErrMsg(e)}; }
+}
+/* Asks Firebase whether the pending user has clicked the link. If so, a fresh
+   token carries email_verified to /api/join and the rules, and authReady()
+   resolves. Returns true once verified. */
+async function authCheckVerified(){
+  if(!_authLoaded()) return false;
+  const u=_authPending||firebase.auth().currentUser;
+  if(!u) return false;
+  try{ await u.reload(); }catch(e){ console.warn('authCheckVerified',e); return false; }
+  const fresh=firebase.auth().currentUser;
+  if(!fresh||fresh.uid!==u.uid||!fresh.emailVerified) return false;
+  try{ await fresh.getIdToken(true); }catch(e){ console.warn('authCheckVerified token',e); return false; }
+  _authPending=null; _authUser=fresh;
+  _authFirstRes(fresh); _hideLoginOverlay();
+  if(_authRes) _authRes(true);
+  return true;
+}
+/* Always reports success for a well-formed address, so the reply never
+   reveals whether that email has an account. */
+async function authSendReset(email){
+  if(!_authLoaded()) return _authNotLoaded;
+  const em=String(email||'').trim();
+  if(!em) return {ok:false,error:'Enter your email address.'};
+  try{ await _withContinueUrl(s=>firebase.auth().sendPasswordResetEmail(em,s)); }
+  catch(e){
+    if(e&&e.code==='auth/user-not-found') return {ok:true};
+    console.error('authSendReset',e); return {ok:false,error:authErrMsg(e)};
+  }
+  return {ok:true};
+}
+/* Sign out for real: Firebase first, then everything this device kept for
+   that person (record caches jjc:/jj:, the saved session, Firestore's
+   offline copy), then a fresh page so no listener, timer or in-memory record
+   survives. The gate then shows Continue with Google for whoever is next.
+   Device preferences such as the theme stay. Returns false, touching
+   nothing, if Firebase could not sign out. */
+async function authSignOut(){
+  try{ if(typeof firebase!=='undefined'&&firebase.auth) await firebase.auth().signOut(); }
+  catch(e){ console.error('authSignOut',e); return false; }
+  _authUser=null; _authWait=null;
+  try{ Object.keys(localStorage).forEach(k=>{
+    if(k.indexOf('jjc:')===0||k.indexOf('jj:')===0||k==='jj_session'||k==='jj_known_leader')
+      localStorage.removeItem(k); }); }catch(e){}
+  // Fails harmlessly if another tab still has the database open.
+  try{ if(_db){ await _db.terminate(); await _db.clearPersistence(); } }catch(e){ console.warn('clearPersistence',e); }
+  _db=null;
+  location.replace(location.pathname);
+  return true;
 }
 function withTimeout(p,ms){ let t; return Promise.race([
   Promise.resolve(p).then(v=>{ clearTimeout(t); return v; },e=>{ clearTimeout(t); throw e; }),
@@ -8308,16 +8799,45 @@ async function sgetStrict(key){
   const raw=localStorage.getItem('jj:'+key); return raw==null?null:JSON.parse(raw);
 }
 async function sset(key,val){ await fbReady(); await authReady(); try{ const s=JSON.stringify(val); const db=fb(); if(db){ cachePut(key,val);
-    /* Member records (resp:/coach:/gin:/chat:) carry a top-level ownerEmail so
-       Firestore rules can protect them. Owner = signed-in user if available,
-       else the email already inside the record. Shared/content keys are untouched. */
-    const _isMember=/^(resp|coach|gin|chat):/.test(key);
+    /* Member records (resp:/coach:/gin:/chat:/push:) carry a top-level
+       ownerEmail so Firestore rules can protect them; V3 lets a member create
+       or change their own push:CODE:idkey only when it names them. Owner =
+       signed-in user if available, else the email already inside the record.
+       Shared/content keys are untouched. */
+    const _isMember=/^(resp|coach|gin|chat|push):/.test(key);
     let _payload={value:s};
     if(_isMember){
       let _oe=null;
       try{ const _u=(firebase.auth&&firebase.apps.length)?firebase.auth().currentUser:null; if(_u&&_u.email) _oe=_u.email.toLowerCase(); }catch(e){}
-      if(!_oe && val && typeof val==="object"){ const _e=val.email||(val.resp&&val.resp.email)||""; if(_e) _oe=String(_e).toLowerCase(); }
+      /* An admin saving someone else's record (Studio's group and lead
+         buttons, coach notes) must not become its owner, or V3 locks the
+         member out of it. The owner is then the member: the email in the
+         record, else their resp:CODE:idkey. If neither can be found the
+         field is left out, and merge keeps whatever the record had. */
+      if(_oe && isAdminEmail(_oe)){
+        _oe=null;
+        const _p=key.split(':');
+        if(_p[0]==='resp'&&val&&typeof val==='object'&&val.email) _oe=String(val.email).trim().toLowerCase();
+        else if(_p.length===3&&_p[0]!=='chat'){
+          try{ const _r=await db.collection(COLL).doc('resp:'+_p[1]+':'+_p[2]).get();
+            if(_r.exists){ let _e=_r.get('ownerEmail');
+              if(!_e||isAdminEmail(_e)){ try{ _e=(JSON.parse(_r.get('value'))||{}).email; }catch(e){ _e=''; } }
+              if(_e&&!isAdminEmail(_e)) _oe=String(_e).trim().toLowerCase(); } }catch(e){}
+        }
+        if(_oe&&isAdminEmail(_oe)) _oe=null;
+      }
+      else if(!_oe && val && typeof val==="object"){ const _e=val.email||(val.resp&&val.resp.email)||""; if(_e) _oe=String(_e).toLowerCase(); }
       if(_oe) _payload.ownerEmail=_oe;
+    }
+    /* Peer and team rounds carry peerToken, so /api/peer can find them from
+       the link alone, and ownerEmail, copied from the round itself so a save
+       by anyone else (Studio included) never changes the owner. */
+    else if(/^peer:[^:]+:[^:]+$/.test(key)){
+      _payload.peerToken=key.split(':')[2];
+      /* Top level so the rules can tell a team round, which the whole
+         program may read, from an individual one, which only its owner may. */
+      _payload.peerMode=(val&&val.mode==='team')?'team':'peer';
+      if(val&&typeof val.ownerEmail==='string'&&val.ownerEmail) _payload.ownerEmail=val.ownerEmail.toLowerCase();
     }
     await attempt(()=>db.collection(COLL).doc(key).set(_payload,{merge:true}),2,9000); return true; }
   localStorage.setItem('jj:'+key,s); return true; }catch(e){ console.error('sset',key,e); return false; } }
@@ -8878,14 +9398,51 @@ const AB_ART='assets/twin-thieves.jpg';
    Paste your Firebase "Web Push certificate" key pair below — Firebase
    console > Project settings > Cloud Messaging > Web configuration >
    Generate key pair. Leave it blank and the Enable button politely says
-   push isn't set up yet. Full walkthrough in DEPLOY.md. */
-const PUSH_VAPID_KEY='BInNmntOmHghC66oeT2bi5pu3_vMrC0efRQwCu7apRAivuOQUkWscFZrY-V8xY06Y_1Fwj2a-rHcuUn_mZH-mG0';
+   push isn't set up yet. Full walkthrough in DEPLOY.md.
+   Each Firebase project has its own key pair, so the key is picked by host
+   the same way FIREBASE_CONFIG is: jj-playbook-dev on dev hosts, test-6b2ab
+   everywhere else. */
+const PUSH_VAPID_KEY=(location.hostname.indexOf("dev")>-1)?'BC6VSCl7r-b73VfY1RtwM97uV-i1YulwK7BULCAvod6F11yYqMPYA-9CuYrJU5FfKAHIKr67G8mlDNQpjqPZu9U':'BInNmntOmHghC66oeT2bi5pu3_vMrC0efRQwCu7apRAivuOQUkWscFZrY-V8xY06Y_1Fwj2a-rHcuUn_mZH-mG0';
 const BUILD_STAMP='2026.08.27-a';
 
 /* Desktop layout kicks in here. Below it the app is the phone column it
    always was; above it the tab bar becomes a left sidebar and the content
    spreads into a real two-column page. */
 const WIDE_MQ='(min-width:900px)';
+/* Desktop sign-in gate: zoom the card as a whole to fit the window (see the
+   [data-jj-gate-card] rule). Measured at zoom 1, then the smallest of 2x,
+   88% of the window height, what fits below the header with 16px either
+   side, and what fits the window width. Re-fitted when the window resizes
+   or the gate's content changes (an error line, the verify panel, a
+   selected block); writing the factor on <html> is not a DOM change, so it
+   cannot set off the observer. Anywhere else --jj-gz is removed. */
+const GATE_DESK_MQ='(min-width:1200px) and (hover:hover) and (pointer:fine)';
+function fitGateZoom(){
+  const root=document.documentElement;
+  const card=document.querySelector('[data-jj-gate-card]');
+  let ok=false;
+  try{ ok=!!card&&window.matchMedia(GATE_DESK_MQ).matches
+    &&CSS.supports('selector(:has(a))')&&CSS.supports('zoom','2'); }catch(e){}
+  if(!ok){ root.style.removeProperty('--jj-gz'); return; }
+  root.style.setProperty('--jj-gz','1');
+  const h0=card.offsetHeight, w0=card.offsetWidth;
+  if(!h0||!w0) return;
+  const head=document.querySelector('[data-jj-shell] header');
+  const hh=head?head.getBoundingClientRect().height:0;
+  const H=window.innerHeight, W=root.clientWidth;
+  const z=Math.max(.5,Math.min(2,.88*H/h0,(H-hh-32)/h0,(W-48)/w0));
+  root.style.setProperty('--jj-gz',z.toFixed(3));
+}
+(function(){
+  let raf=0;
+  const soon=()=>{ if(!raf) raf=requestAnimationFrame(()=>{ raf=0; fitGateZoom(); }); };
+  const start=()=>{
+    window.addEventListener('resize',soon);
+    try{ new MutationObserver(soon).observe(document.body,{childList:true,subtree:true,characterData:true}); }catch(e){}
+    soon();
+  };
+  if(document.body) start(); else document.addEventListener('DOMContentLoaded',start);
+})();
 const BLANK_IMG='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 const BTN_GOLD='background:#FADA01;color:#0C2647;border:2px solid #FADA01;border-radius:10px;padding:13px 22px;font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;box-shadow:0 6px 18px rgba(250,218,1,.35)';
 const BTN_GHOST='background:transparent;color:#0C1B2E;border:2px solid #C6D4E2;border-radius:8px;padding:10px 18px;font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer';
@@ -8915,20 +9472,24 @@ class Component extends DCLogic {
       fundScoresOpen:false, toolHistOpen:false, assessDraft:{},
       peerTokenIn:'', peerRound:null, peerDraft:{}, peerKeep:'', peerChange:'',
       impText:'', impOpen:null, impBusy:false, valDraft:null, ringsIn:true,
-      peerSaving:false, peerDone:false, peerErr:'', peerDocs:{}, peerBusy:false,
+      peerSaving:false, peerDone:false, peerErr:'', peerDocs:{}, peerTried:{}, peerBusy:false,
       splash:true, splashOut:false, peerConfirmDelete:false, newFunds:{},
       commitPick:null, commitTarget:null, openToolFund:null, openActivity:null,
-      joinCode:'', joinFirst:'', joinLast:'', joinEmail:'', joining:false, enterNewCode:false,
+      joinCode:'', joinFirst:'', joinLast:'', joining:false, enterNewCode:false,
+      authChecked:false, authEmail:'', gateSignInErr:'', gateSignInBusy:false,
+      verifyEmail:'', verifyBusy:false, verifyMsg:'', verifyErr:'', verifySentAt:0,
+      pwEmail:'', pwPass:'', pwBusy:false, pwErr:'', pwMsg:'', pwResetAt:0,
       gateStores:[], gateDepts:[], gateOrgName:'', joinStore:'', joinDept:'',
       odStore:'', odDept:'', odPerson:null, copyFrom:'', secOpen:{}, liveEdit:false,
       speedCode:'', speedN:75, speedBusy:false, speedResult:null, speedNote:'',
+      migBusy:false, migResult:null, migErr:'', migNote:'',
       actOrg:'', actRows:[], actLoading:false, actAt:0,
       bumpTestBusy:false, bumpTestSent:false,
-      adminName:'', adminPass:'', adminTab:'orgs', orgList:[], activeOrg:null, openOrg:null, masterKnow:[],
+      adminTab:'orgs', orgList:[], activeOrg:null, openOrg:null, masterKnow:[],
       storeFilter:'', storeSort:'name',
       scoreOrg:'', scoreSrc:'self', scorePool:[], scoreLoading:false, scoreTeams:[],
       leaderFolder:'', leaderQ:'', scorePerson:'', scoreActivity:'', scoreShowAll:false, scoreOpen:'',
-      roster:[], selectedLeader:null, myGroups:[], addOpen:false, addCode:'', addBusy:false, groupsOpen:false, coachDoc:null, coachDocs:{}, ldCoach:null, ldPaste:'', ldSessOpen:'', noteSel:'',
+      roster:[], selectedLeader:null, myGroups:[], gatePrograms:[], gatePickBusy:false, gateAddCode:'', gateAddBusy:false, gateNotice:'',coachDoc:null, coachDocs:{}, ldCoach:null, ldPaste:'', ldSessOpen:'', noteSel:'',
       cvList:[], cvClient:'', cvDoc:null, cvSess:'', cvPaste:'', cvDirty:false, ginItems:[], cvView:'call', cvMemberOn:false,
       members:[], membersLoading:false, openMember:null, bambooStoryOpen:false, vidOn:{},
       newOrgName:'', newOrgCode:'', newOrgCohort:'', newOrgStart:'',
@@ -9118,6 +9679,7 @@ class Component extends DCLogic {
   }
   componentWillUnmount(){ clearTimeout(this._tt); clearTimeout(this._mid); clearTimeout(this._pushAskT);
     if(this._vis) document.removeEventListener('visibilitychange',this._vis);
+    this.stopVerifyWatch();
     (this._zoomLock||[]).forEach(([n,fn,opt])=>document.removeEventListener(n,fn,opt));
     this._zoomLock=null;
     this.stopChat(); this.stopPeerWatch(); }
@@ -9186,13 +9748,23 @@ class Component extends DCLogic {
       if(Date.now()-(this._accessAt||0)<60000) return;
       this._accessAt=Date.now();
       let rec,tomb;
-      /* Strict: a dropout throws, and only a real absence signs anyone out. */
+      /* Strict: a dropout throws, and only a real absence signs anyone out.
+         A refusal is different: once Remove has taken the program out of
+         members/{email}, the rules refuse every read here. Ask /api/join
+         once — the 60-second gap above means once per return to the tab at
+         most — and only its "revoked" answer ends access. */
       try{
         [rec,tomb]=await Promise.all([
           sgetStrict('resp:'+s.code+':'+s.idkey),
           sgetStrict('rev:'+s.code+':'+s.idkey)
         ]);
-      }catch(e){ return; }
+      }catch(e){
+        if(!(e&&e.code==='permission-denied')) return;
+        const mem=await ensureMember(s.code);
+        if(mem.ok||mem.reason!=='revoked'||this._revoked) return;
+        if(this.state.code!==s.code||this.state.idkey!==s.idkey) return;
+        return this.revokeAccess(s.code,(s.org&&s.org.name)||s.code);
+      }
       if(rec&&!tomb) return;
       this.revokeAccess(s.code,(s.org&&s.org.name)||s.code);
     };
@@ -9209,18 +9781,74 @@ class Component extends DCLogic {
     document.addEventListener('visibilitychange',this._vis);
   }
   async boot(){
-    // A peer-review link lands here first: no session, no gate, just the form.
+    /* Sign-in comes first. authReady() does not resolve until Firebase has a
+       signed-in user, so nothing below — no Firestore read, not even the
+       device cache — opens before then. The gate shows Continue with Google
+       while nobody is signed in; the overlay stays out of the way. */
+    _gateSignIn=true;
+    /* A peer or team link opens its form straight away: the people answering
+       are not members and never sign in. /api/peer is their only door. */
     let rt=null;
     try{ rt=new URLSearchParams(location.search).get('r'); }catch(e){}
     if(rt) return this.openPeerForm(String(rt).trim().toUpperCase());
+    /* Back from the Microsoft confirmation email (?msv=secret, and &c=CODE for
+       the program they were joining). Kept for this tab until sign-in, and
+       taken out of the address bar so it is not shared or bookmarked. */
+    try{
+      const q=new URLSearchParams(location.search), t=q.get('msv');
+      if(t){ sessionStorage.setItem('jj_msv',t);
+        const c=cleanCode(q.get('c')||'');
+        if(c) sessionStorage.setItem('jj_msv_code',c); else sessionStorage.removeItem('jj_msv_code');
+        q.delete('msv'); q.delete('c');
+        history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash); }
+    }catch(e){}
+    const signedIn=authReady();
+    await _authFirst;
+    /* Nobody signed in as the page opened means whoever arrives next signs in
+       fresh (Google popup, Microsoft popup, email); a Google or Microsoft
+       redirect lands back already signed in and is caught by
+       _authRedirectUser below. Fresh sign-ins go to My groups. */
+    const signedOutAtLoad=!_authUser;
+    if(!_authUser) this.setState({booting:false,view:'gate',authChecked:true,authEmail:''});
+    // A saved Microsoft sign-in for an admin address was just signed out.
+    if(!_authUser&&_authBlockMsg) this.setState({gateSignInErr:_authBlockMsg});
+    /* The confirmation link opened in a window that is not signed in: say
+       what to do. The link itself is checked the moment they sign in. */
+    let msvHeld=false; try{ msvHeld=!!sessionStorage.getItem('jj_msv'); }catch(e){}
+    if(!_authUser&&msvHeld) this.setState({gateNotice:'Email confirmed. Sign in with Microsoft to continue.'});
+    /* Back from a Google or Microsoft redirect that did not sign anyone in (or
+       a Microsoft one signed straight out for having no email): say so on the
+       gate. An unverified Microsoft sign-in whose link did not send says so
+       on the Check your email panel. */
+    _authRedirect.then(()=>{
+      if(_authRedirectMsg&&!_authUser) this.setState({gateSignInErr:_authRedirectMsg});
+      if(_authRedirectVerifyErr&&_authPending) this.setState({verifyErr:_authRedirectVerifyErr});
+    });
+    // Signed in but the email link is not clicked yet: the gate asks for it.
+    if(!_authUser&&_authPending) this.showVerify(_authPending.email);
+    if(!(await signedIn)){
+      return this.setState({booting:false,view:'gate',authChecked:true,
+        gateSignInErr:'Could not load sign-in. Check your connection and reload.'}); }
+    this.stopVerifyWatch();
+    const me=String(currentUserEmail()||'').trim().toLowerCase();
+    this.setState({authChecked:true,authEmail:me,gateSignInErr:'',gateSignInBusy:false,gateNotice:'',
+      verifyEmail:'',verifyBusy:false,verifyMsg:'',verifyErr:''});
+    // Back from the Microsoft link: confirm it and carry on with that join.
+    if(await this.confirmMsLink()) return;
     let known=null;
     try{ known=JSON.parse(localStorage.getItem('jj_known_leader')||'null'); }catch(e){}
     let sess=null;
     try{ sess=JSON.parse(localStorage.getItem('jj_session')||'null'); }catch(e){}
-    if(this._studioLink&&!(sess&&sess.role==='admin')){
-      return this.setState({booting:false,view:'admin-login'});
-    }
-    if(sess&&sess.role==='admin'){ const ok=await this.enterStudio(sess.name||'Admin'); if(ok) return; }
+    /* A saved session belongs to whoever last used this device. If that is not
+       the person signed in now, forget it rather than open their records. */
+    const mine=x=>!!x&&String(x.email||'').trim().toLowerCase()===me&&x.idkey===slug(me);
+    if(known&&!mine(known)){ known=null; try{ localStorage.removeItem('jj_known_leader'); }catch(e){} }
+    if(sess&&(sess.role==='admin'?!isAdminEmail(me):!mine(sess))){
+      sess=null; try{ localStorage.removeItem('jj_session'); }catch(e){} }
+    // Studio is decided by the signed-in account, not an access phrase.
+    if(this._studioLink&&!isAdminEmail(me)) this.toast('Studio is for program admins. You are signed in as '+me+'.',true);
+    if(isAdminEmail(me)&&(this._studioLink||(sess&&sess.role==='admin'))){
+      const ok=await this.enterStudio((firebase.auth().currentUser||{}).displayName||me); if(ok) return; }
     /* A cold launch from the Home Screen icon often races the first Firestore
        read — the network is still waking up. Dropping to the sign-in screen
        there reads as "the app logged me out", which is the single most
@@ -9228,13 +9856,32 @@ class Component extends DCLogic {
        identity we keep retrying with backoff and say we are reconnecting,
        and the gate only appears if they have never signed in here. */
     const saved=(sess&&sess.role==='leader'&&sess.code&&sess.idkey)?sess:((known&&known.code&&known.idkey)?known:null);
+    /* After a fresh sign-in (Google, Microsoft or email), or with nothing
+       saved on this device, members land on My groups: every program still
+       theirs (members/{email}.orgs, revoked ones left out), or the first-time
+       code form when there are none. Reopening with a saved session goes
+       straight back in as before; admins keep their own routing. If the list
+       cannot be read, a saved session is used when there is one. */
+    try{ await _authRedirect; }catch(e){}
+    const fresh=signedOutAtLoad||_authRedirectUser;
+    if(!isAdminEmail(me)&&(fresh||!saved)){
+      this.setState({booting:true});
+      const progs=await this.myPrograms(me).catch(()=>null);
+      if(progs&&progs.length)
+        return this.setState({booting:false,view:'gate',known:null,gatePrograms:progs,enterNewCode:false});
+      if(progs){
+        if(saved) this.forgetSavedSession();
+        return this.setState({booting:false,view:'gate',known:null,gatePrograms:[],enterNewCode:false,joinCode:''});
+      }
+      if(!saved) return this.setState({booting:false,view:'gate',known,joinCode:known?known.code:''});
+    }
     if(saved){
-      try{
-        const t=await sgetStrict('rev:'+saved.code+':'+saved.idkey);
-        if(t){ this.setState({idkey:saved.idkey});
-          this.revokeAccess(saved.code,saved.code);
-          return this.setState({booting:false,view:'gate',known:null,enterNewCode:true}); }
-      }catch(e){}
+      const chk=await this.checkSavedMembership(saved);
+      if(chk==='revoked'){ this.setState({idkey:saved.idkey});
+        this.revokeAccess(saved.code,saved.code);
+        return this.setState({booting:false,view:'gate',known:null,enterNewCode:true}); }
+      if(chk!=='go'){ this.forgetSavedSession(); this.toast(chk,true);
+        return this.setState({booting:false,view:'gate',known:null,enterNewCode:true}); }
       const warm=this.warmStart(saved);
       if(!warm) this.setState({booting:false,view:'resuming',known});
       for(let ai=0;ai<24;ai++){
@@ -9273,8 +9920,10 @@ class Component extends DCLogic {
   }
   toast(msg,err,go){ clearTimeout(this._tt);
     this.setState({toast:msg,toastErr:!!err,toastGo:go||''});
-    // A toast you can act on gets longer to reach than one that just informs.
-    this._tt=setTimeout(()=>this.setState({toast:'',toastGo:''}),go?6500:2800); }
+    // A toast you can act on gets longer to reach than one that just informs,
+    // and a long one (instructions) stays up long enough to read.
+    const len=String(msg||'').length;
+    this._tt=setTimeout(()=>this.setState({toast:'',toastGo:''}),Math.max(go?6500:2800,len>90?9000:0)); }
 
   async loadProgramFor(code){
     const org=this.state.org&&this.state.org.code===code
@@ -9547,6 +10196,125 @@ class Component extends DCLogic {
     return typeof navigator!=='undefined' && 'serviceWorker' in navigator
       && typeof window!=='undefined' && 'Notification' in window && 'PushManager' in window;
   }
+  /* ---- Push on this device: one switch for the whole account ----
+     A device has one push token, shared by every program the person is in,
+     and each program's push:CODE:idkey record carries it. Off takes this
+     device's token out of all of them, deletes it with Firebase, and leaves
+     jj_push_off on the device so nothing registers it again on its own; only
+     the switch turns it back on. Another device of theirs keeps its token.
+     The servers choose recipients by token alone (they ignore active:false),
+     so the token itself has to go. */
+  pushOffHere(){ try{ return localStorage.getItem('jj_push_off')==='1'; }catch(e){ return false; } }
+  setPushOffHere(off){
+    try{
+      if(off){ localStorage.setItem('jj_push_off','1');
+        Object.keys(localStorage).forEach(k=>{ if(k.indexOf('jj_push_on:')===0) localStorage.removeItem(k); }); }
+      else localStorage.removeItem('jj_push_off');
+    }catch(e){}
+    if(off) this._mineSubscribed=false;
+  }
+  /* This device's token, without asking for permission; null if it has none. */
+  async devicePushToken(){
+    try{
+      if(this.isNativeApp()&&this.fbMessaging()){
+        if(this._nativeToken) return this._nativeToken;
+        const FM=this.fbMessaging(), perm=await FM.checkPermissions();
+        if(perm.receive!=='granted') return null;
+        const r=await FM.getToken(); return (r&&r.token)||null;
+      }
+      if(!this.pushSupported()||Notification.permission!=='granted'||!PUSH_VAPID_KEY) return null;
+      const reg=await navigator.serviceWorker.getRegistration(); if(!reg) return null;
+      await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
+      if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      return (await firebase.messaging().getToken({vapidKey:PUSH_VAPID_KEY,serviceWorkerRegistration:reg}))||null;
+    }catch(e){ console.warn('devicePushToken',e); return null; }
+  }
+  /* Their push records on this account: one per program (My groups' list,
+     plus the program open now) and the old one keyed by person only.
+     listed is false when My groups could not be read, so the keys may be
+     missing programs; names maps each code to its program name. */
+  async myPushKeys(){
+    const s=this.state, me=String(currentUserEmail()||'').trim().toLowerCase();
+    const idkey=s.idkey||(me?slug(me):'');
+    if(!idkey) return {idkey:'',keys:[],listed:false,names:{}};
+    const codes=new Set(); if(s.code) codes.add(s.code);
+    const names={}; if(s.code) names[s.code]=(s.org&&s.org.name)||s.code;
+    const progs=me?await this.myPrograms(me).catch(()=>null):null;
+    (progs||[]).forEach(g=>{ codes.add(g.code); names[g.code]=g.orgName||g.code; });
+    return {idkey,listed:!!progs,names,
+      keys:Array.from(codes).map(c=>'push:'+c+':'+idkey).concat(['push:'+idkey])};
+  }
+  /* Off, and sign-out: this device's token leaves every record of theirs. */
+  async unregisterPushHere(){
+    const token=await this.devicePushToken();
+    const {keys}=await this.myPushKeys();
+    for(const k of keys){
+      /* The old person-only push:<idkey> is still tried, because on the
+         current rules it may hold this token, but V3 refuses reading it until
+         backfill-owner stamps it, so that refusal is expected and stays quiet. */
+      const legacy=k.split(':').length===2;
+      let rec=null;
+      try{ rec=await sgetStrict(k); }
+      catch(e){ if(!legacy) console.warn('unregisterPushHere read',k,e); continue; }
+      if(!rec||!rec.token||!token||rec.token!==token) continue;
+      delete rec.token; rec.active=false; rec.mutedAt=Date.now();
+      try{ await sset(k,rec); }catch(e){ console.warn('unregisterPushHere',k,e); }
+    }
+    try{
+      if(this.isNativeApp()&&this.fbMessaging()) await this.fbMessaging().deleteToken();
+      else if(token&&firebase.messaging) await firebase.messaging().deleteToken();
+    }catch(e){ console.warn('deleteToken',e); }
+    this._nativeToken=null;
+  }
+  /* On: every program record of theirs gets this device's token back.
+     Returns what could not be done, so the switch can say so:
+     failed lists the names of programs whose record was not written, and
+     listed is false when their other programs could not be looked up.
+     A record that cannot be read is left alone rather than written blind,
+     which would replace its reminder settings with defaults. */
+  async registerPushEverywhere(token){
+    token=token||await this.devicePushToken();
+    if(!token) return {failed:[],listed:false,noToken:true};
+    const {idkey,keys,listed,names}=await this.myPushKeys();
+    const tz=(Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||'America/Chicago';
+    const failed=[];
+    for(const k of keys.filter(x=>x.split(':').length===3)){
+      const code=k.split(':')[1];
+      let rec=null;
+      try{ rec=await sgetStrict(k); }
+      catch(e){ console.warn('registerPushEverywhere read',k,e); failed.push(names[code]||code); continue; }
+      rec=Object.assign({},rec||{},{token,active:true,code,idkey,
+        name:this.state.name||(rec&&rec.name)||'',tz,at:Date.now()});
+      if(this.isNativeApp()) rec.platform='ios-native';
+      if(rec.remindHour==null) rec.remindHour=18;
+      delete rec.mutedAt; delete rec.mutedFor;
+      if(!await sset(k,rec)) failed.push(names[code]||code);
+    }
+    return {failed,listed:!!listed};
+  }
+  /* What the switch says after turning on, from registerPushEverywhere(). */
+  pushEverywhereMsg(r){
+    if(!r||r.noToken) return 'Could not finish setting up notifications — switch off and on again to retry.';
+    if(r.failed.length) return 'Notifications are on, but could not be set up for '+r.failed.join(', ')
+      +'. Switch off and on again to retry.';
+    if(!r.listed) return 'Notifications are on for this program, but your other programs could not be checked. Switch off and on again to retry.';
+    return '';
+  }
+  /* The switch in My Profile, turned off. */
+  async disablePush(){
+    if(this.state.pushBusy) return;
+    this.setState({pushBusy:true,pushMsg:'Turning notifications off on this device…'});
+    this.setPushOffHere(true);
+    try{ await this.unregisterPushHere(); }catch(e){ console.error('disablePush',e); }
+    this.setState({pushBusy:false,pushOn:false,pushAsk:false,
+      pushMsg:'Notifications are off on this device, for all your groups. Your other devices keep their own setting.'});
+  }
+  /* Where to allow notifications again once they have been blocked. */
+  pushBlockedHelp(){
+    const ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
+    if(this.isNativeApp()||ios) return 'Notifications are blocked for this app. To allow them, open Settings → Notifications → JJ Playbook and turn on Allow Notifications, then come back and switch this on.';
+    return 'Notifications are blocked for this site. To allow them, click the icon to the left of the web address → Site settings → Notifications → Allow, reload the page, then switch this on.';
+  }
   /* ---- Direct video upload (Firebase Storage) ---------------------------
      Studio can take the file itself instead of a pasted link. The upload
      returns a permanent download URL ending in the file's own extension, which
@@ -9645,19 +10413,26 @@ class Component extends DCLogic {
     }catch(e){ console.error('resumeNativePush',e); return false; }
   }
   async resumePush(){
+    // Switched off on this device: never registered again except by the switch.
+    if(this.pushOffHere()){ this.setState({pushOn:false}); return; }
     if(this.isNativeApp()){ if(await this.resumeNativePush()) return; }
     if(!this.pushSupported()) return; if(Notification.permission!=='granted') return;
     /* Same phone, second account. The device permission is already granted, but
        this account has no push record of its own, so nothing was ever
        registered for it and every reminder it set was silent. Register it here
        rather than bailing out — unless this account turned notifications off on
-       purpose, which is what active:false means. */
-    if(!await this.mineSubscribed()){
+       purpose, which is what active:false means.
+       Before a program is open (at boot, and for admins) there is no record to
+       ask about: pushKey() would be push: or push:<idkey>, which V3 refuses,
+       and the switch must not claim On. afterLeaderIn() runs this again once
+       the code and idkey are known. */
+    const known=!!(this.state.code&&this.state.idkey);
+    if(known&&!await this.mineSubscribed()){
       let prior=null; try{ prior=await sget(this.pushKey()); }catch(e){}
       if(prior&&prior.active===false) return;
     }
 
-    this.setState({pushOn:true}); if(navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); try{ let reg=await navigator.serviceWorker.getRegistration(); if(!reg) reg=await navigator.serviceWorker.register('firebase-messaging-sw.js'); if(!reg) return; await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js'); if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); this.attachForegroundPush(reg); await this.refreshPushToken(reg); this.bindPushRefresh(); this.syncReminderPrefs().catch(()=>{}); }catch(e){ console.error('resumePush',e); } } async refreshPushToken(reg){ if(!PUSH_VAPID_KEY) return; const s=this.state; if(!s.idkey) return; try{ if(!reg) reg=await navigator.serviceWorker.getRegistration(); if(!reg) return; const token=await firebase.messaging().getToken({vapidKey:PUSH_VAPID_KEY,serviceWorkerRegistration:reg}); if(!token) return; const key=this.pushKey(); let rec=null; try{ rec=await sget(key); }catch(e){} rec=rec||{}; const changed=rec.token!==token||rec.active===false||String(rec.code||'')!==String(s.code||''); rec.token=token; rec.active=true; rec.name=s.name||rec.name||''; rec.code=s.code||rec.code||''; rec.idkey=s.idkey; rec.tz=(Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||rec.tz||'America/Chicago'; if(rec.remindHour==null) rec.remindHour=18; if(rec.remind5s==null) rec.remind5s=this.fiveSOn(); rec.at=Date.now(); delete rec.mutedAt; delete rec.mutedFor; await sset(key,rec); /* Deliberately no "one device, one account" claim here — records are keyed
+    if(known) this.setState({pushOn:true}); if(navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); try{ let reg=await navigator.serviceWorker.getRegistration(); if(!reg) reg=await navigator.serviceWorker.register('firebase-messaging-sw.js'); if(!reg) return; await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js'); if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); this.attachForegroundPush(reg); await this.refreshPushToken(reg); this.bindPushRefresh(); this.syncReminderPrefs().catch(()=>{}); }catch(e){ console.error('resumePush',e); } } async refreshPushToken(reg){ if(!PUSH_VAPID_KEY) return; const s=this.state; if(!s.idkey||!s.code) return; try{ if(!reg) reg=await navigator.serviceWorker.getRegistration(); if(!reg) return; const token=await firebase.messaging().getToken({vapidKey:PUSH_VAPID_KEY,serviceWorkerRegistration:reg}); if(!token) return; const key=this.pushKey(); let rec=null; try{ rec=await sget(key); }catch(e){} rec=rec||{}; const changed=rec.token!==token||rec.active===false||String(rec.code||'')!==String(s.code||''); rec.token=token; rec.active=true; rec.name=s.name||rec.name||''; rec.code=s.code||rec.code||''; rec.idkey=s.idkey; rec.tz=(Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||rec.tz||'America/Chicago'; if(rec.remindHour==null) rec.remindHour=18; if(rec.remind5s==null) rec.remind5s=this.fiveSOn(); rec.at=Date.now(); delete rec.mutedAt; delete rec.mutedFor; await sset(key,rec); /* Deliberately no "one device, one account" claim here — records are keyed
      per program now, so two enrolments on the same phone both keep their
      reminders instead of the newer sign-in erasing the older. */ }catch(e){ console.error('refreshPushToken',e); } } bindPushRefresh(){ if(this._pushRefreshBound) return; this._pushRefreshBound=true; document.addEventListener('visibilitychange',()=>{ if(document.visibilityState!=='visible') return; if(typeof Notification==='undefined'||Notification.permission!=='granted') return; if(!this.state.idkey) return; const now=Date.now(); if(this._lastPushRefresh&&now-this._lastPushRefresh<6*60*60*1000) return; this._lastPushRefresh=now; this.refreshPushToken().catch(()=>{}); }); }
   /* Asked once per person, not once per device. A shared iPad, or a manager
@@ -9667,6 +10442,8 @@ class Component extends DCLogic {
   pushAskDue(){
     if(this.state.role!=='leader'||this.state.previewMode) return false;
     if(this.state.pushOn) return false;
+    // They switched notifications off here: no prompt, ever, until they switch it on.
+    if(this.pushOffHere()) return false;
     if(this.isNativeApp()) return this._nativePermChecked!==false&&!this._nativeGranted;
     if(!this.pushSupported()) return false;
     /* A hard browser denial is the one refusal we cannot ask past — the OS
@@ -9690,8 +10467,12 @@ class Component extends DCLogic {
   }
   async markPushAsked(){ const r=this.state.resp; if(!r||r.pushAsked) return;
     r.pushAsked=Date.now(); this.setState({resp:r}); try{ await this.saveResp(); }catch(e){} }
-  async enablePush(){
+  /* byUser: the person tapped a switch or button. Anything automatic (the
+     launch prompt, the end of the tour) leaves a device switched off alone. */
+  async enablePush(byUser){
     if(this.state.pushBusy) return;
+    if(!byUser&&this.pushOffHere()) return;
+    if(byUser) this.setPushOffHere(false);
     /* Inside the wrapper the browser's Notification API is not the thing that
        gets a device registered with APNs — the plugin is. Web visitors below
        are untouched. */
@@ -9710,6 +10491,10 @@ class Component extends DCLogic {
             const token=await this.registerNativePush();
             await this.saveNativeToken(token);
             this.syncReminderPrefs().catch(()=>{});
+            const all=await this.registerPushEverywhere(token)
+              .catch(e=>{ console.warn('registerPushEverywhere',e); return null; });
+            const msg=this.pushEverywhereMsg(all);
+            if(msg) this.setState({pushMsg:msg});
           }catch(e){
             console.error('registerNativePush',e);
             /* Only surfaced if the device never got registered — the switch
@@ -9722,7 +10507,7 @@ class Component extends DCLogic {
         console.error('registerNativePush',e);
         return this.setState({pushBusy:false,pushMsg:
           (e&&e.message&&/denied/i.test(e.message))
-            ? 'Notifications are turned off for this app. Turn them on in Settings \u2192 Notifications, then try again.'
+            ? this.pushBlockedHelp()
             : ('Could not set up notifications \u2014 '+((e&&e.message)||'try again')+'.')});
       }
     }
@@ -9744,7 +10529,8 @@ class Component extends DCLogic {
     try{
       const perm=await Notification.requestPermission();
       if(perm!=='granted'){
-        return this.setState({pushBusy:false,pushMsg:'Notifications are blocked. Turn them back on in your phone\u2019s settings for this app.'});
+        return this.setState({pushBusy:false,pushMsg:perm==='denied'?this.pushBlockedHelp()
+          :'Notifications were not allowed. Switch this on again and choose Allow.'});
       }
       const reg=await this.pushStep(navigator.serviceWorker.register('firebase-messaging-sw.js'),15000,'service worker');
       // getToken needs an ACTIVE worker, not just a registered one
@@ -9759,13 +10545,18 @@ class Component extends DCLogic {
       const prev=(await this.pushStep(sget(pkey),15000,'save').catch(()=>({})))||{};
       await this.pushStep(sset(pkey,Object.assign({},prev,{
         token, name:this.state.name||'', code:this.state.code||'',
-        idkey:this.state.idkey||'', at:Date.now()
+        idkey:this.state.idkey||'', at:Date.now(), active:true
       })),15000,'save');
-      /* The token is stored — that is what makes push work, so call it done here.
-         Anything after this is housekeeping and must never hold the button. */
+      /* This program is on. Their other programs are written before the
+         switch says done, and any that could not be are named. */
       this.markPushOn();
-      this.setState({pushBusy:false,pushOn:true,pushMsg:'\u2713 Notifications are on for this device.'});
-      this.toast('Notifications enabled');
+      this.setState({pushOn:true,pushMsg:'Setting up your other groups\u2026'});
+      const all=await this.pushStep(this.registerPushEverywhere(token),30000,'your other groups')
+        .catch(e=>{ console.warn('registerPushEverywhere',e); return null; });
+      const msg=this.pushEverywhereMsg(all);
+      this.setState({pushBusy:false,pushMsg:msg||'\u2713 Notifications are on for this device, for all your groups.'});
+      if(msg) this.toast('Notifications are only partly on',true); else this.toast('Notifications enabled');
+      /* Anything after this is housekeeping and must never hold the button. */
       this.markPushAsked();
       this.syncReminderPrefs().catch(()=>{});
       this.attachForegroundPush(reg);
@@ -10064,17 +10855,17 @@ class Component extends DCLogic {
   // ---- Playbook Assessment (Peer-Review) ----
   async openPeerForm(token){
     this.setState({booting:true,view:'peer',peerTokenIn:token,peerErr:''});
-    // "Not valid" must mean the record is genuinely absent, never that the
-    // first read raced the SDK or dropped on a phone network. sgetStrict
-    // throws on a failed read instead of returning null, so a failure retries.
-    let doc=null;
+    // "Not valid" must mean /api/peer found no round, never that a phone
+    // network dropped the request. Only its own answers stop the retries.
+    let res=null;
     for(let i=0;i<4;i++){
-      try{ doc=await sgetStrict('peer:'+token); break; }
-      catch(e){ if(i===3){ doc=await sget('peer:'+token); break; }
-        await new Promise(r=>setTimeout(r,600*(i+1))); }
+      res=await peerApi('GET',{t:token});
+      if(res.ok||res.code==='missing'||res.code==='ambiguous') break;
+      await new Promise(r=>setTimeout(r,600*(i+1)));
     }
-    this.setState({booting:false,view:'peer',peerRound:doc||null,
-      peerErr:doc?(doc.closed?'closed':''):'missing'});
+    const doc=res.ok?{orgName:res.orgName||'',mode:res.mode,closed:!!res.closed}:null;
+    this.setState({booting:false,view:'peer',peerRound:doc,
+      peerErr:doc?(doc.closed?'closed':''):(res.code==='missing'?'missing':'offline')});
   }
   async submitPeer(){
     const d=this.state.peerDraft||{};
@@ -10082,34 +10873,45 @@ class Component extends DCLogic {
     if(missing.length) return this.toast('Score all '+ASSESS.length+' lines — '+missing.length+' left',true);
     if(this.state.peerSaving) return;
     this.setState({peerSaving:true});
-    const token=this.state.peerTokenIn;
-    // re-read so two people submitting at the same time don't overwrite each other
-    const doc=await sget('peer:'+token);
-    if(!doc||doc.closed){ return this.setState({peerSaving:false,peerErr:doc?'closed':'missing'}); }
-    doc.responses=(doc.responses||[]).concat([{ts:Date.now(),scores:Object.assign({},d),
-      keep:(this.state.peerKeep||'').slice(0,600),change:(this.state.peerChange||'').slice(0,600)}]);
-    const ok=await sset('peer:'+token,doc);
-    this.setState({peerSaving:false,peerDone:!!ok,peerRound:doc});
-    if(!ok) this.toast('Could not send that — try again',true);
-    else try{ window.scrollTo(0,0); }catch(e){}
+    // The server adds the answer in a transaction, so people sending at once all land.
+    // Not retried on its own: a send that did arrive must not count twice.
+    const res=await peerApi('POST',{t:this.state.peerTokenIn,scores:Object.assign({},d),
+      keep:(this.state.peerKeep||'').slice(0,600),change:(this.state.peerChange||'').slice(0,600)});
+    if(res.ok){ this.setState({peerSaving:false,peerDone:true}); try{ window.scrollTo(0,0); }catch(e){} return; }
+    if(res.code==='closed'||res.code==='missing') return this.setState({peerSaving:false,peerErr:res.code});
+    this.setState({peerSaving:false});
+    this.toast(res.error||'Could not send that — try again',true);
   }
   peerRoundList(){ const r=this.state.resp; return ((r&&r.peerRounds)||[]).slice().sort((a,b)=>b.openedAt-a.openedAt); }
   peerCurrent(){ const t=this.peerRoundList()[0]; return t?(this.state.peerDocs[t.token]||null):null; }
+  /* Where the newest listed round stands: 'none' (nothing listed), 'ready'
+     (its record is here), 'loading' (not read yet) or 'missing' (read, not
+     found). Only 'none' may open a round: a listed round that has not loaded
+     is still a round, and opening another would hide it while its link
+     keeps collecting answers. */
+  roundState(list){
+    const t=list[0]; if(!t) return 'none';
+    if(this.state.peerDocs[t.token]) return 'ready';
+    return this.state.peerTried[t.token]?'missing':'loading';
+  }
+  peerState(){ return this.roundState(this.peerRoundList()); }
   async loadPeerDocs(){
     const list=this.peerRoundList(); if(!list.length) return;
     const docs=Object.assign({},this.state.peerDocs);
-    for(const r of list){ const d=await sget('peer:'+r.token); if(d) docs[r.token]=d; }
-    this.setState({peerDocs:docs});
+    const tried=Object.assign({},this.state.peerTried);
+    for(const r of list){ const d=await sgetPeer(this.state.code,r.token); if(d) docs[r.token]=d; tried[r.token]=1; }
+    this.setState({peerDocs:docs,peerTried:tried});
   }
   async openPeerRound(){
     const r=this.state.resp; if(!r||this.state.peerBusy) return;
-    if(this.peerCurrent()) return;
+    if(this.peerState()!=='none') return this.toast('You already have a round — tap Refresh to load it',true);
     this.setState({peerBusy:true});
-    const token=peerToken();
-    const doc={token,code:this.state.code,idkey:r.idkey,leaderName:r.name||'',
+    const token=await newPeerToken(), me=String(currentUserEmail()||'').toLowerCase();
+    if(!token||!me){ this.setState({peerBusy:false}); return this.toast('Could not open the round — try again',true); }
+    const doc={token,code:this.state.code,idkey:r.idkey,ownerEmail:me,leaderName:r.name||'',
       orgName:(this.state.org&&this.state.org.name)||'',round:this.peerRoundList().length+1,
       openedAt:Date.now(),closed:false,responses:[]};
-    const ok=await sset('peer:'+token,doc);
+    const ok=await sset(peerKey(this.state.code,token),doc);
     if(!ok){ this.setState({peerBusy:false}); return this.toast('Could not open the round',true); }
     r.peerRounds=((r.peerRounds)||[]).concat([{token,round:doc.round,openedAt:doc.openedAt}]);
     const docs=Object.assign({},this.state.peerDocs); docs[token]=doc;
@@ -10122,7 +10924,7 @@ class Component extends DCLogic {
     const cur=this.peerCurrent(); if(!cur||this.state.peerBusy) return;
     this.setState({peerBusy:true});
     cur.closed=true; cur.closedAt=Date.now();
-    const ok=await sset('peer:'+cur.token,cur);
+    const ok=await sset(peerKeyOf(cur.code||this.state.code,cur.token),cur);
     const docs=Object.assign({},this.state.peerDocs); docs[cur.token]=cur;
     this.setState({peerDocs:docs,peerBusy:false});
     this.toast(ok?'Round closed':'Could not close the round',!ok);
@@ -10147,7 +10949,7 @@ class Component extends DCLogic {
     const t=this.peerRoundList()[0]; if(!t) return;
     const db=fb(); if(!db) return;
     let seen=null;
-    this._peerUnsub=db.collection(COLL).doc('peer:'+t.token).onSnapshot(d=>{
+    this._peerUnsub=db.collection(COLL).doc(peerKeyOf(this.state.code,t.token)).onSnapshot(d=>{
       let doc=null; try{ doc=JSON.parse((d.data()||{}).value||'null'); }catch(e){}
       if(!doc) return;
       const n=((doc.responses)||[]).length;
@@ -10167,11 +10969,15 @@ class Component extends DCLogic {
   async deletePeerScores(){
     const r=this.state.resp; if(!r||this.state.peerBusy) return;
     this.setState({peerBusy:true});
-    for(const pr of ((r.peerRounds)||[])) await sdel('peer:'+pr.token);
+    // Only rounds actually deleted leave the list; a refused delete stays put and is reported.
+    const kept=[], docs=Object.assign({},this.state.peerDocs);
+    for(const pr of ((r.peerRounds)||[])){
+      if(await sdelPeer(this.state.code,pr.token)) delete docs[pr.token]; else kept.push(pr); }
     this.stopPeerWatch();
-    r.peerRounds=[];
-    this.setState({resp:r,peerDocs:{},peerBusy:false,peerConfirmDelete:false});
+    r.peerRounds=kept;
+    this.setState({resp:r,peerDocs:docs,peerBusy:false,peerConfirmDelete:false});
     await this.saveResp();
+    if(kept.length){ this.watchPeer(); return this.toast('Could not delete the peer scores — try again',true); }
     this.toast('Peer scores deleted');
   }
   async copyPeerLink(){
@@ -10201,27 +11007,33 @@ class Component extends DCLogic {
   teamIsMine(){ const r=this.state.resp, t=this.teamRoundList()[0];
     return !!(t&&((r&&r.teamRounds)||[]).some(x=>x.token===t.token)); }
   teamCurrent(){ const t=this.teamRoundList()[0]; return t?(this.state.peerDocs[t.token]||null):null; }
+  teamState(){ return this.roundState(this.teamRoundList()); }
   async loadTeamDocs(){
     const list=this.teamRoundList(); if(!list.length) return;
     const docs=Object.assign({},this.state.peerDocs);
-    for(const r of list){ const d=await sget('peer:'+r.token); if(d) docs[r.token]=d; }
-    this.setState({peerDocs:docs});
+    const tried=Object.assign({},this.state.peerTried);
+    for(const r of list){ const d=await sgetPeer(this.state.code,r.token); if(d) docs[r.token]=d; tried[r.token]=1; }
+    this.setState({peerDocs:docs,peerTried:tried});
   }
   async openTeamRound(){
     const r=this.state.resp; if(!r||this.state.peerBusy) return;
-    if(this.teamCurrent()) return;
+    if(this.teamState()!=='none') return this.toast('There is already a team round — tap Refresh to load it',true);
     this.setState({peerBusy:true});
-    const token=peerToken();
-    const doc={token,mode:'team',code:this.state.code,idkey:r.idkey,leaderName:r.name||'',
+    const token=await newPeerToken(), me=String(currentUserEmail()||'').toLowerCase();
+    if(!token||!me){ this.setState({peerBusy:false}); return this.toast('Could not open the round — try again',true); }
+    const doc={token,mode:'team',code:this.state.code,idkey:r.idkey,ownerEmail:me,leaderName:r.name||'',
       orgName:(this.state.org&&this.state.org.name)||'',round:this.teamRoundList().length+1,
       openedAt:Date.now(),closed:false,responses:[]};
-    const ok=await sset('peer:'+token,doc);
+    const ok=await sset(peerKey(this.state.code,token),doc);
     if(!ok){ this.setState({peerBusy:false}); return this.toast('Could not open the round',true); }
     r.teamRounds=((r.teamRounds)||[]).concat([{token,round:doc.round,openedAt:doc.openedAt}]);
     const docs=Object.assign({},this.state.peerDocs); docs[token]=doc;
     const org=this.state.org;
     if(org){ org.teamRound={token,round:doc.round,openedAt:doc.openedAt};
-      sset('org:'+org.code,org).catch(()=>{}); }
+      /* Members may not write org:CODE, so /api/members sets teamRound on
+         the saved program, and only to a team round this leader owns. */
+      this.membersPost({action:'team-round',code:org.code,token})
+        .then(res=>{ if(!res.ok) this.toast('The round is open, but your group may not see it yet. Try again.',true); }); }
     this.setState({resp:r,org,peerDocs:docs,peerBusy:false});
     await this.saveResp();
     this.toast('Team round open — share the link');
@@ -10230,7 +11042,7 @@ class Component extends DCLogic {
     const cur=this.teamCurrent(); if(!cur||this.state.peerBusy) return;
     this.setState({peerBusy:true});
     cur.closed=true; cur.closedAt=Date.now();
-    const ok=await sset('peer:'+cur.token,cur);
+    const ok=await sset(peerKeyOf(cur.code||this.state.code,cur.token),cur);
     const docs=Object.assign({},this.state.peerDocs); docs[cur.token]=cur;
     this.setState({peerDocs:docs,peerBusy:false});
     this.toast(ok?'Team round closed':'Could not close the round',!ok);
@@ -10696,7 +11508,11 @@ class Component extends DCLogic {
         if(t) return t;
       }catch(e){ console.warn('preview coach failed, trying /api/coach',e); }
     }
-    const res=await fetch('/api/coach',{method:'POST',headers:{'Content-Type':'application/json'},
+    /* /api/coach answers only signed-in members of a program and admins. */
+    await authReady();
+    const cu=firebase.auth().currentUser; if(!cu) throw new Error('not signed in');
+    const res=await fetch('/api/coach',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await cu.getIdToken())},
       body:JSON.stringify({system:system,messages:messages,max_tokens:maxTokens||500})});
     if(!res.ok) throw new Error('coach endpoint '+res.status);
     const data=await res.json();
@@ -10945,14 +11761,12 @@ class Component extends DCLogic {
      reflecting at once cannot clobber each other's entries. */
   async addColleagueEvidence(member,goalId,text){
     const t=String(text||'').trim(); if(!t||!member||!member.idkey) return false;
-    const s=this.state, key='resp:'+(member.code||s.code)+':'+member.idkey;
-    let rec=null; try{ rec=await sget(key); }catch(e){}
-    if(!rec){ this.toast('Could not reach that record',true); return false; }
-    const g=(Array.isArray(rec.goals)?rec.goals:[]).find(x=>x.id===goalId);
-    if(!g){ this.toast('That goal is no longer open',true); return false; }
-    g.evidence=(g.evidence||[]).concat([{ts:Date.now(), text:t, share:true,
-      byName:(s.name||'A colleague').split(' ')[0], byId:s.idkey}]);
-    try{ await sset(key,rec); }catch(e){ this.toast('Could not save',true); return false; }
+    const s=this.state;
+    /* V3 lets no member write a colleague's record, so /api/members adds the
+       entry (on a fresh read, in a transaction) after checking both are in
+       the program and the goal is still open. */
+    const r=await this.membersPost({action:'evidence',code:member.code||s.code,idkey:member.idkey,goalId,text:t});
+    if(!r.ok){ this.toast(r.error||'Could not save',true); return false; }
     this.setState({obsDraft:'', obsPick:''});
     this.loadMembers(s.code,true);
     this.toast('Sent — they will see what you saw');
@@ -11408,7 +12222,7 @@ class Component extends DCLogic {
   // Mirror the preference and the device timezone onto the push record the
   // server reads. Silently does nothing if they never enabled notifications.
   async syncReminderPrefs(){
-    const s=this.state; if(!s.idkey) return;
+    const s=this.state; if(!s.idkey||!s.code) return;
     const key=this.pushKey();
     const rec=await sget(key); if(!rec||!rec.token) return;
     const c=this.remCfg();
@@ -12053,63 +12867,110 @@ class Component extends DCLogic {
       fr.readAsDataURL(file);
     });
   }
-  async loadMyGroups(email){
+  /* The programs this person can open, from their own members/{email}.orgs
+     (the one list V3 lets them read). A program counts only when its org
+     exists, their record there exists, and no rev: tombstone does. Every
+     failed read leaves that program out: a revoked person may not read their
+     own tombstone, so a refusal means revoked. Returns [{code,idkey,name,
+     orgName}] sorted by name, or null if the members doc could not be read. */
+  async myPrograms(email){
     const em=String(email||'').trim().toLowerCase();
-    if(!em) return this.setState({myGroups:[]});
+    if(!em) return [];
+    await fbReady(); await authReady();
+    const db=fb(); if(!db) return null;
+    let orgs;
     try{
-      const rows=(await slistDocs('resp:'))
-        .filter(x=>x&&x.code&&x.idkey&&x.idkey!=='__preview__'
-          &&String(x.email||'').trim().toLowerCase()===em
-          &&(x.joinedAt||x.lastSeenAt||Number(x.visits)>0));
-      const seen={}, out=[];
-      rows.forEach(x=>{ if(seen[x.code]) return; seen[x.code]=1;
-        out.push({code:x.code,idkey:x.idkey,name:x.name||''}); });
-      // A single membership is not a choice; only offer the switch when it is one.
-      if(out.length<2) return this.setState({myGroups:[]});
-      const named=await Promise.all(out.map(async g=>{
-        let o=null; try{ o=await sget('org:'+g.code); }catch(e){}
-        return Object.assign({},g,{orgName:(o&&o.name)||g.code}); }));
-      named.sort((x,y)=>(x.orgName||'').localeCompare(y.orgName||''));
-      this.setState({myGroups:named},()=>this.watchOtherGroups());
-    }catch(e){ this.setState({myGroups:[]}); }
+      const m=await withTimeout(db.collection('members').doc(em).get(),9000);
+      orgs=(m.exists&&Array.isArray(m.get('orgs')))?m.get('orgs'):[];
+    }catch(e){ console.warn('myPrograms',e); return null; }
+    const idkey=slug(em);
+    const codes=Array.from(new Set(orgs.filter(c=>typeof c==='string'&&c)));
+    const rows=await Promise.all(codes.map(async code=>{
+      try{
+        const [rev,resp,org]=await Promise.all([
+          sgetStrict('rev:'+code+':'+idkey),
+          sgetStrict('resp:'+code+':'+idkey),
+          sgetStrict('org:'+code)]);
+        if(rev||!resp||!org) return null;
+        return {code,idkey,name:resp.name||'',orgName:org.name||code};
+      }catch(e){ return null; }
+    }));
+    return rows.filter(Boolean).sort((x,y)=>(x.orgName||'').localeCompare(y.orgName||''));
   }
-  async joinByCode(){
-    const raw=String(this.state.addCode||'').trim().toUpperCase();
-    if(!raw) return this.toast('Enter the code first',true);
-    const email=String(this.state.email||'').trim().toLowerCase();
-    const name=String((this.state.resp&&this.state.resp.name)||'').trim();
-    if(!email||!name) return this.toast('Could not read your account details',true);
-    if((this.state.myGroups||[]).some(g=>g.code===raw))
-      return this.toast('You are already in that group',true);
-    this.setState({addBusy:true});
+  async loadMyGroups(email){
+    const out=await this.myPrograms(email).catch(()=>null);
+    // A single membership is not a choice; only offer the switch when it is one.
+    if(!out||out.length<2) return this.setState({myGroups:[]});
+    this.setState({myGroups:out},()=>this.watchOtherGroups());
+  }
+  /* Join one more program with the name already on the account: the same
+     door checks as the full join (via /api/join, then revoked and the
+     approved list), and a record made if there is none. Returns
+     {ok,orgName} or {ok:false,error}. */
+  async addProgram(raw,name){
+    const code=cleanCode(raw);
+    const email=String(currentUserEmail()||'').trim().toLowerCase();
+    if(!code) return {ok:false,error:'Enter the code first'};
+    if(!email||!name) return {ok:false,error:'Could not read your account details'};
     const idkey=slug(email);
+    const mem=await ensureMember(code,{sendLink:true});
+    if(!mem.ok) return {ok:false,error:mem.error};
     try{
       const [org,revoked]=await Promise.all([
-        sget('org:'+raw),
-        sget('rev:'+raw+':'+idkey).catch(()=>null)
+        sget('org:'+code),
+        sget('rev:'+code+':'+idkey).catch(()=>null)
       ]);
-      if(!org){ this.setState({addBusy:false});
-        return this.toast('No group found for '+raw,true); }
-      if(revoked){ this.setState({addBusy:false});
-        return this.toast('Your access to '+(org.name||raw)+' has ended. Ask their program lead to restore it.',true); }
+      if(!org) return {ok:false,error:'No group found for '+code};
+      if(revoked) return {ok:false,error:'Your access to '+(org.name||code)+' has ended. Ask their program lead to restore it.'};
       const allow=org.allowlist||[];
-      if(allow.length&&allow.indexOf(email)<0){ this.setState({addBusy:false});
-        return this.toast(email+' is not approved for '+(org.name||raw)+'. Ask their program lead to add it.',true); }
-      let resp=null; try{ resp=await sget('resp:'+raw+':'+idkey); }catch(e){}
-      if(!resp) resp={name,email,idkey,code:raw,joinedAt:Date.now(),progress:{}};
+      if(allow.length&&allow.indexOf(email)<0)
+        return {ok:false,error:email+' is not approved for '+(org.name||code)+'. Ask their program lead to add it.'};
+      let resp=null; try{ resp=await sget('resp:'+code+':'+idkey); }catch(e){}
+      if(!resp) resp={name,email,idkey,code,joinedAt:Date.now(),progress:{}};
       resp.lastSeenAt=Date.now();
-      const ok=await sset('resp:'+raw+':'+idkey,resp);
-      if(!ok){ this.setState({addBusy:false});
-        return this.toast('Could not join — check your connection and try again',true); }
-      this.setState({addCode:'',addOpen:false,addBusy:false});
-      this.toast('Joined '+(org.name||raw));
-      await this.loadMyGroups(email);
-      await this.switchGroup({code:raw,idkey,name,orgName:org.name||raw});
+      if(!(await sset('resp:'+code+':'+idkey,resp)))
+        return {ok:false,error:'Could not join — check your connection and try again'};
+      return {ok:true,code,orgName:org.name||code};
     }catch(e){
-      console.error('joinByCode',e);
-      this.setState({addBusy:false});
-      this.toast('Could not join — check your connection and try again',true);
+      console.error('addProgram',e);
+      return {ok:false,error:'Could not join — check your connection and try again'};
     }
+  }
+  /* "Have a new code?" on My groups: join, then show the refreshed list with
+     the new group in it (it is not opened on its own). */
+  async gateAddProgram(){
+    const s=this.state;
+    if(s.gateAddBusy) return;
+    const code=cleanCode(s.gateAddCode);
+    if(!code) return this.toast('Enter the code first',true);
+    if((s.gatePrograms||[]).some(g=>g.code===code)) return this.toast('You are already in that group',true);
+    const name=((s.gatePrograms||[]).find(g=>g.name)||{}).name||(s.resp&&s.resp.name)||'';
+    // No name on the account yet: the full join form asks for it ("Back to my programs" returns).
+    if(!name) return this.setState({enterNewCode:true,joinCode:code,gateAddCode:''});
+    this.setState({gateAddBusy:true});
+    const r=await this.addProgram(code,name);
+    if(!r.ok){ this.setState({gateAddBusy:false}); return this.toast(r.error,true); }
+    const progs=await this.myPrograms(currentUserEmail()).catch(()=>null);
+    this.setState({gateAddBusy:false,gateAddCode:'',gatePrograms:progs&&progs.length?progs:s.gatePrograms});
+    this.toast('Joined '+r.orgName+' — tap it to open.');
+    if(s.role==='leader') this.loadMyGroups(currentUserEmail()).catch(()=>{});
+  }
+  /* My groups from inside the app: the same screen, without signing out. */
+  async openMyGroups(){
+    this.setState({booting:true});
+    const progs=await this.myPrograms(currentUserEmail()).catch(()=>null);
+    this.setState({booting:false,view:'gate',gatePrograms:progs||[],enterNewCode:false,gateAddCode:''});
+    if(!progs) this.toast('Could not load your groups — check your connection and try again',true);
+  }
+  /* A card on My groups. loadLeader checks the tombstone again, so a group
+     revoked since the list was read still ends in the revoked screen. The
+     group they are already in (opened from the app) just goes back to it. */
+  async pickProgram(g){
+    const s=this.state;
+    if(s.role==='leader'&&g.code===s.code) return this.setState({view:'home',gatePrograms:[],gateAddCode:''});
+    this.setState({gatePickBusy:true});
+    const ok=await this.loadLeader(g.code,g.idkey,g.name,currentUserEmail());
+    this.setState(ok?{gatePickBusy:false,gatePrograms:[],gateAddCode:''}:{gatePickBusy:false,booting:false});
   }
   async switchGroup(g){
     if(!g||g.code===this.state.code) return;
@@ -12185,34 +13046,30 @@ class Component extends DCLogic {
     if(this._pendingGo){ const g=this._pendingGo; this._pendingGo=null;
       setTimeout(()=>this.handleDeepLink(g),60); }
   }
-  /* The code is the only thing that knows which stores exist, so the moment it
-     looks complete we fetch the organization and let the store list appear
-     underneath it. Debounced — nobody needs a lookup per keystroke. */
+  /* No lookup while the code is typed: the rules hide a program until
+     /api/join has added the member, so join() fetches the stores and
+     departments after that instead. Pickers shown for one code are cleared
+     if the code is changed, so a store is never picked from the wrong program. */
   gateCodeTyped(val){
     this.setState({joinCode:val});
-    const code=cleanCode(val);
-    clearTimeout(this._gateT);
-    if(code.length<4){ if(this.state.gateStores.length) this.setState({gateStores:[],gateOrgName:'',joinStore:''}); return; }
-    this._gateT=setTimeout(async()=>{
-      const org=await sget('org:'+code).catch(()=>null);
-      const list=this.orgStores(org), depts=this.orgDepts(org);
-      if(org&&org.code){
-        this._warm={code, org, program:this.loadProgramFor(code).catch(()=>null)};
-      }
-      this.setState({gateStores:list, gateDepts:depts, gateOrgName:(org&&org.name)||'',
-        joinStore:list.indexOf(this.state.joinStore)<0?'':this.state.joinStore,
-        joinDept:depts.indexOf(this.state.joinDept)<0?'':this.state.joinDept});
-    },450);
+    if(cleanCode(val)!==this._gateOrgCode&&(this.state.gateStores.length||this.state.gateDepts.length)){
+      this._gateOrgCode=null;
+      this.setState({gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
+    }
   }
   async join(){
     const code=cleanCode(this.state.joinCode);
-    const first=this.state.joinFirst.trim(), last=this.state.joinLast.trim(), email=this.state.joinEmail.trim();
+    const first=this.state.joinFirst.trim(), last=this.state.joinLast.trim();
+    // The record is keyed by the signed-in account's email, never a typed one.
+    const email=String(currentUserEmail()||'').trim().toLowerCase();
+    if(!email) return this.toast('Sign in first',true);
     if(!code) return this.toast('Enter your organization code',true);
     if(!first||!last) return this.toast('Enter your first and last name',true);
     if(this.state.gateStores.length&&!this.state.joinStore) return this.toast('Pick your store',true);
     if(this.state.gateDepts.length&&!this.state.joinDept) return this.toast('Pick your department',true);
-    if(!/.+@.+\..+/.test(email)) return this.toast('Enter a valid email so you can resume anywhere',true);
     this.setState({joining:true});
+    const mem=await ensureMember(code,{sendLink:true});
+    if(!mem.ok){ this.setState({joining:false}); return this.toast(mem.error,true); }
     const idkeyEarly=slug(email);
     const warm=(this._warm&&this._warm.code===code)?this._warm:null;
     /* The master coach library is small and shared, so it rides along with the
@@ -12224,6 +13081,14 @@ class Component extends DCLogic {
       sgetStrict('rev:'+code+':'+idkeyEarly).then(v=>({v}),e=>({e}))
     ]);
     if(!org){ this.setState({joining:false}); return this.toast('No program found for '+code,true); }
+    /* Before joining, the rules hide the program, so the code preview could not
+       list its stores or departments. Now that it can, ask for them first. */
+    const stores=this.orgStores(org), depts=this.orgDepts(org);
+    if((stores.length&&!this.state.joinStore)||(depts.length&&!this.state.joinDept)){
+      this._gateOrgCode=code;
+      this.setState({joining:false,gateStores:stores,gateDepts:depts,gateOrgName:org.name||''});
+      return this.toast(stores.length&&!this.state.joinStore?'Pick your store':'Pick your department',true);
+    }
     if(('v' in respEarly)&&respEarly.v==null){
       try{ localStorage.removeItem('jjc:resp:'+code+':'+idkeyEarly);
            localStorage.removeItem('jj:resp:'+code+':'+idkeyEarly); }catch(e){}
@@ -12236,7 +13101,7 @@ class Component extends DCLogic {
     }
     if(allow.length&&allow.indexOf(email.toLowerCase())<0){
       this.setState({joining:false});
-      return this.toast('That email is not on the list for '+(org.name||code)+'. Check with your program lead.',true);
+      return this.toast(email+' is not on the list for '+(org.name||code)+'. If your program invited you with your work email, sign out and sign in with that one. Otherwise check with your program lead.',true);
     }
     const idkey=idkeyEarly, name=first+' '+last;
     let resp;
@@ -12278,7 +13143,35 @@ class Component extends DCLogic {
     }
     finally{ this._justJoined=false; }
   }
+  /* Before a saved session opens: has this person's access been revoked, and
+     can they still read this program? Someone who joined before /api/join
+     existed has records but no members/{email} entry, so the rules refuse
+     them. Only on that refusal — never on an ordinary launch — ask /api/join
+     once to add the program, which applies the same door checks as joining.
+     Returns 'go' to carry on (network trouble included, so the usual retries
+     take over), 'revoked', or the refusal message to show. */
+  async checkSavedMembership(saved){
+    let tomb=null, err=null;
+    try{ tomb=await sgetStrict('rev:'+saved.code+':'+saved.idkey); }catch(e){ err=e; }
+    if(tomb) return 'revoked';
+    if(!(err&&err.code==='permission-denied')) return 'go';
+    this._healTried=this._healTried||{};
+    if(this._healTried[saved.code]) return 'go';
+    this._healTried[saved.code]=true;
+    const mem=await ensureMember(saved.code);
+    if(mem.ok) return 'go';
+    if(mem.reason==='revoked') return 'revoked';
+    if(mem.status===403||mem.status===404) return mem.error;
+    return 'go';
+  }
+  forgetSavedSession(){
+    try{ localStorage.removeItem('jj_session'); localStorage.removeItem('jj_known_leader'); }catch(e){}
+  }
   async resume(){ const k=this.state.known; if(!k) return; this.setState({booting:true});
+    const chk=await this.checkSavedMembership(k);
+    if(chk==='revoked'){ this.setState({booting:false,idkey:k.idkey}); return this.revokeAccess(k.code,k.code); }
+    if(chk!=='go'){ this.forgetSavedSession(); this.setState({booting:false,known:null,enterNewCode:true});
+      return this.toast(chk,true); }
     const ok=await this.loadLeader(k.code,k.idkey,k.name,k.email);
     if(!ok){ this.setState({booting:false}); this.toast('Could not find that saved login',true); } }
   async enterStudio(name){
@@ -12302,6 +13195,131 @@ class Component extends DCLogic {
     this.signOut();
     this.setState({known:null,enterNewCode:true,joinCode:''});
     this.toast('Your access to '+(orgName||code)+' has ended. Check with your program lead.',true);
+  }
+  /* The Microsoft confirmation link, once someone is signed in: the server
+     checks the secret and, if it matches, never asks this account again.
+     Tried once per page load; the email's link can be opened again. */
+  /* When the link named the program they were joining (&c=CODE), carry on
+     with that join here: straight into the program if their record there
+     already exists, otherwise the join form with the code (and their name,
+     if Microsoft gave one) filled in. Returns true when it has taken over
+     what the gate shows, false to let boot carry on as usual. */
+  async confirmMsLink(){
+    let t=null, code='';
+    try{ t=sessionStorage.getItem('jj_msv'); code=sessionStorage.getItem('jj_msv_code')||'';
+      sessionStorage.removeItem('jj_msv'); sessionStorage.removeItem('jj_msv_code'); }catch(e){}
+    if(!t) return false;
+    const r=await msVerifyApi({action:'confirm',t});
+    if(!r.ok){
+      this.toast(r.code==='not-microsoft'?'That link is for a Microsoft sign-in. Sign in with Microsoft, then open the link again.':r.error,true);
+      return false;
+    }
+    code=cleanCode(code);
+    if(!code){ this.toast('Email confirmed — enter your code to join.'); return false; }
+    const mem=await ensureMember(code);
+    if(!mem.ok){ this.toast(mem.error,true); return false; }
+    const me=String(currentUserEmail()||'').trim().toLowerCase(), idkey=slug(me);
+    let resp=null; try{ resp=await sgetStrict('resp:'+code+':'+idkey); }catch(e){}
+    if(!resp){
+      // Already in other groups: join with the name on the account, as My groups does.
+      const progs=(await this.myPrograms(me).catch(()=>null))||[];
+      const known=(progs.find(g=>g.name)||{}).name;
+      if(known){
+        const r=await this.addProgram(code,known);
+        if(!r.ok){ this.toast(r.error,true); return false; }
+        resp={name:known};
+      }
+    }
+    if(resp){
+      if(await this.loadLeader(code,idkey,resp.name,me)){ this.toast('Email confirmed — you are in.'); return true; }
+      return false;
+    }
+    const parts=String((firebase.auth().currentUser||{}).displayName||'').trim().split(/\s+/).filter(Boolean);
+    this.setState({booting:false,view:'gate',known:null,gatePrograms:[],enterNewCode:true,
+      joinCode:code,joinFirst:parts[0]||'',joinLast:parts.slice(1).join(' ')});
+    this.toast('Email confirmed — check your name, then tap Join to finish joining '+code+'.');
+    return true;
+  }
+  /* The gate's "verify your email" panel. Coming back to the tab (from the
+     mail app, or the tab the link opened) checks again on its own; once
+     authCheckVerified() succeeds, boot's authReady() resolves and carries on. */
+  showVerify(email){
+    this.setState({booting:false,view:'gate',authChecked:true,authEmail:'',
+      verifyEmail:String(email||'').trim().toLowerCase(),verifyMsg:'',verifyErr:''});
+    if(this._verifyVis) return;
+    this._verifyVis=()=>{ if(document.visibilityState==='visible'&&this.state.verifyEmail
+      &&!this.state.authEmail&&!this.state.verifyBusy) authCheckVerified(); };
+    document.addEventListener('visibilitychange',this._verifyVis);
+  }
+  /* The gate's email and password form. Sign-in only: accounts are created
+     by an admin in Firebase, and the person sets a password with Forgot
+     password. A verified sign-in needs nothing more: Firebase reports the
+     user and boot carries on. One not verified yet goes to the Check your
+     email panel; an admin-made account has had no link yet, so the panel
+     says to send one. */
+  async emailSubmit(){
+    const s=this.state;
+    if(s.pwBusy) return;
+    const email=String(s.pwEmail||'').trim(), pw=s.pwPass||'';
+    if(!email) return this.setState({pwErr:'Enter your email address.'});
+    if(!pw) return this.setState({pwErr:'Enter your password.'});
+    this.setState({pwBusy:true,pwErr:'',pwMsg:'',gateSignInErr:''});
+    const r=await authEmailSignIn(email,pw);
+    if(!r.ok) return this.setState({pwBusy:false,pwErr:r.error});
+    this.setState({pwBusy:false,pwPass:''});
+    if(!r.verified){
+      this.showVerify(email);
+      this.setState({verifyMsg:'This address is not verified yet. Tap Resend the email to get a link.'});
+    }
+  }
+  /* Forgot password: uses the address typed above. The reply is the same
+     whether or not that address has an account. Once a minute at most. */
+  async emailReset(){
+    const s=this.state;
+    if(s.pwBusy) return;
+    const email=String(s.pwEmail||'').trim();
+    if(!email) return this.setState({pwMsg:'',pwErr:'Type your email address above, then tap Forgot password.'});
+    const wait=60000-(Date.now()-(s.pwResetAt||0));
+    if(wait>0) return this.setState({pwErr:'',pwMsg:'Sent. You can send another in '+Math.ceil(wait/1000)+' seconds.'});
+    this.setState({pwBusy:true,pwErr:'',pwMsg:'',pwResetAt:Date.now()});
+    const r=await authSendReset(email);
+    this.setState(r.ok?{pwBusy:false,pwMsg:'If there is an account for '+email+', a link to reset the password is on its way. Check spam or junk too.'}
+      :{pwBusy:false,pwErr:r.error,pwResetAt:0});
+  }
+  stopVerifyWatch(){
+    if(this._verifyVis) document.removeEventListener('visibilitychange',this._verifyVis);
+    this._verifyVis=null;
+  }
+  async verifyCheck(){
+    if(this.state.verifyBusy) return;
+    this.setState({verifyBusy:true,verifyErr:'',verifyMsg:''});
+    const ok=await authCheckVerified();
+    this.setState({verifyBusy:false,
+      verifyErr:ok?'':'Not verified yet. Open the link in the email, then tap this again.'});
+  }
+  async verifyResend(){
+    const wait=60000-(Date.now()-(this.state.verifySentAt||0));
+    if(wait>0) return this.setState({verifyErr:'',verifyMsg:'Sent. You can send another in '+Math.ceil(wait/1000)+' seconds.'});
+    this.setState({verifySentAt:Date.now(),verifyErr:'',verifyMsg:'Sending…'});
+    const r=await authResendVerify();
+    this.setState(r.ok?{verifyMsg:'Sent again to '+this.state.verifyEmail+'. Check spam or junk too.'}
+      :{verifyMsg:'',verifyErr:r.error,verifySentAt:0});
+  }
+  /* The Sign out button: leave the app (signOut, which stops listeners and
+     timers), then sign out of Firebase and wipe this device's copy. Revocation
+     calls signOut() alone, so the person stays signed in and lands on the gate. */
+  async signOutAccount(){
+    if(this._signingOut) return;
+    this._signingOut=true;
+    /* This device stops receiving their notifications before they leave
+       (the writes need them still signed in). Never holds sign-out up for
+       more than a few seconds. The device's on/off choice itself stays. */
+    try{ await Promise.race([this.unregisterPushHere(),new Promise(r=>setTimeout(r,6000))]); }
+    catch(e){ console.warn('signOut push',e); }
+    try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf('jj_push_on:')===0) localStorage.removeItem(k); }); }catch(e){}
+    this.signOut();
+    const ok=await authSignOut();
+    if(!ok){ this._signingOut=false; this.toast('Could not sign out. Try again.',true); }
   }
   signOut(){ this._editUnlocked=false; this._mineSubscribed=undefined; try{ localStorage.removeItem('jj_session'); }catch(e){}
     this.stopFeedWatch(); this.stopChat(); this.stopReleaseWatch(); clearTimeout(this._fiveSTimer);
@@ -13780,6 +14798,27 @@ class Component extends DCLogic {
       avatarStyle:'flex:none;width:52px;height:52px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:'+(i.me?'#FADA01':'#EAF1F8')+';color:#0C1B2E;font-weight:900;font-size:16px'}; }
   clearLocation(){ const s=this.state; if(!s.resp||!s.resp.loc) return;
     delete s.resp.loc; this.setState({resp:s.resp}); this.saveResp(); this.toast('Your pin is off the map'); }
+  /* POST /api/members: { ok } or { ok:false, error }. Never throws. */
+  async membersPost(body){
+    try{
+      await authReady();
+      const u=firebase.auth().currentUser; if(!u) return {ok:false,error:'Sign in first'};
+      const r=await withTimeout(fetch('/api/members',{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
+        body:JSON.stringify(body)}),15000);
+      let j={}; try{ j=await r.json(); }catch(e){}
+      return (r.ok&&j.ok)?j:{ok:false,error:j.error||''};
+    }catch(e){ return {ok:false,error:''}; }
+  }
+  async fetchMembers(code){
+    await authReady();
+    const u=firebase.auth().currentUser; if(!u) throw new Error('not signed in');
+    const r=await withTimeout(fetch('/api/members?code='+encodeURIComponent(code),
+      {headers:{'Authorization':'Bearer '+(await u.getIdToken())}}),15000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    if(!r.ok||!j.ok||!Array.isArray(j.members)) throw new Error(j.error||('members '+r.status));
+    return j.members;
+  }
   async loadMembers(code,force){
     code=code||this.state.code; if(!code) return;
     const fresh=this._membersAt&&this._membersCode===code&&(Date.now()-this._membersAt<120000);
@@ -13788,7 +14827,11 @@ class Component extends DCLogic {
     this.setState({membersLoading:true});
     this._membersInFlight=(async()=>{
       try{
-        const rows=await slistDocs('resp:'+code+':');
+        /* Admins may list resp: records themselves; everyone else asks
+           /api/members, which checks they are in the program and returns
+           only what these views use. */
+        const me=String(currentUserEmail()||'').trim().toLowerCase();
+        const rows=isAdminEmail(me)?await slistDocs('resp:'+code+':'):await this.fetchMembers(code);
         const out=rows.filter(x=>x&&x.name&&x.idkey!=='__preview__'&&x.idkey!==this.state.idkey);
         out.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
         this._membersAt=Date.now(); this._membersCode=code;
@@ -13875,25 +14918,47 @@ class Component extends DCLogic {
       active:g.active
     }));
   }
+  /* Program leads are the leads list of emails in org:CODE, which only
+     admins can write; the member's own resp: record, which they can save,
+     no longer decides it. resp.orgLead is still mirrored because the join
+     alert in functions/index.js (adminTokens) reads it until that is
+     redeployed. */
+  leadsOf(org){ const l=org&&org.leads; return Array.isArray(l)?l:[]; }
+  isOrgLeadHere(){
+    const s=this.state, me=String(currentUserEmail()||'').trim().toLowerCase();
+    return s.role==='leader'&&!!me&&this.leadsOf(s.org).indexOf(me)>=0;
+  }
   async setOrgLead(r,on){
-    const doc=await sget('resp:'+r.code+':'+r.idkey);
-    if(!doc) return this.toast('Could not find that leader',true);
-    doc.orgLead=!!on;
-    const ok=await sset('resp:'+r.code+':'+r.idkey,doc);
-    if(!ok) return this.toast('Could not save',true);
+    const email=String(r.email||'').trim().toLowerCase();
+    if(!email) return this.toast('This leader has no email address, so they cannot be a lead',true);
+    let org=null;
+    try{ org=await sgetStrict('org:'+r.code); }catch(e){ return this.toast('Could not reach the program. Try again.',true); }
+    if(!org) return this.toast('Could not find that program',true);
+    if(org.leads!==undefined&&!Array.isArray(org.leads))
+      return this.toast('The lead list for this program is damaged. Nothing was changed.',true);
+    const leads=this.leadsOf(org).filter(x=>x!==email);
+    if(on) leads.push(email);
+    org.leads=leads;
+    if(!await sset('org:'+r.code,org)) return this.toast('Could not save',true);
+    const listed=(this.state.orgList||[]).find(x=>x.code===r.code); if(listed) listed.leads=leads.slice();
     r.orgLead=!!on;
     this.setState({roster:this.state.roster.slice()});
+    let mirrored=false;
+    try{ const doc=await sget('resp:'+r.code+':'+r.idkey);
+      if(doc){ doc.orgLead=!!on; mirrored=await sset('resp:'+r.code+':'+r.idkey,doc); } }catch(e){}
+    if(!mirrored) return this.toast((on?'Lead saved':'Lead removed')+', but their join alerts could not be updated. Try again.',true);
     this.toast(on?(r.name+' can now see organization data'):(r.name+' is back to a standard leader'));
   }
   // An org lead also needs everyone else's peer-review documents — aggregate
   // counts only; individual responses are never rendered for them.
   async loadOrgPeerDocs(){
-    if(!(this.state.resp&&this.state.resp.orgLead)) return;
+    if(!this.isOrgLeadHere()) return;
     const docs=Object.assign({},this.state.peerDocs);
     for(const r of (this.state.members||[])){
+      if(r.peerAgg!==undefined) continue;   // /api/members already summed it
       for(const pr of ((r.peerRounds)||[])){
         if(docs[pr.token]) continue;
-        const d=await sget('peer:'+pr.token); if(d) docs[pr.token]=d;
+        const d=await sgetPeer(r.code||this.state.code,pr.token); if(d) docs[pr.token]=d;
       }
     }
     this.setState({peerDocs:docs});
@@ -13908,11 +14973,14 @@ class Component extends DCLogic {
     const r=(await slistDocs('resp:'+code+':'))
       .filter(x=>x&&x.name&&x.idkey!=='__preview__');
     r.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    /* Who is a lead comes from org:CODE, not the old flag on their record. */
+    const org=await sget('org:'+code).catch(()=>null), leads=this.leadsOf(org);
+    r.forEach(x=>{ x.orgLead=leads.indexOf(String(x.email||'').trim().toLowerCase())>=0; });
     this.setState({roster:r});
     // pull every peer-review round this org's leaders have opened, so the
     // Scores tab can show the 360 alongside the self-scores
     const docs=Object.assign({},this.state.peerDocs);
-    for(const x of r){ for(const pr of (x.peerRounds||[])){ const d=await sget('peer:'+pr.token); if(d) docs[pr.token]=d; } }
+    for(const x of r){ for(const pr of (x.peerRounds||[])){ const d=await sgetPeer(code,pr.token); if(d) docs[pr.token]=d; } }
     this.setState({peerDocs:docs});
     try{ const cds=await slistDocs('coach:'+code+':');
       const map={}; (cds||[]).forEach(d=>{ if(d&&d.idkey) map[d.idkey]=d; });
@@ -13929,6 +14997,67 @@ class Component extends DCLogic {
         .filter(x=>x&&x.name&&x.idkey!=='__preview__');
       this.setState({actRows:rows,actLoading:false,actAt:Date.now()});
     }catch(e){ console.error('activity',e); this.setState({actLoading:false}); }
+  }
+  /* One-off: move old peer:TOKEN rounds to peer:CODE:TOKEN through the
+     admin-only /api/admin/migrate-peers. A real run is offered only after a
+     dry run in this session listed rounds as ready, and it sends exactly
+     that list: the server moves nothing else. */
+  async runPeerMigration(run){
+    if(this.state.migBusy) return;
+    const last=this.state.migResult;
+    let tokens=[];
+    if(run){
+      tokens=(last&&!last.run?(last.ready||[]):[]).map(x=>x.token).filter(Boolean);
+      const n=tokens.length;
+      if(!n) return this.toast('Run the dry run first',true);
+      if(!window.confirm('Move the '+n+' peer round'+(n===1?'':'s')+' this dry run listed as ready?\n\nEach old copy is deleted once its new copy is written. Nothing else is moved.')) return;
+    }
+    this.setState({migBusy:true,migErr:'',migNote:''});
+    try{
+      await authReady();
+      const u=firebase.auth().currentUser;
+      if(!u) throw new Error('Sign in first');
+      const call=async body=>{
+        const r=await withTimeout(fetch('/api/admin/migrate-peers',{method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
+          body:JSON.stringify(body)}),30000);
+        let j={}; try{ j=await r.json(); }catch(e){}
+        if(!r.ok||!j.ok) throw new Error(j.error||('The server answered '+r.status));
+        return j;
+      };
+      /* The server checks 50 old rounds a call. Page from where the last call
+         stopped until it says done; 200 pages is a safety stop, not a limit
+         anyone should reach. */
+      const dryAll=async label=>{
+        const out={run:false,oldTotal:0,alreadyNew:0,ready:[],skipped:[],more:false};
+        let after='';
+        for(let pg=0;;pg++){
+          if(pg>=200){ out.more=true; break; }
+          const j=await call(after?{run:false,after}:{run:false});
+          out.oldTotal+=j.oldTotal; out.alreadyNew+=j.alreadyNew;
+          out.ready=out.ready.concat(j.ready||[]); out.skipped=out.skipped.concat(j.skipped||[]);
+          this.setState({migNote:label+' '+out.oldTotal+' old rounds…'});
+          if(j.done) break;
+          after=j.next;
+        }
+        return out;
+      };
+      if(!run){ const res=await dryAll('Checked'); this.setState({migBusy:false,migNote:'',migResult:res}); return; }
+      const res={run:true,results:[],skipped:[],leftover:[]};
+      for(let i=0;i<tokens.length;i+=50){
+        const j=await call({run:true,tokens:tokens.slice(i,i+50)});
+        res.results=res.results.concat(j.results||[]); res.skipped=res.skipped.concat(j.skipped||[]);
+        this.setState({migNote:'Moved '+res.results.filter(x=>x.outcome==='moved').length+' of '+tokens.length+'…'});
+      }
+      // Anything still ready was not in the dry run: report it, do not move it.
+      const after=await dryAll('Re-checked');
+      res.leftover=after.ready.map(x=>({from:x.from,to:x.to,reason:'not-in-dry-run',detail:'not in dry run — run again'}));
+      res.more=after.more;
+      this.setState({migBusy:false,migNote:'',migResult:res});
+    }catch(e){
+      console.error('runPeerMigration',e);
+      this.setState({migBusy:false,migErr:(e&&e.message)||'Could not reach the server'});
+    }
   }
   async runSpeedTest(){
     const s=this.state;
@@ -13983,14 +15112,14 @@ class Component extends DCLogic {
         .forEach(x=>pool.push({r:x,code:o.code,orgName:o.name}));
     }
     for(const p of pool){ for(const pr of (p.r.peerRounds||[]).concat(p.r.teamRounds||[])){
-      if(docs[pr.token]) continue; const d=await sget('peer:'+pr.token); if(d) docs[pr.token]=d; } }
+      if(docs[pr.token]) continue; const d=await sgetPeer(p.code,pr.token); if(d) docs[pr.token]=d; } }
     const teams=[];
     for(const o of orgs){
       const tokens=[];
       if(o.teamRound&&o.teamRound.token) tokens.push(o.teamRound.token);
       pool.filter(p=>p.code===o.code).forEach(p=>((p.r.teamRounds)||[]).forEach(t=>{
         if(tokens.indexOf(t.token)<0) tokens.push(t.token); }));
-      for(const t of tokens){ if(!docs[t]){ const d=await sget('peer:'+t); if(d) docs[t]=d; } }
+      for(const t of tokens){ if(!docs[t]){ const d=await sgetPeer(o.code,t); if(d) docs[t]=d; } }
       const best=tokens.map(t=>docs[t]).filter(Boolean)
         .sort((a,b)=>(b.openedAt||0)-(a.openedAt||0))[0];
       if(best) teams.push({orgName:o.name,code:o.code,doc:best});
@@ -14040,6 +15169,11 @@ class Component extends DCLogic {
   async saveOrg(code,patch){
     const o=this.state.orgList.find(x=>x.code===code); if(!o) return false;
     Object.assign(o,patch);
+    /* The leads list is changed only by setOrgLead. This copy of the program
+       may be older than it, so the saved list is kept, and if it cannot be
+       read the save waits rather than risk dropping it. */
+    let cur=null; try{ cur=await sgetStrict('org:'+code); }catch(e){ return false; }
+    if(cur&&cur.leads!==undefined) o.leads=cur.leads; else delete o.leads;
     const ok=await sset('org:'+code,o);
     /* An address returning to the approved list lifts its revocation — that
        list is where access is granted, so it is where it is restored. */
@@ -14066,7 +15200,7 @@ class Component extends DCLogic {
     const org=this.state.orgList.find(o=>o.code===r.code);
     if(org&&org.teamRound&&org.teamRound.token) toks.push(org.teamRound.token);
     const docs=Object.assign({},this.state.peerDocs); let got=false;
-    for(const t of toks){ if(docs[t]) continue; const d=await sget('peer:'+t); if(d){ docs[t]=d; got=true; } }
+    for(const t of toks){ if(docs[t]) continue; const d=await sgetPeer(r.code,t); if(d){ docs[t]=d; got=true; } }
     if(got) this.setState({peerDocs:docs});
     try{ const cd=await sget(this.coachKey(r.code,r.idkey));
       this.setState({ldCoach:(cd&&typeof cd==='object')?cd:null,ldPaste:''}); }
@@ -14077,24 +15211,72 @@ class Component extends DCLogic {
     try{ navigator.clipboard.writeText(text).then(done,()=>this.toast('Could not copy',true)); }
     catch(e){ this.toast('Could not copy',true); }
   }
+  /* Remove a leader from a program, in the order that keeps them locked out
+     if anything stops part-way:
+       1. find every address their access could be held under (read only);
+       2. write a rev: tombstone for each, so /api/join refuses them from now
+          on, whatever email they sign in with;
+       3. take CODE out of members/{email}.orgs and check with the server that
+          it is gone, so the rules stop letting them read the program; then
+          take them off the approved list;
+       4. only then delete their peer/team rounds, push token and, last, their
+          record. Until the record is gone, Remove can simply be run again.
+     Any failure stops at that step and says what is left; nothing after it runs. */
   async removeLeader(r){
-    if(!window.confirm('Remove '+(r.name||'this leader')+' from '+r.code+'?\n\nTheir assessment scores, written answers and tool history are deleted and they will have to sign up again with the code.')) return;
-    const ok=await sdel('resp:'+r.code+':'+r.idkey);
-    try{ await sdel('push:'+r.code+':'+r.idkey); }catch(e){}
-    try{ await sset('rev:'+r.code+':'+r.idkey,{at:Date.now(),email:r.email||''}); }catch(e){}
-    try{
-      const o=this.state.orgList.find(x=>x.code===r.code);
-      const mail=String(r.email||'').toLowerCase();
-      if(o&&mail&&Array.isArray(o.allowlist)&&o.allowlist.indexOf(mail)>=0){
-        await this.saveOrg(r.code,{allowlist:o.allowlist.filter(x=>x!==mail)});
-      }
-    }catch(e){}
-    if(!ok) return this.toast('Could not remove that leader',true);
-    for(const pr of ((r.peerRounds)||[]).concat((r.teamRounds)||[])) await sdel('peer:'+pr.token);
+    const name=r.name||'this leader', code=r.code;
+    if(!window.confirm('Remove '+name+' from '+code+'?\n\nThey lose access to '+code+'. Their assessment scores, written answers and tool history are deleted and they will have to sign up again with the code.')) return;
+    const stop=msg=>{ this.toast(msg,true); return false; };
+    const unchanged='Could not remove access for '+name+' — nothing was changed. Try again.';
+    const partial=()=>stop('Access partly removed — tap Remove again to finish.');
+    await fbReady(); await authReady();
+    const db=fb(); if(!db) return stop(unchanged);
+    // 1. Every address their membership could be under: the account that saved
+    //    the record (ownerEmail), the email inside it, and the roster's.
+    let snap;
+    try{ snap=await withTimeout(db.collection(COLL).doc('resp:'+code+':'+r.idkey).get({source:'server'}),9000); }
+    catch(e){ console.error('removeLeader read',e); return stop('Could not remove access for '+name+' — their record could not be read. Nothing was changed.'); }
+    let inner=null; try{ inner=snap.exists?JSON.parse(snap.get('value')||'null'):null; }catch(e){}
+    const emails=Array.from(new Set([snap.exists?snap.get('ownerEmail'):'',inner&&inner.email,r.email]
+      .map(e=>String(e||'').trim().toLowerCase()).filter(e=>e.indexOf('@')>0)));
+    if(!emails.length) return stop('Could not remove access for '+name+' — their record has no email. Nothing was changed.');
+    // 2. The tombstones first. /api/join looks for rev:CODE:slug(signed-in
+    //    email), so each address gets one, the record's own key first.
+    const at=Date.now();
+    let written=0;
+    for(const ik of Array.from(new Set([r.idkey].concat(emails.map(slug))))){
+      if(!(await sset('rev:'+code+':'+ik,{at,email:emails[0],emails}))) return written?partial():stop(unchanged);
+      written++;
+    }
+    // 3. Membership out, then confirmed by the server. No members doc means no
+    //    membership. arrayRemove takes out only this code; their other programs stay.
+    const FV=firebase.firestore.FieldValue;
+    for(const em of emails){
+      const ref=db.collection('members').doc(em);
+      try{ await withTimeout(ref.update({orgs:FV.arrayRemove(code),updatedAt:FV.serverTimestamp()}),9000); }
+      catch(e){ if(!(e&&e.code==='not-found')){ console.error('removeLeader members',em,e); return partial(); } }
+      try{
+        const m=await withTimeout(ref.get({source:'server'}),9000);
+        const orgs=m.exists?m.get('orgs'):null;
+        if(Array.isArray(orgs)&&orgs.indexOf(code)>=0) return partial();
+      }catch(e){ console.error('removeLeader check',em,e); return partial(); }
+    }
+    const o=this.state.orgList.find(x=>x.code===code);
+    if(o&&Array.isArray(o.allowlist)&&o.allowlist.some(x=>emails.indexOf(x)>=0)){
+      if(!(await this.saveOrg(code,{allowlist:o.allowlist.filter(x=>emails.indexOf(x)<0)})))
+        return stop('Access to '+code+' is removed, but '+name+' is still on the approved list — tap Remove again. Their record was not deleted.');
+    }
+    // 4. Their data, record last.
+    let roundsLeft=0;
+    for(const pr of ((r.peerRounds)||[]).concat((r.teamRounds)||[])) if(!(await sdelPeer(code,pr.token))) roundsLeft++;
+    if(roundsLeft) return stop(name+' has lost access, but '+roundsLeft+' peer or team round'+(roundsLeft===1?'':'s')+' could not be deleted — tap Remove again.');
+    try{ await sdel('push:'+code+':'+r.idkey); }catch(e){}
+    if(!(await sdel('resp:'+code+':'+r.idkey)))
+      return stop(name+' has lost access, but their record could not be deleted — tap Remove again.');
     this.setState({roster:this.state.roster.filter(x=>x.idkey!==r.idkey),
       selectedLeader:this.state.selectedLeader&&this.state.selectedLeader.idkey===r.idkey?null:this.state.selectedLeader,
       scorePool:(this.state.scorePool||[]).filter(p=>!(p.r.idkey===r.idkey&&p.code===r.code))});
     this.toast((r.name||'Leader')+' removed — access revoked');
+    return true;
   }
   async deleteOrg(code){
     if(!window.confirm('Delete '+code+'? Leaders keep their records but can no longer sign in with this code.')) return;
@@ -14628,7 +15810,7 @@ class Component extends DCLogic {
     v.onLiveEdit=()=>{ const on=!s.liveEdit;
       this.setState({liveEdit:on});
       this.toast(on?'Tap any label to rename it':'Text editing off'); };
-    v.onSignOut=()=>this.signOut();
+    v.onSignOut=()=>this.signOutAccount();
     v.signOutStyle=(s.role&&!s.booting)?'flex:none;white-space:nowrap;font-family:inherit;background:transparent;border:1px solid #C6D4E2;color:#7E8D9C;border-radius:7px;padding:7px 11px;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;min-height:34px':'display:none';
     // ---- consistency, read across every tool at once ----
     const allStamps=this.allToolStamps();
@@ -14790,9 +15972,14 @@ class Component extends DCLogic {
           const ink=on?'#0C2647':'#FFFFFF';
           // Entrance sweeps left → right across the whole pyramid, by block center.
           const anim='animation:jjSweep 1s cubic-bezier(.22,.9,.3,1) '+(0.15+(ORD[r.t]+i)*0.22).toFixed(3)+'s backwards;';
+          /* Once the sweep has finished, each block glows once, in the same
+             order, so visitors see they can be tapped. Played once (the
+             animation list never changes on re-render, so it never restarts);
+             reduced motion turns every animation off. */
+          const glow=', jjBlockGlow 1.1s ease '+(2.9+(ORD[r.t]+i)*0.07).toFixed(3)+'s 1';
           cells.push({points:pts.join(' '),fill:on?'#FADA01':tint[r.t],
             icon:ICON_URL[g.id]||BLANK_IMG, ix:cx-isz/2, iy:top, isz,
-            gStyle:'cursor:pointer;transition:opacity .2s ease;'+anim+'opacity:'+(dim?'.55':'1')+';'+(on?'filter:drop-shadow(0 0 9px rgba(250,218,1,.6))':''),
+            gStyle:'cursor:pointer;transition:opacity .2s ease;'+anim.replace(/;$/,glow+';')+'opacity:'+(dim?'.55':'1')+';'+(on?'filter:drop-shadow(0 0 9px rgba(250,218,1,.6))':''),
             onTap:()=>this.setState({gateSel:on?null:g.id})});
           g.lines.forEach((ln,li)=>labels.push({x:cx-45,y:firstBaseline-size+li*lead,w:90,h:lead,text:ln,
             style:anim+'display:flex;align-items:center;justify-content:center;height:100%;white-space:nowrap;line-height:1;font-family:Montserrat,sans-serif;font-weight:800;font-size:'+size+'px;letter-spacing:.4px;color:'+ink}));
@@ -14800,6 +15987,10 @@ class Component extends DCLogic {
       });
       const selMod=GATE.filter(g=>g.id===sel)[0];
       v.gateCells=cells; v.gateCellLabels=labels;
+      // Under the pyramid: "Click" with a mouse or trackpad, "Tap" on touch screens.
+      let fine=false;
+      try{ fine=window.matchMedia('(hover:hover) and (pointer:fine)').matches; }catch(e){}
+      v.gateTapHint=(fine?'Click':'Tap')+' any block to explore';
       v.gateHasSel=!!selMod; v.gateNoSel=!selMod;
       v.gateSelName=selMod?selMod.name:'';
       v.gateSelBlurb=selMod?selMod.blurb:'';
@@ -14810,7 +16001,7 @@ class Component extends DCLogic {
     v.resumeName=(s.known&&s.known.name)?('Welcome back, '+String(s.known.name).split(' ')[0]+'.'):'Welcome back.';
     v.resumeSlow=!!s.resumeSlow;
     v.onResumeGate=()=>this.setState({view:'gate',joinCode:(s.known&&s.known.code)||''});
-    v.showGate=V('gate'); v.showAdminLogin=V('admin-login'); v.showHome=V('home'); v.showFund=V('fund');
+    v.showGate=V('gate'); v.showHome=V('home'); v.showFund=V('fund');
     v.showItem=V('item'); v.showToolkit=V('toolkit'); v.showTool=V('tool'); v.showProgress=V('progress');
     v.showMe=V('me'); v.showAdmin=V('admin'); v.showHub=V('hub'); v.showStreak=V('streak'); v.showAssess=V('assess'); v.showScore=V('score');
     v.showOrgDash=V('orgdash');
@@ -16210,24 +17401,99 @@ class Component extends DCLogic {
     v.gateStoreValue=s.joinStore||'';
     v.onGateStore=e=>this.setState({joinStore:e.target.value});
     v.gateStoreLabel=s.gateOrgName?(s.gateOrgName+' · your store'):'Your store';
-    v.joinFields=[jf('Organization code','joinCode','Enter your team code',true),jf('First name','joinFirst','Enter your first name'),jf('Last name','joinLast','Enter your last name'),jf('Email','joinEmail','Enter your email address')];
+    v.joinFields=[jf('Organization code','joinCode','Enter your team code',true),jf('First name','joinFirst','Enter your first name'),jf('Last name','joinLast','Enter your last name')];
     v.joinFields[0].onChange=e=>this.gateCodeTyped(e.target.value);
     v.joinCta=s.joining?'Signing in…':'Enter my playbook';
     v.onJoin=()=>this.join();
     v.hasKnownLeader=!!s.known; v.knownLeaderName=s.known?((s.known.name||'').split(' ')[0]||'again'):'';
-    v.gateWelcomeBack=!!s.known&&!s.enterNewCode;
-    v.gateShowForm=!s.known||!!s.enterNewCode;
+    // Nothing below the header shows until Firebase has said who (if anyone) is signed in.
+    v.gateNeedsSignIn=!!s.authChecked&&!s.authEmail&&!s.verifyEmail;
+    v.gateVerify=!s.authEmail&&!!s.verifyEmail;
+    /* Google refuses sign-in inside an app's embedded web view (the iOS
+       app is one), so there the gate offers email and password only.
+       Microsoft is hidden there too. */
+    const inApp=this.isNativeApp();
+    v.gateShowGoogle=!inApp;
+    v.gateShowMicrosoft=!inApp&&msSignInHere();
+    v.gateSignInHint=inApp
+      ?'Sign in with your email and password. Use the email your program invited you with. First time? Tap Forgot password to set one.'
+      :'Use the email your program invited you with. First time? Continue with Google, or tap Forgot password to set one.';
+    // Sign-in only; an admin creates email accounts (see emailSubmit).
+    v.pwInpStyle=INP+';display:block;box-sizing:border-box;max-width:300px;margin:0 auto 10px';
+    v.pwEmail=s.pwEmail||''; v.pwPass=s.pwPass||'';
+    v.onPwEmail=e=>this.setState({pwEmail:e.target.value,pwErr:'',pwMsg:''});
+    v.onPwPass=e=>this.setState({pwPass:e.target.value,pwErr:''});
+    v.onPwSubmit=e=>{ if(e&&e.preventDefault) e.preventDefault(); this.emailSubmit(); };
+    v.pwPassAuto='current-password';
+    v.pwPassPh='Password';
+    v.pwCta=s.pwBusy?'Signing in…':'Sign in with email';
+    v.pwErr=s.pwErr||''; v.pwHasErr=!!s.pwErr;
+    v.pwMsg=s.pwMsg||''; v.pwHasMsg=!!s.pwMsg;
+    v.pwShowForgot=true;
+    v.onPwForgot=()=>this.emailReset();
+    v.verifyEmail=s.verifyEmail||'';
+    v.verifyCta=s.verifyBusy?'Checking…':'I’ve verified — continue';
+    v.onVerifyCheck=()=>this.verifyCheck();
+    v.onVerifyResend=()=>this.verifyResend();
+    v.verifyMsg=s.verifyMsg||''; v.verifyHasMsg=!!s.verifyMsg;
+    v.verifyErr=s.verifyErr||''; v.verifyHasErr=!!s.verifyErr;
+    v.gateSignedIn=!!s.authEmail;
+    v.gateAuthEmail=s.authEmail||'';
+    v.onGateSwitchAccount=()=>this.signOutAccount();
+    v.gateSignInErr=s.gateSignInErr||'';
+    v.gateHasSignInErr=!!s.gateSignInErr;
+    /* gateSignInBusy holds which provider is opening. An unverified
+       Microsoft sign-in goes to Check your email, as a new email account does. */
+    v.gateGoogleCta=s.gateSignInBusy==='google'?'Opening Google…':'Continue with Google';
+    v.gateMicrosoftCta=s.gateSignInBusy==='microsoft'?'Opening Microsoft…':'Continue with Microsoft';
+    const oauth=kind=>{ if(s.gateSignInBusy) return;
+      if(kind==='microsoft'&&!msSignInHere()) return this.setState({gateSignInErr:'Microsoft sign-in is not available here yet. Use Google or email and password.'});
+      this.setState({gateSignInBusy:kind,gateSignInErr:''});
+      _doOAuthSignIn(kind,msg=>this.setState({gateSignInErr:msg}))
+        .then(r=>{ if(!(r&&r.verify)) return;
+          this.showVerify(r.verify);
+          if(!r.sent) this.setState({verifyErr:'Signed in, but the verification email did not send. Tap Resend the email.'}); })
+        .finally(()=>this.setState({gateSignInBusy:false})); };
+    v.onGateGoogle=()=>oauth('google');
+    v.onGateMicrosoft=()=>oauth('microsoft');
+    /* A returning member in several programs picks one (boot found them in
+       members/{email}.orgs); "Enter a different code" drops to the form. */
+    /* "My groups": every program they still belong to (boot after a fresh
+       sign-in, or My groups in the app), each a card that opens it, and
+       "Have a new code?" underneath. With no programs the ordinary code
+       form shows instead. */
+    const picks=(s.gatePrograms||[]);
+    v.gatePick=v.gateSignedIn&&picks.length>0&&!s.enterNewCode;
+    const fromApp=s.role==='leader'&&!!s.code;
+    v.gatePickList=picks.map(g=>{ const here=fromApp&&g.code===s.code;
+      return {label:g.orgName||g.code,sub:here?g.code+' · you are here':g.code,
+        style:'display:block;width:100%;max-width:300px;margin:0 auto 10px;background:#FFFFFF;color:#0C1B2E;border:2px solid '
+          +(here?'#FADA01':'#FFFFFF')+';border-radius:14px;padding:12px 16px;font-family:inherit;cursor:pointer;text-align:left;box-shadow:0 6px 22px rgba(0,0,0,.25)',
+        onPick:()=>{ if(s.gatePickBusy) return; this.pickProgram(g); }}; });
+    v.gatePickBusy=!!s.gatePickBusy;
+    v.gateAddCode=s.gateAddCode||'';
+    v.onGateAddCode=e=>this.setState({gateAddCode:cleanCode(e.target.value)});
+    v.onGateAddSubmit=e=>{ if(e&&e.preventDefault) e.preventDefault(); this.gateAddProgram(); };
+    const addReady=!!s.gateAddCode&&!s.gateAddBusy;
+    v.gateAddBtnLabel=s.gateAddBusy?'Joining…':'Join';
+    v.gateAddBtnStyle='flex:none;border:2px solid '+(addReady?'#FADA01':'rgba(255,255,255,.35)')+';border-radius:999px;padding:12px 18px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:'
+      +(addReady?'pointer':'default')+';background:'+(addReady?'#FADA01':'transparent')+';color:'+(addReady?'#0C2647':'#7E8D9C');
+    v.gateFromApp=fromApp;
+    v.gateBackToAppLabel='Back to '+((s.org&&s.org.name)||s.code||'the app');
+    v.onGateBackToApp=()=>this.setState({view:'home',gatePrograms:[],gateAddCode:''});
+    v.gateHasNotice=!!s.gateNotice; v.gateNotice=s.gateNotice||'';
+    v.gateWelcomeBack=v.gateSignedIn&&!v.gatePick&&!!s.known&&!s.enterNewCode;
+    v.gateShowForm=v.gateSignedIn&&!v.gatePick&&(!s.known||!!s.enterNewCode);
+    // On the full code form with groups to go back to: offer the way back.
+    v.gateBackToPick=v.gateShowForm&&picks.length>0&&!!s.enterNewCode;
+    v.onBackToPick=()=>this.setState({enterNewCode:false,joinCode:'',joinFirst:'',joinLast:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
     v.resumeCta=s.joining?'Signing in\u2026':'Continue';
-    v.onUseDifferentCode=()=>this.setState({enterNewCode:true,joinCode:'',joinFirst:'',joinLast:'',joinEmail:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
+    v.onUseDifferentCode=()=>this.setState({enterNewCode:true,joinCode:'',joinFirst:'',joinLast:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
     v.onResume=()=>this.resume();
-    v.onGoStudio=()=>this.go('admin-login');
-    v.onBackToGate=()=>this.go('gate');
-    v.adminName=s.adminName; v.adminPass=s.adminPass;
-    v.onAdminName=e=>this.setState({adminName:e.target.value});
-    v.onAdminPass=e=>this.setState({adminPass:e.target.value});
-    v.onAdminLogin=()=>{ if(!s.adminName.trim()) return this.toast('Add your name',true);
-      if(s.adminPass.trim().toUpperCase()!==ADMIN_HINT) return this.toast('That access phrase is not right',true);
-      this.setState({booting:true}); this.enterStudio(s.adminName.trim()); };
+    v.onGoStudio=()=>{ const me=currentUserEmail();
+      if(!isAdminEmail(me)) return this.toast('Studio is for program admins. You are signed in as '+me+'.',true);
+      this.setState({booting:true});
+      this.enterStudio((firebase.auth().currentUser||{}).displayName||me); };
 
     // pyramid + lists
     const allMods=this.modules().filter(m=>this.allItems(m).length>0);
@@ -16424,7 +17690,16 @@ class Component extends DCLogic {
 
       // ---- Peer-Review: the leader's side of the same instrument ----
       const pList=this.peerRoundList(), pCur=this.peerCurrent();
-      const P={hasRound:!!pCur,noRound:!pCur,lines:[],comments:[],
+      const pSt=this.peerState(), pN=pList.length;
+      const P={hasRound:!!pCur,noRound:pSt==='none',lines:[],comments:[],
+        waiting:pSt==='loading'||pSt==='missing',
+        waitNote:pSt==='missing'
+          ?'Your round did not load. Refresh to try again — a new round cannot be opened until this one is found.'
+          :'Loading your round…',
+        delTitle:pN>1?'Delete all '+pN+' peer rounds?':'Delete every peer response?',
+        delBody:pN>1
+          ?'You have '+pN+' peer rounds, some of them older than the one shown here. This deletes every link, every score and every written answer in all '+pN+'. It cannot be recovered, and anyone who has not replied yet will lose their chance.'
+          :'This deletes the link, every score and every written answer. It cannot be recovered, and anyone who has not replied yet will lose their chance.',
         onOpenRound:()=>{ if(!this.released('peer'))
             return this.toast('Peer review opens later in the program');
           this.openPeerRound(); },
@@ -16596,10 +17871,13 @@ class Component extends DCLogic {
       }
       {
         const tDoc2=this.teamCurrent(), tAg2=tDoc2?peerAgg(tDoc2):null, tN2=tAg2?tAg2.n:0;
-        const isLead2=!!(s.resp&&s.resp.orgLead);
+        const isLead2=this.isOrgLeadHere();
         v.teamCard={
           show:!(s.org&&s.org.teamAssessOn===false),
-          hasRound:!!tDoc2, noRound:!tDoc2,
+          hasRound:!!tDoc2, noRound:this.teamState()==='none',
+          waiting:!tDoc2&&this.teamState()!=='none',
+          waitNote:this.teamState()==='missing'
+            ?'The team round did not load. Refresh to try again.':'Loading the team round…',
           canOpen:this.released('team'),
           openCta:this.released('team')
             ? (s.peerBusy?'Opening…':'Open the team round')
@@ -16641,7 +17919,7 @@ class Component extends DCLogic {
       const ready=answered===ASSESS.length&&!s.peerSaving;
       v.pf={
         valid:!!doc&&!s.peerErr&&!s.peerDone, done:!!s.peerDone,
-        bad:s.peerErr==='missing', closed:s.peerErr==='closed',
+        bad:s.peerErr==='missing', closed:s.peerErr==='closed', offline:s.peerErr==='offline',
         org:doc?(doc.orgName||''):'',
         isTeam:!!(doc&&doc.mode==='team'),
         title:(doc&&doc.mode==='team')?'Team Assessment':'Playbook Assessment (Peer-Review)',
@@ -17123,7 +18401,7 @@ class Component extends DCLogic {
 
     // ---- Organization dashboard, for a leader Studio has flagged as org lead
     {
-      const isLead=!!(s.resp&&s.resp.orgLead)&&s.role==='leader';
+      const isLead=this.isOrgLeadHere();
       v.isOrgLead=isLead;
       v.onOpenOrgDash=()=>{ Promise.resolve(this.loadMembers(s.code,true)).then(()=>this.loadOrgPeerDocs()); this.go('orgdash'); };
       if(isLead){
@@ -17157,6 +18435,13 @@ class Component extends DCLogic {
         // peer review across the org, aggregate only
         const peerAll=all.map(r=>{
           const list=((r.peerRounds)||[]).slice().sort((a,b)=>b.openedAt-a.openedAt);
+          /* Colleagues' rounds are owner-only, so /api/members sends their
+             score averages instead (peerAgg); your own is read directly. */
+          const pa=r.peerAgg;
+          if(pa&&list.length&&pa.token===list[0].token){
+            const avg=pa.avg||{};
+            return {r,ag:{n:pa.n||0,avg,total:Math.round(ASSESS.reduce((n,a)=>n+(avg[a.k]||0),0)),open:[]}};
+          }
           const doc=list.length?s.peerDocs[list[0].token]:null;
           return doc?{r,ag:peerAgg(doc)}:null;
         }).filter(Boolean);
@@ -17305,7 +18590,11 @@ class Component extends DCLogic {
            own leader reads results; they do not open and close rounds. */
         v.orgDash.showTeam=this.ccGroup();
         v.orgDash.team={
-          hasRound:tOpen, noRound:!tOpen,
+          hasRound:tOpen, noRound:this.teamState()==='none',
+          waiting:!tOpen&&this.teamState()!=='none',
+          waitNote:this.teamState()==='missing'
+            ?'The team round did not load. Refresh to try again — a new round cannot be opened until this one is found.'
+            :'Loading the team round…',
           onOpenRound:()=>{ if(!this.released('team'))
               return this.toast('The team assessment opens later in the program');
             this.openTeamRound(); },
@@ -19228,9 +20517,13 @@ class Component extends DCLogic {
     v.scheduleText='One fundamental unlocks each month from your cohort start. Inside a fundamental, the next session drops every '+DAYS[sc.weekday||1]+' at '+((sc.hour||8)%12||12)+':00'+((sc.hour||8)<12?'am':'pm')+'.';
     v.scheduleNote=s.org&&s.org.startDate?('Your cohort started '+fmtFull(s.org.startDate)+'.'):'';
     const pOn=s.pushOn;
-    v.pushLabel=s.pushBusy?'Working\u2026':(pOn?'\u2713 Notifications on':'Turn on notifications');
-    v.pushBtnStyle='width:100%;margin-top:12px;padding:13px;border-radius:10px;font-weight:800;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;min-height:44px;cursor:'+(s.pushBusy?'default':'pointer')+';border:2px solid #FADA01;background:'+(pOn?'#FADA01':'transparent')+';color:'+(pOn?'#0C2647':'#0C1B2E');
-    v.onEnablePush=()=>this.enablePush();
+    /* One switch for this device, covering every group they are in. */
+    v.pushLabel='Push notifications on this device';
+    v.pushSub=s.pushBusy?'Working\u2026':(pOn?'On for all your groups':'Off');
+    v.pushAria=pOn?'true':'false';
+    v.pushTrackStyle='flex:none;position:relative;width:48px;height:28px;border-radius:999px;transition:background .18s ease;background:'+(pOn?'#3E9E6A':'#C6D4E2')+(s.pushBusy?';opacity:.6':'');
+    v.pushKnobStyle='position:absolute;top:3px;left:'+(pOn?'23px':'3px')+';width:22px;height:22px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .18s ease';
+    v.onTogglePush=()=>{ if(s.pushBusy) return; if(pOn) this.disablePush(); else this.enablePush(true); };
     {
       /* Any Accountability Bump they can actually be sent — the wording is
          taken from the module itself, not invented, so the test is the thing. */
@@ -19795,6 +21088,30 @@ class Component extends DCLogic {
       };
     }
     if(A.isSettings){
+      const mr=s.migResult, mBtn='flex:1;min-width:0;border-radius:11px;padding:13px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer';
+      const canRun=!!mr&&!mr.run&&(mr.ready||[]).length>0&&!s.migBusy;
+      const moved=mr&&mr.run?(mr.results||[]).filter(x=>x.outcome==='moved').length:0;
+      A.mig={
+        onDry:()=>this.runPeerMigration(false), onRun:()=>this.runPeerMigration(true),
+        dryLabel:s.migBusy?(s.migNote||'Working…'):'Dry run',
+        dryStyle:mBtn+';background:#fff;color:#0C2647;border:2px solid #0C2647'+(s.migBusy?';opacity:.55':''),
+        runLabel:'Run for real',
+        runStyle:mBtn+';background:#FADA01;color:#0C2647;border:2px solid #FADA01'+(canRun?'':';opacity:.4'),
+        hasErr:!!s.migErr, err:s.migErr||'',
+        has:!!mr,
+        summary:!mr?'':(mr.run
+          ?('Ran. Moved '+moved+' of '+(mr.results||[]).length+' listed. Skipped '+(mr.skipped||[]).length+'.'
+            +((mr.leftover||[]).length?' '+mr.leftover.length+' more now ready were not in the dry run — run the dry run again.':' Nothing else is waiting.'))
+          :('Dry run. Old rounds: '+mr.oldTotal+'. Ready to move: '+(mr.ready||[]).length+'. Skipped: '+(mr.skipped||[]).length+'. Already on new keys: '+mr.alreadyNew+'.'))
+          +(mr&&mr.more?' Stopped after 10,000 old rounds — run the dry run again for the rest.':''),
+        ready:((mr&&mr.ready)||[]).map(x=>({line:x.from+' → '+x.to,
+          sub:(x.orgName||'')+' · '+(x.mode==='team'?'team':'peer')+' · '+x.owner+' · '+x.responses+' answer'+(x.responses===1?'':'s')+(x.closed?' · closed':'')})),
+        hasReady:!!(mr&&!mr.run&&(mr.ready||[]).length),
+        skipped:((mr&&mr.skipped)||[]).concat((mr&&mr.leftover)||[]).map(x=>({line:x.from+' — '+x.reason,sub:x.detail||''})),
+        hasSkipped:!!(mr&&((mr.skipped||[]).length||(mr.leftover||[]).length)),
+        results:((mr&&mr.run&&mr.results)||[]).map(x=>({line:x.from+' → '+x.to,sub:x.outcome})),
+        hasResults:!!(mr&&mr.run&&(mr.results||[]).length)
+      };
       const r=s.speedResult||{};
       A.speed={
         codeVal:s.speedCode||((s.orgList[0]||{}).code||''),
@@ -22100,35 +23417,15 @@ class Component extends DCLogic {
     }
 
     {
+      // My Profile → My groups: the same screen as after sign-in.
       const gs=s.myGroups||[];
-      v.hasGroups=gs.length>1;
-      const open=!!s.groupsOpen;
-      v.groupsOpen=open;
-      v.groupsLabel=gs.length+' groups on '+(s.email||'your email');
-      v.addOpen=!!s.addOpen; v.addClosed=!s.addOpen;
-      v.addCode=s.addCode||'';
-      v.onOpenAdd=()=>this.setState({addOpen:true,addCode:''});
-      v.onCancelAdd=()=>this.setState({addOpen:false,addCode:''});
-      v.onAddCode=e=>this.setState({addCode:e.target.value.toUpperCase()});
-      v.onJoinCode=()=>this.joinByCode();
-      v.addBtnLabel=s.addBusy?'Joining…':'Join';
-      v.addBtnStyle='flex:1;border:none;border-radius:9px;padding:12px;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.07em;text-transform:uppercase;min-height:44px;cursor:'
-        +(s.addBusy?'default':'pointer')+';background:'+(String(s.addCode||'').trim()&&!s.addBusy?'#FADA01':'#EAF1F8')
-        +';color:'+(String(s.addCode||'').trim()&&!s.addBusy?'#0C2647':'#9DAAB8');
-      v.groupsCurrent=(gs.find(g=>g.code===s.code)||{}).orgName||'';
-      v.groupsCaret=open?'\u2013':'+';
-      v.onToggleGroups=()=>this.setState({groupsOpen:!open});
-      v.groups=gs.map(g=>{ const cur=g.code===s.code;
-        return {name:g.orgName||g.code, meta:cur?'You are here':'Tap to switch',
-          style:'display:flex;align-items:center;gap:11px;width:100%;text-align:left;font-family:inherit;cursor:'
-            +(cur?'default':'pointer')+';border-radius:11px;padding:12px 13px;margin-bottom:8px;min-height:48px;border:1.5px solid '
-            +(cur?'#0C2647':'#DCE6F0')+';background:'+(cur?'#F6F9FC':'#FFFFFF'),
-          markStyle:'flex:none;width:9px;height:9px;border-radius:50%;background:'
-            +(cur?'#00A3E0':'#DCE6F0'),
-          onPick:()=>this.switchGroup(g)}; });
+      v.groupsCurrent=(s.org&&s.org.name)||s.code||'';
+      v.groupsLabel=gs.length>1?gs.length+' groups · switch or add a code':'Add a code for another group';
+      v.onOpenMyGroups=()=>this.openMyGroups();
     }
     const isAdminOnly=(s.role==='admin'&&!s.previewMode);
-    v.showTabs=s.role==='leader'||s.previewMode||s.role==='admin';
+    // My groups opened from inside the app is a gate screen: no tabs there.
+    v.showTabs=(s.role==='leader'||s.previewMode||s.role==='admin')&&s.view!=='gate';
 
     // Desktop grows a left sidebar, but only once there are tabs to put in
     // it — the sign-in screen stays a single centered column.
@@ -22248,7 +23545,7 @@ class Component extends DCLogic {
       confirm:this._mineSubscribed===false&&typeof Notification!=='undefined'&&Notification.permission==='granted',
       request:!(this._mineSubscribed===false&&typeof Notification!=='undefined'&&Notification.permission==='granted'),
       hasMsg:!!s.pushMsg, msg:s.pushMsg||'',
-      onEnable:()=>this.enablePush(),
+      onEnable:()=>this.enablePush(true),
       onDismiss:()=>this.dismissPushAsk()
     };
 

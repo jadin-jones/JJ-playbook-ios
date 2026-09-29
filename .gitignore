@@ -1,3 +1,10 @@
 node_modules/
 .DS_Store
 .env
+.claude/
+scripts/out/
+# Service-account keys never belong in git (the scripts use Codespaces secrets)
+*service-account*.json
+*-sa.json
+# Firestore emulator logs (test/rules)
+*-debug.log

@@ -1,5 +1,14 @@
 [build]
-  publish = "."
+  # Only the app is served. The repo root holds scripts/, functions source,
+  # fix-*.js, READ-ME-FIRST.md and more that must never be public. Every
+  # path in the app, manifests and service worker already assumes public/
+  # is the site root.
+  publish = "public"
+  # The Netlify functions (join, members, peer, ms-verify, coach, granola,
+  # migrate-peers, auth-proxy) live here. This file overrides the dashboard's
+  # "Functions directory": the top-level functions/ folder is the Firebase
+  # Cloud Functions source (deployed with the Firebase CLI, never by Netlify)
+  # and must never be picked up as Netlify functions.
   functions = "netlify/functions"
 
 # The app calls /api/coach; Netlify runs netlify/functions/coach.js.
@@ -7,6 +16,46 @@
   from = "/api/coach"
   to = "/.netlify/functions/coach"
   status = 200
+
+# The app adds a signed-in member to a program's guest list via /api/join.
+[[redirects]]
+  from = "/api/join"
+  to = "/.netlify/functions/join"
+  status = 200
+
+# The people in a program, for a member of it (V3 keeps them from listing
+# resp: records themselves).
+[[redirects]]
+  from = "/api/members"
+  to = "/.netlify/functions/members"
+  status = 200
+
+# People answering a peer or team link reach their round via /api/peer.
+[[redirects]]
+  from = "/api/peer"
+  to = "/.netlify/functions/peer"
+  status = 200
+
+# First join by a Microsoft sign-in: send and confirm a one-time email link.
+[[redirects]]
+  from = "/api/ms-verify"
+  to = "/.netlify/functions/ms-verify"
+  status = 200
+
+# One-off, admins only: move old peer:TOKEN rounds to peer:CODE:TOKEN.
+# Remove with netlify/functions/migrate-peers.js once live is migrated.
+[[redirects]]
+  from = "/api/admin/migrate-peers"
+  to = "/.netlify/functions/migrate-peers"
+  status = 200
+
+# Firebase's Google sign-in helper, served from this site so Safari keeps
+# the handoff (netlify/functions/auth-proxy.js).
+[[redirects]]
+  from = "/__/auth/*"
+  to = "/.netlify/functions/auth-proxy/:splat"
+  status = 200
+  force = true
 
 # Granola posts finished meeting notes to /api/granola.
 [[redirects]]
