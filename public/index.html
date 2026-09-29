@@ -1777,6 +1777,9 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#7E8D9C;margin-bottom:14px">{{ item.subline }}</div>
 
+<sc-if value="{{ item.hasVid1Title }}" hint-placeholder-val="{{ false }}">
+<div style="font-weight:900;font-size:15px;line-height:1.2;text-transform:uppercase;color:#0C1B2E;margin:0 0 8px">{{ item.vid1Title }}</div>
+</sc-if>
 <sc-if value="{{ item.hasPoster }}" hint-placeholder-val="{{ false }}">
 <button sc-camel-on-click="{{ item.onStartVideo }}" style="position:relative;display:block;width:100%;aspect-ratio:16/9;border:0;padding:0;border-radius:14px;overflow:hidden;background:#0C2647;cursor:pointer">
 <sc-if value="{{ item.hasPosterImg }}" hint-placeholder-val="{{ false }}">
@@ -1812,6 +1815,40 @@ sc-if,sc-for{display:none!important}
 <span style="position:absolute;bottom:8px;right:11px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#7E8D9C">Add a video in Studio</span>
 </button>
 </sc-if>
+
+<sc-for list="{{ item.moreVids }}" as="mv" hint-placeholder-count="0">
+<div style="margin:18px 0 0">
+<div style="font-weight:900;font-size:15px;line-height:1.2;text-transform:uppercase;color:#0C1B2E;margin:0 0 8px">{{ mv.title }}</div>
+<sc-if value="{{ mv.hasPoster }}" hint-placeholder-val="{{ false }}">
+<button sc-camel-on-click="{{ mv.onStart }}" style="position:relative;display:block;width:100%;aspect-ratio:16/9;border:0;padding:0;border-radius:14px;overflow:hidden;background:#0C2647;cursor:pointer">
+<sc-if value="{{ mv.hasPosterImg }}" hint-placeholder-val="{{ false }}">
+<img src="{{ mv.poster }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">
+</sc-if>
+<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(12,38,71,.32)">
+<span style="width:66px;height:66px;border-radius:50%;background:#FADA01;color:#0C2647;display:flex;align-items:center;justify-content:center;font-size:24px;padding-left:4px;box-shadow:0 6px 20px rgba(0,0,0,.3)">▶</span>
+</span>
+</button>
+</sc-if>
+<sc-if value="{{ mv.file }}" hint-placeholder-val="{{ false }}">
+<video ref="{{ mv.ref }}" controls="{{ true }}" sc-camel-plays-inline="{{ true }}" preload="auto" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-controls-list="nodownload noplaybackrate" style="display:block;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#0C2647"></video>
+</sc-if>
+<sc-if value="{{ mv.embed }}" hint-placeholder-val="{{ false }}">
+<div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#F3F7FB">
+<iframe src="{{ mv.url }}" title="{{ mv.title }}" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen="true" style="width:100%;height:100%;border:0;display:block"></iframe>
+</div>
+</sc-if>
+<sc-if value="{{ mv.fail }}" hint-placeholder-val="{{ false }}">
+<div style="width:100%;aspect-ratio:16/9;border-radius:14px;background:#0C2647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:22px;text-align:center">
+<div style="font-weight:800;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#FADA01">Video would not play</div>
+<p style="font-size:12.5px;line-height:1.6;color:#D5E2F0;margin:0;max-width:320px">{{ mv.failNote }}</p>
+<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+<button sc-camel-on-click="{{ mv.onRetry }}" style="background:rgba(255,255,255,.14);color:#FFFFFF;border:none;border-radius:8px;padding:9px 14px;font-family:inherit;font-weight:800;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Try again</button>
+<a href="{{ mv.plain }}" target="_blank" rel="noopener" style="background:#FADA01;color:#0C2647;border-radius:8px;padding:9px 14px;font-weight:900;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase">Open in a new tab</a>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-for>
 
 <sc-if value="{{ item.hasInstructions }}" hint-placeholder-val="{{ false }}">
 <div style="background:#EAF1F8;border:1px solid #C6D4E2;border-left:4px solid #0C2647;border-radius:12px;padding:14px 15px;margin:14px 0 0">
@@ -7248,6 +7285,26 @@ Or upload an image
 </sc-if>
 <input type="text" value="{{ mi.posterVal }}" sc-camel-on-change="{{ mi.onPoster }}" placeholder="Thumbnail image URL" style="flex:1;min-width:0;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px">
 </div>
+<sc-if value="{{ mi.hasMoreVids }}" hint-placeholder-val="{{ false }}">
+<div style="font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C;margin-bottom:5px">Video 1 title</div>
+<input type="text" value="{{ mi.vid1TitleVal }}" sc-camel-on-change="{{ mi.onVid1Title }}" placeholder="Shown above the first video (defaults to Video 1)" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px;margin-bottom:7px;margin-bottom:11px">
+</sc-if>
+<sc-for list="{{ mi.moreVids }}" as="mv" hint-placeholder-count="0">
+<div style="background:#F3F7FB;border:1px solid #DCE6F0;border-radius:10px;padding:11px 12px;margin-bottom:9px">
+<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+<span style="flex:1;min-width:0;font-weight:800;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#0B5E80">{{ mv.n }}</span>
+<sc-if value="{{ mv.canUp }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mv.onUp }}" aria-label="Move up" style="{{ mv.upStyle }}">▲</button></sc-if>
+<sc-if value="{{ mv.canDown }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mv.onDown }}" aria-label="Move down" style="{{ mv.upStyle }}">▼</button></sc-if>
+<button sc-camel-on-click="{{ mv.onRemove }}" style="flex:none;background:none;border:none;padding:0 2px;font-family:inherit;font-weight:800;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#D5502B;cursor:pointer">Remove</button>
+</div>
+<input type="text" value="{{ mv.titleVal }}" sc-camel-on-change="{{ mv.onTitle }}" placeholder="Title shown above this video" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px;margin-bottom:7px">
+<input type="text" value="{{ mv.urlVal }}" sc-camel-on-change="{{ mv.onUrl }}" placeholder="Google Drive link, MP4 link, or HubSpot embed URL" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px;margin-bottom:7px;margin-bottom:0">
+<sc-if value="{{ mv.movWarn }}" hint-placeholder-val="{{ false }}">
+<p style="font-size:11.5px;line-height:1.55;color:#8A3B12;background:#FDF0E4;border:1px solid #F0C9A6;border-radius:8px;padding:8px 10px;margin:7px 0 0">This is a .MOV file. It plays on iPhone and Safari, but Chrome cannot open it. Convert it to MP4 before this goes out.</p>
+</sc-if>
+</div>
+</sc-for>
+<button sc-camel-on-click="{{ mi.onAddVideo }}" style="width:100%;background:#fff;border:1.5px dashed #00A3E0;border-radius:8px;padding:10px;font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#0B5E80;cursor:pointer;margin-bottom:11px">+ Add another video</button>
 
 <div style="display:flex;align-items:center;gap:9px;margin:18px 0 9px;background:#E7F5EE;border-left:5px solid #3E9E6A;border-radius:0 8px 8px 0;padding:9px 11px">
 <span style="flex:none;width:20px;height:20px;border-radius:5px;background:#3E9E6A;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10.5px">4</span>
@@ -18798,6 +18855,49 @@ class Component extends DCLogic {
           playStyle:'width:64px;height:64px;border-radius:50%;background:'+(playing?'#0C2647':'#FADA01')+';color:'+(playing?'#6FC0EA':'#0C2647')+';display:flex;align-items:center;justify-content:center;font-size:22px;padding-left:4px;box-shadow:0 10px 30px rgba(0,0,0,.4)',
           videoLabel:playing?'No video attached yet':'Play',
           onPlay:()=>{const p=Object.assign({},s.playing);p[it.id]=!playing;this.setState({playing:p});},
+          /* ---- More videos ------------------------------------------------
+             Video 1 is mediaUrl, as it always was. moreVideos is an optional
+             list that plays after it, in the order Studio set, each with its
+             own title. With none, nothing below shows and the session looks
+             exactly as before. The Video switch covers them all. */
+          ...(()=>{
+            const extra=(Array.isArray(it.moreVideos)?it.moreVideos:[])
+              .filter(x=>x&&String(x.url||'').trim());
+            const on=vidOn&&extra.length>0;
+            const mvOn=s.mvOn||{}, mvErr=s.mvErr||{};
+            return {
+              hasVid1Title:on,
+              vid1Title:String(it.mediaTitle||'').trim()||'Video 1',
+              moreVids:on?extra.map((x,i)=>{
+                const key=it.id+':'+(x.id||i);
+                const url=embedUrl(x.url), plain=String(x.url||'').trim();
+                const poster=(x.posterUrl||'').trim()||driveThumb(x.url);
+                const started=!!mvOn[key], failed=!!mvErr[key], isFile=isDirectVideo(url);
+                const setErr=v=>{ const e=Object.assign({},this.state.mvErr||{});
+                  if(v) e[key]=true; else delete e[key]; this.setState({mvErr:e}); };
+                return {
+                  title:String(x.title||'').trim()||('Video '+(i+2)),
+                  hasPoster:!started, poster, hasPosterImg:!!poster,
+                  onStart:()=>this.setState({mvOn:Object.assign({},this.state.mvOn||{},{[key]:true})}),
+                  file:started&&isFile&&!failed,
+                  embed:started&&!isFile,
+                  fail:started&&isFile&&failed,
+                  url, plain,
+                  failNote:!canPlayFile(url)
+                    ? 'This video is in a format Chrome cannot open. It will play in Safari — or ask for an MP4 version, which plays everywhere.'
+                    : 'The video would not load. Your work network may be blocking it, or the link may have expired.',
+                  onRetry:()=>setErr(false),
+                  // Wired here, not as template attributes, for the same reason
+                  // as Video 1's videoRef.
+                  ref:el=>{ if(!el||el.dataset.jjWired) return; el.dataset.jjWired='1';
+                    el.onerror=()=>setErr(true);
+                    el.oncanplay=()=>{ if(el.paused&&!el.dataset.jjKick){ el.dataset.jjKick='1';
+                      const p=el.play(); if(p&&p.catch) p.catch(()=>{}); } };
+                    el.src=url; }
+                };
+              }):[]
+            };
+          })(),
           // A module's own challenge wins; the fundamental's is the fallback.
           showChallenge:['learn','facilitate','checkin'].indexOf(it.kind||'learn')>=0
             &&!!((it.challenge&&it.challenge.title)||(ch&&ch.title)),
@@ -22582,6 +22682,40 @@ class Component extends DCLogic {
               else editItem(ii=>{ ii.posterUrl=val; });},
             posterPreview:((orgMode?(oi.posterUrl!==undefined?oi.posterUrl:(it.posterUrl||'')):(it.posterUrl||''))||driveThumb(media)||BLANK_IMG),
             hasPosterPreview:!!((orgMode?(oi.posterUrl!==undefined?oi.posterUrl:(it.posterUrl||'')):(it.posterUrl||''))||driveThumb(media)),
+            /* More videos after Video 1: an optional list, each with its own
+               title and link, played in this order. Saved whole, so the order
+               is simply the list's order. */
+            ...(()=>{
+              const raw=orgMode?(oi.moreVideos!==undefined?oi.moreVideos:it.moreVideos):it.moreVideos;
+              const more=Array.isArray(raw)?raw:[];
+              const setMore=list=>{ const clean=list.map(x=>Object.assign({},x));
+                if(orgMode) setItem({moreVideos:clean}); else editItem(ii=>{ ii.moreVideos=clean; }); };
+              const patch=(j,p)=>setMore(more.map((x,k)=>k===j?Object.assign({},x,p):x));
+              const move=(j,d)=>{ const l=more.slice(), t=j+d; if(t<0||t>=l.length) return;
+                const x=l[j]; l[j]=l[t]; l[t]=x; setMore(l); };
+              const t1=orgMode?(oi.mediaTitle!==undefined?oi.mediaTitle:(it.mediaTitle||'')):(it.mediaTitle||'');
+              return {
+                hasMoreVids:more.length>0,
+                vid1TitleVal:t1,
+                onVid1Title:e=>{ const val=e.target.value;
+                  if(orgMode) setItem({mediaTitle:val}); else editItem(ii=>{ ii.mediaTitle=val; }); },
+                moreVids:more.map((x,j)=>({
+                  n:'Video '+(j+2),
+                  titleVal:x.title||'', urlVal:x.url||'',
+                  onTitle:e=>patch(j,{title:e.target.value}),
+                  onUrl:e=>patch(j,{url:e.target.value.trim()}),
+                  movWarn:/\.mov(\?|#|$)/i.test(String(x.url||'')),
+                  canUp:j>0, canDown:j<more.length-1,
+                  upStyle:'flex:none;background:#fff;border:1px solid #C6D4E2;border-radius:6px;padding:4px 8px;font-family:inherit;font-weight:900;font-size:11px;color:#37475C;cursor:pointer',
+                  onUp:this.guard('reorder these videos',()=>move(j,-1)),
+                  onDown:this.guard('reorder these videos',()=>move(j,1)),
+                  onRemove:this.guardHard('remove '+('Video '+(j+2))+(x.title?(' “'+x.title+'”'):''),
+                    ()=>setMore(more.filter((_,k)=>k!==j)))
+                })),
+                onAddVideo:this.guard('add another video',()=>setMore(more.concat([
+                  {id:'v-'+Math.random().toString(36).slice(2,10),title:'',url:''}])))
+              };
+            })(),
             /* Modules are folders, shut by default. A fundamental can carry a
                dozen of them and the Studio was unreadable with every field of
                every one on screen at once. */
@@ -22601,7 +22735,9 @@ class Component extends DCLogic {
               const ln=orgMode?(oi.len!==undefined?oi.len:(it.len||'')):(it.len||'');
               return ln?(t+'  ['+ln+']'):t; })(),
             rowSub:(()=>{ const bits=[k.label];
-              if(media) bits.push('video');
+              { const mr=orgMode?(oi.moreVideos!==undefined?oi.moreVideos:it.moreVideos):it.moreVideos;
+                const nv=(media?1:0)+(Array.isArray(mr)?mr.filter(x=>x&&x.url).length:0);
+                if(nv) bits.push(nv===1?'video':(nv+' videos')); }
               const nq=(it.questions||[]).length;
               if(nq) bits.push(nq+(nq===1?' question':' questions'));
               const c=(orgMode?Object.assign({},it.challenge||{},oi.challenge||{}):(it.challenge||{}));
