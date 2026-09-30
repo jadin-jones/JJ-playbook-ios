@@ -33,6 +33,10 @@
  *                 (the caller's first name) and byId (their idkey).
  *   'team-round'  { token }: set org:CODE's teamRound to a team round the
  *                 caller owns (members may not write org:CODE).
+ *   'remove-access' { idkey, emails }: admins only. Studio's Remove: takes
+ *                 CODE out of members/{email}.orgs for every address the
+ *                 person's access could be under, and reads each back. The app
+ *                 may not write members/ under any version of the rules.
  *
  * Env: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
  * (see netlify/lib/firebase-admin.js).
@@ -228,6 +232,44 @@ async function addEvidence(c, code, body) {
   });
 }
 
+/* POST { action: 'remove-access', code, idkey, emails }: admins only (not
+   through Microsoft; see caller). The addresses are the ones Studio sends plus
+   the record's own ownerEmail and inner email, so a stale roster cannot leave
+   one behind. Only CODE leaves orgs; their other programs stay. An orgs that
+   is not a list is left alone: the rules already treat it as no membership.
+   Each address is read back, and any that still holds CODE fails the call,
+   so Studio stops before deleting their record. */
+const isEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+async function removeAccess(c, code, body) {
+  if (!c.isAdmin) return reply(403, { error: 'Only admins can remove a leader', code: 'not-admin' });
+  const idkey = String(body.idkey || '');
+  if (!/^[a-z0-9_-]{1,60}$/.test(idkey)) return reply(400, { error: 'Bad record key', code: 'bad-idkey' });
+  const emails = new Set(arr(body.emails).map(lower).filter(isEmail));
+  const rs = await db().collection(COLL).doc('resp:' + code + ':' + idkey).get();
+  if (rs.exists) {
+    const own = lower(rs.get('ownerEmail')); if (isEmail(own)) emails.add(own);
+    const v = parseVal(rs); if (v && isEmail(lower(v.email))) emails.add(lower(v.email));
+  }
+  if (!emails.size) return reply(400, { error: 'Their record has no email', code: 'no-email' });
+  if (emails.size > 10) return reply(400, { error: 'Too many addresses', code: 'too-many' });
+  const FV = admin.firestore.FieldValue;
+  for (const em of emails) {
+    const ref = db().collection('members').doc(em);
+    await db().runTransaction(async tx => {
+      const s = await tx.get(ref);
+      const orgs = s.exists ? s.get('orgs') : null;
+      if (!Array.isArray(orgs) || orgs.indexOf(code) < 0) return;
+      tx.update(ref, { orgs: FV.arrayRemove(code), updatedAt: FV.serverTimestamp() });
+    });
+    const after = await ref.get();
+    const orgs = after.exists ? after.get('orgs') : null;
+    if (Array.isArray(orgs) && orgs.indexOf(code) >= 0)
+      return reply(500, { error: 'Their access could not be removed. Try again.', code: 'still-member' });
+  }
+  console.log('members remove-access', code, idkey, emails.size, 'address(es)');
+  return reply(200, { ok: true, removed: emails.size });
+}
+
 /* POST { action: 'team-round', code, token }: the program's current team
    round, set by the leader who opened it. Members may not write org:CODE, so
    it is set here, and only teamRound, only to a team round the caller owns. */
@@ -267,6 +309,7 @@ exports.handler = withCors('GET, POST, OPTIONS', 'Content-Type, Authorization', 
     if (event.httpMethod === 'GET') return await list(c, code);
     if (body.action === 'evidence') return await addEvidence(c, code, body);
     if (body.action === 'team-round') return await setTeamRound(c, code, body);
+    if (body.action === 'remove-access') return await removeAccess(c, code, body);
     return reply(400, { error: 'Unknown action' });
   } catch (e) {
     console.error('members', code, e);

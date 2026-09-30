@@ -15350,7 +15350,7 @@ class Component extends DCLogic {
        1. find every address their access could be held under (read only);
        2. write a rev: tombstone for each, so /api/join refuses them from now
           on, whatever email they sign in with;
-       3. take CODE out of members/{email}.orgs and check with the server that
+       3. have /api/members take CODE out of members/{email}.orgs and check
           it is gone, so the rules stop letting them read the program; then
           take them off the approved list;
        4. only then delete their peer/team rounds, push token and, last, their
@@ -15381,19 +15381,11 @@ class Component extends DCLogic {
       if(!(await sset('rev:'+code+':'+ik,{at,email:emails[0],emails}))) return written?partial():stop(unchanged);
       written++;
     }
-    // 3. Membership out, then confirmed by the server. No members doc means no
-    //    membership. arrayRemove takes out only this code; their other programs stay.
-    const FV=firebase.firestore.FieldValue;
-    for(const em of emails){
-      const ref=db.collection('members').doc(em);
-      try{ await withTimeout(ref.update({orgs:FV.arrayRemove(code),updatedAt:FV.serverTimestamp()}),9000); }
-      catch(e){ if(!(e&&e.code==='not-found')){ console.error('removeLeader members',em,e); return partial(); } }
-      try{
-        const m=await withTimeout(ref.get({source:'server'}),9000);
-        const orgs=m.exists?m.get('orgs'):null;
-        if(Array.isArray(orgs)&&orgs.indexOf(code)>=0) return partial();
-      }catch(e){ console.error('removeLeader check',em,e); return partial(); }
-    }
+    // 3. Membership out, done and checked by the server: the rules never let
+    //    the app write members/{email}. Only this code leaves; their other
+    //    programs stay.
+    const mem=await this.membersPost({action:'remove-access',code,idkey:r.idkey,emails});
+    if(!mem.ok){ console.error('removeLeader members',mem.error); return partial(); }
     const o=this.state.orgList.find(x=>x.code===code);
     if(o&&Array.isArray(o.allowlist)&&o.allowlist.some(x=>emails.indexOf(x)>=0)){
       if(!(await this.saveOrg(code,{allowlist:o.allowlist.filter(x=>emails.indexOf(x)<0)})))
