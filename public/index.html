@@ -729,6 +729,23 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ gateSignedIn }}" hint-placeholder-val="{{ false }}">
 <p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:10px 0 0">Signed in as <span style="color:#FFFFFF;font-weight:700">{{ gateAuthEmail }}</span> · <button sc-camel-on-click="{{ onGateSwitchAccount }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Use a different account</button></p>
 </sc-if>
+<sc-if value="{{ msCodeOn }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:340px;margin:0 auto">
+<p style="font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 8px">Check your email</p>
+<p style="font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 16px">We emailed a 6-digit code to <span style="color:#FFFFFF;font-weight:700">{{ msCodeEmail }}</span>. Type it here to confirm the address is yours. You only do this once.</p>
+<form sc-camel-on-submit="{{ onMsCodeSubmit }}" style="margin:0">
+<input type="text" value="{{ msCodeVal }}" sc-camel-on-change="{{ onMsCodeVal }}" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456" aria-label="6-digit code" style="display:block;box-sizing:border-box;width:100%;max-width:300px;margin:0 auto 10px;background:#fff;border:1px solid #C6D4E2;color:#0C1B2E;border-radius:10px;padding:13px 14px;font-size:24px;letter-spacing:.3em;text-align:center;font-family:inherit;font-weight:800">
+<button type="submit" style="display:block;width:100%;max-width:300px;margin:0 auto;background:#FADA01;color:#0C2647;border:2px solid #FADA01;border-radius:999px;padding:14px 18px;font-weight:900;font-size:14px;letter-spacing:.06em;text-transform:uppercase;font-family:inherit;cursor:pointer">{{ msCodeCta }}</button>
+</form>
+<button sc-camel-on-click="{{ onMsCodeResend }}" style="{{ msCodeResendStyle }}">{{ msCodeResendLabel }}</button>
+<sc-if value="{{ msCodeHasMsg }}" hint-placeholder-val="{{ false }}">
+<p style="color:#9FD7B5;font-size:13px;line-height:1.5;margin:14px 0 0">{{ msCodeMsg }}</p>
+</sc-if>
+<sc-if value="{{ msCodeHasErr }}" hint-placeholder-val="{{ false }}">
+<p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ msCodeErr }}</p>
+</sc-if>
+</div>
+</sc-if>
 <sc-if value="{{ gateWelcomeBack }}" hint-placeholder-val="{{ false }}">
 <div style="animation:jjIn .3s ease both">
 <p style="text-align:center;font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 16px">Hey! Welcome back, {{ knownLeaderName }}.</p>
@@ -8537,12 +8554,14 @@ async function ensureMember(code,opts){
     if(r.ok&&j.ok) return j;
     const out={ok:false,status:r.status,reason:j.code||'',
       error:j.error||'Could not join — check your connection and try again'};
+    /* Not confirmed yet (normally done right after sign-in): open the code
+       screen; the join runs again once the code is right. */
     if(out.reason==='ms-verify'&&opts&&opts.sendLink){
-      const s=await msVerifyApi({action:'send',code});
-      const how=' Open it, tap Continue on the page it opens, then join again.';
-      if(s.ok&&s.verified) return ensureMember(code);
-      out.error=s.ok?'Check your email — we sent a link to '+u.email+' to confirm it is yours.'+how
-        :(s.code==='wait'?s.error+how:s.error);
+      const st=await msVerifyApi({action:'status'});
+      if(st.ok&&st.verified) return ensureMember(code);
+      out.msCode=true;
+      out.error='Enter the 6-digit code we email to '+u.email+'.';
+      if(_msCodeHook) _msCodeHook();
     }
     return out;
   }catch(e){
@@ -8550,8 +8569,11 @@ async function ensureMember(code,opts){
     return {ok:false,error:'Could not join — check your connection and try again'};
   }
 }
-/* /api/ms-verify: {action:'send'} emails the one-time link, {action:'confirm',t}
-   checks the secret the link carried. Returns the server's JSON plus ok. */
+/* Set by the app while it is showing: opens the Microsoft code screen. */
+let _msCodeHook=null;
+/* /api/ms-verify: {action:'status'} says whether this Microsoft account has
+   confirmed its mailbox, {action:'send'} emails a 6-digit code,
+   {action:'verify',code} checks it. Returns the server's JSON plus ok. */
 async function msVerifyApi(body){
   try{
     await authReady();
@@ -8614,6 +8636,10 @@ function _oauthProvider(kind){
    for microsoft.com sign-ins too; this is the app's half.) */
 const ADMIN_MS_MSG='Admins must sign in with Google or email and password.';
 let _authBlockMsg='';
+/* Signs in with Microsoft (one sign-in method per account, no linking). */
+function _isMsUser(u){
+  return !!u&&(u.providerData||[]).filter(Boolean).some(p=>p.providerId==='microsoft.com');
+}
 function _msAdmin(u){
   if(!u) return false;
   const pd=(u.providerData||[]).filter(Boolean);
@@ -9836,6 +9862,7 @@ class Component extends DCLogic {
     document.addEventListener('visibilitychange',this._vis);
   }
   async boot(){
+    _msCodeHook=()=>this.openMsCode();
     /* Sign-in comes first. authReady() does not resolve until Firebase has a
        signed-in user, so nothing below — no Firestore read, not even the
        device cache — opens before then. The gate shows Continue with Google
@@ -9846,16 +9873,14 @@ class Component extends DCLogic {
     let rt=null;
     try{ rt=new URLSearchParams(location.search).get('r'); }catch(e){}
     if(rt) return this.openPeerForm(String(rt).trim().toUpperCase());
-    /* Back from the Microsoft confirmation email (?msv=secret, and &c=CODE for
-       the program they were joining). Kept for this tab until sign-in, and
-       taken out of the address bar so it is not shared or bookmarked. */
+    /* A Microsoft confirmation link from before the 6-digit code (?msv=…).
+       Links are no longer used: take it out of the address bar and say so. */
+    let oldMsLink=false;
     try{
-      const q=new URLSearchParams(location.search), t=q.get('msv');
-      if(t){ sessionStorage.setItem('jj_msv',t);
-        const c=cleanCode(q.get('c')||'');
-        if(c) sessionStorage.setItem('jj_msv_code',c); else sessionStorage.removeItem('jj_msv_code');
-        q.delete('msv'); q.delete('c');
+      const q=new URLSearchParams(location.search);
+      if(q.get('msv')){ oldMsLink=true; q.delete('msv'); q.delete('c'); q.delete('u');
         history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash); }
+      sessionStorage.removeItem('jj_msv'); sessionStorage.removeItem('jj_msv_code');
     }catch(e){}
     const signedIn=authReady();
     await _authFirst;
@@ -9869,8 +9894,7 @@ class Component extends DCLogic {
     if(!_authUser&&_authBlockMsg) this.setState({gateSignInErr:_authBlockMsg});
     /* The confirmation link opened in a window that is not signed in: say
        what to do. The link itself is checked the moment they sign in. */
-    let msvHeld=false; try{ msvHeld=!!sessionStorage.getItem('jj_msv'); }catch(e){}
-    if(!_authUser&&msvHeld) this.setState({gateNotice:'Email confirmed. Sign in with Microsoft to continue.'});
+    if(!_authUser&&oldMsLink) this.setState({gateNotice:'Email links are no longer used. Sign in with Microsoft and enter the 6-digit code we email you.'});
     /* Back from a Google or Microsoft redirect that did not sign anyone in (or
        a Microsoft one signed straight out for having no email): say so on the
        gate. An unverified Microsoft sign-in whose link did not send says so
@@ -9888,8 +9912,9 @@ class Component extends DCLogic {
     const me=String(currentUserEmail()||'').trim().toLowerCase();
     this.setState({authChecked:true,authEmail:me,gateSignInErr:'',gateSignInBusy:false,gateNotice:'',
       verifyEmail:'',verifyBusy:false,verifyMsg:'',verifyErr:''});
-    // Back from the Microsoft link: confirm it and carry on with that join.
-    if(await this.confirmMsLink()) return;
+    /* A Microsoft sign-in confirms its mailbox once, with a 6-digit code
+       typed on this screen, before anything else opens. */
+    if(!isAdminEmail(me)&&_isMsUser(firebase.auth().currentUser)) await this.msCodeGate();
     let known=null;
     try{ known=JSON.parse(localStorage.getItem('jj_known_leader')||'null'); }catch(e){}
     let sess=null;
@@ -12969,7 +12994,7 @@ class Component extends DCLogic {
     if(!email||!name) return {ok:false,error:'Could not read your account details'};
     const idkey=slug(email);
     const mem=await ensureMember(code,{sendLink:true});
-    if(!mem.ok) return {ok:false,error:mem.error};
+    if(!mem.ok) return {ok:false,error:mem.error,msCode:!!mem.msCode};
     try{
       const [org,revoked]=await Promise.all([
         sget('org:'+code),
@@ -13003,8 +13028,9 @@ class Component extends DCLogic {
     // No name on the account yet: the full join form asks for it ("Back to my programs" returns).
     if(!name) return this.setState({enterNewCode:true,joinCode:code,gateAddCode:''});
     this.setState({gateAddBusy:true});
+    this._msRetry=()=>this.gateAddProgram();
     const r=await this.addProgram(code,name);
-    if(!r.ok){ this.setState({gateAddBusy:false}); return this.toast(r.error,true); }
+    if(!r.ok){ this.setState({gateAddBusy:false}); return r.msCode?null:this.toast(r.error,true); }
     const progs=await this.myPrograms(currentUserEmail()).catch(()=>null);
     this.setState({gateAddBusy:false,gateAddCode:'',gatePrograms:progs&&progs.length?progs:s.gatePrograms});
     this.toast('Joined '+r.orgName+' — tap it to open.');
@@ -13123,8 +13149,9 @@ class Component extends DCLogic {
     if(this.state.gateStores.length&&!this.state.joinStore) return this.toast('Pick your store',true);
     if(this.state.gateDepts.length&&!this.state.joinDept) return this.toast('Pick your department',true);
     this.setState({joining:true});
+    this._msRetry=()=>this.join();
     const mem=await ensureMember(code,{sendLink:true});
-    if(!mem.ok){ this.setState({joining:false}); return this.toast(mem.error,true); }
+    if(!mem.ok){ this.setState({joining:false}); return mem.msCode?null:this.toast(mem.error,true); }
     const idkeyEarly=slug(email);
     const warm=(this._warm&&this._warm.code===code)?this._warm:null;
     /* The master coach library is small and shared, so it rides along with the
@@ -13251,49 +13278,59 @@ class Component extends DCLogic {
     this.setState({known:null,enterNewCode:true,joinCode:''});
     this.toast('Your access to '+(orgName||code)+' has ended. Check with your program lead.',true);
   }
-  /* The Microsoft confirmation link, once someone is signed in: the server
-     checks the secret and, if it matches, never asks this account again.
-     Tried once per page load; the email's link can be opened again. */
-  /* When the link named the program they were joining (&c=CODE), carry on
-     with that join here: straight into the program if their record there
-     already exists, otherwise the join form with the code (and their name,
-     if Microsoft gave one) filled in. Returns true when it has taken over
-     what the gate shows, false to let boot carry on as usual. */
-  async confirmMsLink(){
-    let t=null, code='';
-    try{ t=sessionStorage.getItem('jj_msv'); code=sessionStorage.getItem('jj_msv_code')||'';
-      sessionStorage.removeItem('jj_msv'); sessionStorage.removeItem('jj_msv_code'); }catch(e){}
-    if(!t) return false;
-    const r=await msVerifyApi({action:'confirm',t});
-    if(!r.ok){
-      this.toast(r.code==='not-microsoft'?'That link is for a Microsoft sign-in. Sign in with Microsoft, then open the link again.':r.error,true);
-      return false;
-    }
-    code=cleanCode(code);
-    if(!code){ this.toast('Email confirmed — enter your code to join.'); return false; }
-    const mem=await ensureMember(code);
-    if(!mem.ok){ this.toast(mem.error,true); return false; }
-    const me=String(currentUserEmail()||'').trim().toLowerCase(), idkey=slug(me);
-    let resp=null; try{ resp=await sgetStrict('resp:'+code+':'+idkey); }catch(e){}
-    if(!resp){
-      // Already in other groups: join with the name on the account, as My groups does.
-      const progs=(await this.myPrograms(me).catch(()=>null))||[];
-      const known=(progs.find(g=>g.name)||{}).name;
-      if(known){
-        const r=await this.addProgram(code,known);
-        if(!r.ok){ this.toast(r.error,true); return false; }
-        resp={name:known};
-      }
-    }
-    if(resp){
-      if(await this.loadLeader(code,idkey,resp.name,me)){ this.toast('Email confirmed — you are in.'); return true; }
-      return false;
-    }
-    const parts=String((firebase.auth().currentUser||{}).displayName||'').trim().split(/\s+/).filter(Boolean);
-    this.setState({booting:false,view:'gate',known:null,gatePrograms:[],enterNewCode:true,
-      joinCode:code,joinFirst:parts[0]||'',joinLast:parts.slice(1).join(' ')});
-    this.toast('Email confirmed — check your name, then tap Join to finish joining '+code+'.');
-    return true;
+  /* ---- Microsoft: the 6-digit code ------------------------------------
+     A Microsoft sign-in proves it owns its mailbox once (nOAuth), by typing
+     the code we email it, on the gate, in the same tab. msCodeGate() runs
+     right after sign-in and resolves once the account is confirmed (at once
+     if it already is). /api/join asking for it later (ensureMember) opens the
+     same screen and runs the join again once the code is right. */
+  async msCodeGate(){
+    const st=await msVerifyApi({action:'status'});
+    // Cannot tell right now: carry on; /api/join asks again if it must.
+    if(!(st.ok&&st.verified===false)) return true;
+    return new Promise(res=>{ this._msCodeRes=res; this.openMsCode(); });
+  }
+  openMsCode(){
+    const email=String(currentUserEmail()||'').trim().toLowerCase();
+    this.setState({booting:false,view:'gate',msCode:{email,val:'',msg:'',err:'',busy:false,resendAt:0}});
+    clearInterval(this._msCodeTick);
+    // The resend countdown.
+    this._msCodeTick=setInterval(()=>{ if(!this.state.msCode) return clearInterval(this._msCodeTick);
+      if(this.state.msCode.resendAt>Date.now()-1000) this.forceUpdate(); },1000);
+    this.sendMsCode();
+  }
+  patchMsCode(p){ if(this.state.msCode) this.setState({msCode:Object.assign({},this.state.msCode,p)}); }
+  async sendMsCode(){
+    const c=this.state.msCode; if(!c||c.busy||c.resendAt>Date.now()) return;
+    this.patchMsCode({busy:true,err:'',msg:'Sending…'});
+    const r=await msVerifyApi({action:'send'});
+    if(r.ok&&r.verified) return this.msCodeDone();
+    if(r.ok) return this.patchMsCode({busy:false,msg:'Code sent — check your inbox and Junk.',
+      resendAt:Date.now()+(Number(r.resendIn)||60)*1000});
+    // Asked again within the minute: the code already sent still stands.
+    if(r.code==='wait') return this.patchMsCode({busy:false,msg:'Code sent — check your inbox and Junk.',
+      resendAt:Date.now()+(Number(r.retryIn)||60)*1000});
+    this.patchMsCode({busy:false,msg:'',err:r.error});
+  }
+  async verifyMsCode(){
+    const c=this.state.msCode; if(!c||c.busy) return;
+    const code=String(c.val||'').replace(/\D/g,'');
+    if(code.length!==6) return this.patchMsCode({err:'Enter the 6-digit code from the email.'});
+    this.patchMsCode({busy:true,err:''});
+    const r=await msVerifyApi({action:'verify',code});
+    if(r.ok&&r.verified) return this.msCodeDone();
+    // A code that can no longer work is cleared, so the next one starts clean.
+    const dead=['too-many','expired','no-code'].indexOf(r.code)>=0;
+    this.patchMsCode({busy:false,err:r.error,msg:dead?'':c.msg,val:dead?'':c.val});
+  }
+  msCodeDone(){
+    clearInterval(this._msCodeTick);
+    this.setState({msCode:null});
+    this.toast('Email confirmed.');
+    const res=this._msCodeRes; this._msCodeRes=null;
+    if(res){ this.setState({booting:true}); return res(true); }
+    const again=this._msRetry; this._msRetry=null;
+    if(again) again();
   }
   /* The gate's "verify your email" panel. Coming back to the tab (from the
      mail app, or the tab the link opened) checks again on its own; once
@@ -17518,7 +17555,7 @@ class Component extends DCLogic {
        "Have a new code?" underneath. With no programs the ordinary code
        form shows instead. */
     const picks=(s.gatePrograms||[]);
-    v.gatePick=v.gateSignedIn&&picks.length>0&&!s.enterNewCode;
+    v.gatePick=v.gateSignedIn&&!s.msCode&&picks.length>0&&!s.enterNewCode;
     const fromApp=s.role==='leader'&&!!s.code;
     v.gatePickList=picks.map(g=>{ const here=fromApp&&g.code===s.code;
       return {label:g.orgName||g.code,sub:here?g.code+' · you are here':g.code,
@@ -17537,8 +17574,22 @@ class Component extends DCLogic {
     v.gateBackToAppLabel='Back to '+((s.org&&s.org.name)||s.code||'the app');
     v.onGateBackToApp=()=>this.setState({view:'home',gatePrograms:[],gateAddCode:''});
     v.gateHasNotice=!!s.gateNotice; v.gateNotice=s.gateNotice||'';
-    v.gateWelcomeBack=v.gateSignedIn&&!v.gatePick&&!!s.known&&!s.enterNewCode;
-    v.gateShowForm=v.gateSignedIn&&!v.gatePick&&(!s.known||!!s.enterNewCode);
+    // Microsoft: the 6-digit code (openMsCode).
+    { const c=s.msCode||{}, wait=Math.max(0,Math.ceil(((c.resendAt||0)-Date.now())/1000));
+      v.msCodeOn=!!s.msCode&&!!s.authEmail;
+      v.msCodeEmail=c.email||'';
+      v.msCodeVal=c.val||'';
+      v.onMsCodeVal=e=>this.patchMsCode({val:String(e.target.value||'').replace(/[^\d ]/g,'').slice(0,7),err:''});
+      v.onMsCodeSubmit=e=>{ if(e&&e.preventDefault) e.preventDefault(); this.verifyMsCode(); };
+      v.msCodeCta=c.busy&&c.val?'Checking…':'Continue';
+      v.msCodeHasMsg=!!c.msg; v.msCodeMsg=c.msg||'';
+      v.msCodeHasErr=!!c.err; v.msCodeErr=c.err||'';
+      v.msCodeResendLabel=wait?('Resend code in '+wait+'s'):'Resend code';
+      v.msCodeResendStyle='display:block;width:100%;max-width:300px;margin:10px auto 0;background:transparent;border-radius:999px;padding:12px 16px;font-family:inherit;font-weight:800;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;'
+        +(wait||c.busy?'color:#7E8D9C;border:1.5px solid rgba(255,255,255,.18);cursor:default':'color:#FFFFFF;border:1.5px solid rgba(255,255,255,.5);cursor:pointer');
+      v.onMsCodeResend=()=>this.sendMsCode(); }
+    v.gateWelcomeBack=v.gateSignedIn&&!s.msCode&&!v.gatePick&&!!s.known&&!s.enterNewCode;
+    v.gateShowForm=v.gateSignedIn&&!s.msCode&&!v.gatePick&&(!s.known||!!s.enterNewCode);
     // On the full code form with groups to go back to: offer the way back.
     v.gateBackToPick=v.gateShowForm&&picks.length>0&&!!s.enterNewCode;
     v.onBackToPick=()=>this.setState({enterNewCode:false,joinCode:'',joinFirst:'',joinLast:'',gateStores:[],gateDepts:[],gateOrgName:'',joinStore:'',joinDept:''});
