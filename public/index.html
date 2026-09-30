@@ -1847,7 +1847,7 @@ sc-if,sc-for{display:none!important}
 </button>
 </sc-if>
 <sc-if value="{{ mv.file }}" hint-placeholder-val="{{ false }}">
-<video ref="{{ mv.ref }}" controls="{{ true }}" sc-camel-plays-inline="{{ true }}" preload="auto" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-controls-list="nodownload noplaybackrate" style="display:block;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#0C2647"></video>
+<video ref="{{ mv.ref }}" poster="{{ mv.posterAttr }}" controls="{{ true }}" sc-camel-plays-inline="{{ true }}" preload="auto" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-controls-list="nodownload noplaybackrate" style="display:block;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#0C2647"></video>
 </sc-if>
 <sc-if value="{{ mv.embed }}" hint-placeholder-val="{{ false }}">
 <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#F3F7FB">
@@ -7297,13 +7297,18 @@ Or upload an image
 <p style="font-size:11.5px;line-height:1.55;color:#8A3B12;background:#FDF0E4;border:1px solid #F0C9A6;border-radius:8px;padding:8px 10px;margin:0 0 7px">This is a .MOV file. It plays on iPhone and Safari, but Chrome cannot open it. Convert it to MP4 before this goes out.</p>
 </sc-if>
 <div style="font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C;margin-bottom:5px">Thumbnail</div>
-<p style="font-size:11.5px;line-height:1.5;color:#9DAAB8;margin:0 0 7px">Shown before they press play. Leave it empty and they get a plain play frame instead.</p>
+<p style="font-size:11.5px;line-height:1.5;color:#9DAAB8;margin:0 0 7px">Shown before they press play. Leave it empty and the video looks as it does today (YouTube and Vimeo show their own).</p>
 <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:11px">
 <sc-if value="{{ mi.hasPosterPreview }}" hint-placeholder-val="{{ false }}">
 <img src="{{ mi.posterPreview }}" alt="" style="flex:none;width:104px;aspect-ratio:16/9;object-fit:cover;border-radius:7px;border:1px solid #C6D4E2;background:#EAF1F8">
 </sc-if>
 <input type="text" value="{{ mi.posterVal }}" sc-camel-on-change="{{ mi.onPoster }}" placeholder="Thumbnail image URL" style="flex:1;min-width:0;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px">
 </div>
+<div style="display:flex;gap:10px;align-items:center;margin:-4px 0 9px">
+<label style="flex:none;display:inline-flex;align-items:center;justify-content:center;background:#0C2647;color:#FFFFFF;border-radius:8px;padding:8px 12px;font-weight:800;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Upload a thumbnail<input type="file" accept="image/*" sc-camel-on-change="{{ mi.onPosterFile }}" style="display:none"></label>
+<sc-if value="{{ mi.hasPosterVal }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mi.onPosterRemove }}" style="flex:none;background:none;border:none;padding:0 2px;font-family:inherit;font-weight:800;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#D5502B;cursor:pointer">Remove thumbnail</button></sc-if>
+</div>
+<sc-if value="{{ mi.thHasMsg }}" hint-placeholder-val="{{ false }}"><p style="font-size:11.5px;line-height:1.5;color:#37475C;background:#EAF1F8;border:1px solid #C6D4E2;border-radius:8px;padding:7px 10px;margin:0 0 9px">{{ mi.thMsg }}</p></sc-if>
 <sc-for list="{{ mi.moreVids }}" as="mv" hint-placeholder-count="0">
 <div style="background:#F3F7FB;border:1px solid #DCE6F0;border-radius:10px;padding:11px 12px;margin-bottom:9px">
 <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
@@ -7313,7 +7318,19 @@ Or upload an image
 <button sc-camel-on-click="{{ mv.onRemove }}" style="flex:none;background:none;border:none;padding:0 2px;font-family:inherit;font-weight:800;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#D5502B;cursor:pointer">Remove</button>
 </div>
 <input type="text" value="{{ mv.titleVal }}" sc-camel-on-change="{{ mv.onTitle }}" placeholder="Title shown above this video" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px;margin-bottom:7px">
-<input type="text" value="{{ mv.urlVal }}" sc-camel-on-change="{{ mv.onUrl }}" placeholder="Google Drive link, MP4 link, or HubSpot embed URL" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px;margin-bottom:7px;margin-bottom:0">
+<input type="text" value="{{ mv.urlVal }}" sc-camel-on-change="{{ mv.onUrl }}" placeholder="Google Drive link, MP4 link, or HubSpot embed URL" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px;margin-bottom:7px">
+<div style="font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C;margin:2px 0 5px">Thumbnail (optional)</div>
+<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:7px">
+<sc-if value="{{ mv.hasThumbPreview }}" hint-placeholder-val="{{ false }}">
+<img src="{{ mv.thumbPreview }}" alt="" style="flex:none;width:88px;aspect-ratio:16/9;object-fit:cover;border-radius:7px;border:1px solid #C6D4E2;background:#EAF1F8">
+</sc-if>
+<input type="text" value="{{ mv.thumbVal }}" sc-camel-on-change="{{ mv.onThumb }}" placeholder="Thumbnail image URL" style="flex:1;min-width:0;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px">
+</div>
+<div style="display:flex;gap:10px;align-items:center">
+<label style="flex:none;display:inline-flex;align-items:center;justify-content:center;background:#0C2647;color:#FFFFFF;border-radius:8px;padding:8px 12px;font-weight:800;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Upload a thumbnail<input type="file" accept="image/*" sc-camel-on-change="{{ mv.onThumbFile }}" style="display:none"></label>
+<sc-if value="{{ mv.hasThumbVal }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mv.onThumbRemove }}" style="flex:none;background:none;border:none;padding:0 2px;font-family:inherit;font-weight:800;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#D5502B;cursor:pointer">Remove thumbnail</button></sc-if>
+</div>
+<sc-if value="{{ mv.thHasMsg }}" hint-placeholder-val="{{ false }}"><p style="font-size:11.5px;line-height:1.5;color:#37475C;background:#EAF1F8;border:1px solid #C6D4E2;border-radius:8px;padding:7px 10px;margin:0 0 9px;margin:8px 0 0">{{ mv.thMsg }}</p></sc-if>
 <sc-if value="{{ mv.movWarn }}" hint-placeholder-val="{{ false }}">
 <p style="font-size:11.5px;line-height:1.55;color:#8A3B12;background:#FDF0E4;border:1px solid #F0C9A6;border-radius:8px;padding:8px 10px;margin:7px 0 0">This is a .MOV file. It plays on iPhone and Safari, but Chrome cannot open it. Convert it to MP4 before this goes out.</p>
 </sc-if>
@@ -8026,6 +8043,11 @@ function videoMime(u){
 function embedUrl(u){
   const s=String(u||'').trim(); if(!s) return '';
   if(isDirectVideo(s)) return s;
+  // YouTube and Vimeo refuse to be framed from their own pages; their players embed.
+  const yt=s.match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{6,})/);
+  if(yt) return 'https://www.youtube.com/embed/'+yt[1];
+  const vm=s.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if(vm) return 'https://player.vimeo.com/video/'+vm[1];
   // HubSpot hands out a watch page and a player URL; only the player embeds.
   if(/(hs-sites|hubspotvideo|hubspot)\.com/i.test(s)) return s.replace('/watch/','/embed/');
   if(/drive\.google\.com|docs\.google\.com/.test(s)){
@@ -8036,6 +8058,9 @@ function embedUrl(u){
 }
 // Drive can render its own frame grab, which is the fallback when nobody has
 // set a thumbnail of their own.
+/* YouTube and Vimeo players show their own thumbnail and play button, so with
+   no thumbnail of ours the player itself is shown straight away. */
+function playerHasOwnPoster(u){ return /^https:\/\/(www\.youtube\.com\/embed\/|player\.vimeo\.com\/video\/)/.test(embedUrl(u)); }
 function driveThumb(u){ const id=driveId(u); return id?('https://drive.google.com/thumbnail?id='+id+'&sz=w1000'):''; }
 const SK_ORDER=['learn','facilitate','checkin','discussion','reflection','bump'];
 const SK={learn:{label:'Lead Yourself',bg:'#0C2647'},facilitate:{label:'Lead Your Team',bg:'#6FC0EA'},checkin:{label:'Check-In',bg:'#2C74B3'},discussion:{label:'Team Discussion',bg:'#3E9E6A'},bump:{label:'Accountability Bump',bg:'#C0341A'},reflection:{label:'Monthly Reflection',bg:'#D4B400'}};
@@ -10405,6 +10430,23 @@ class Component extends DCLogic {
     await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js');
     if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     return firebase.storage();
+  }
+  /* A thumbnail image, uploaded to Storage like the session videos are
+     (its own session-thumbnails/ folder). set(url) stores it on the video. */
+  async uploadThumb(e,key,set){
+    const f=e.target.files&&e.target.files[0]; e.target.value='';
+    if(!f) return;
+    if(!/^image\//.test(f.type||'')) return this.setState({thUp:{key,msg:'That is not an image. Use a JPG, PNG or WebP.'}});
+    if(f.size>10*1024*1024) return this.setState({thUp:{key,msg:'That image is over 10 MB. Use a smaller one (1920×1080 is plenty).'}});
+    this.setState({thUp:{key,busy:true,msg:'Uploading '+f.name+'…'}});
+    try{
+      const url=await this.uploadMedia(f,'session-thumbnails',
+        pct=>this.setState({thUp:{key,busy:true,msg:'Uploading '+f.name+' — '+pct+'%'}}));
+      set(url);
+      this.setState({thUp:{key,msg:'Uploaded. Save to publish it.'}});
+    }catch(err){
+      this.setState({thUp:{key,msg:'Upload failed: '+((err&&(err.code||err.message))||'try again')+'. You can paste an image link instead.'}});
+    }
   }
   async uploadMedia(file,folder,onPct){
     const st=await this.fbStorage();
@@ -18801,7 +18843,9 @@ class Component extends DCLogic {
         const ch=it.challenge||fm.challenge||{};
         const media=embedUrl(it.mediaUrl);
         const poster=(it.posterUrl||'').trim()||driveThumb(it.mediaUrl);
-        const started=!!(this.state.vidOn||{})[it.id];
+        // No thumbnail of ours on a YouTube or Vimeo video: their player shows its own.
+        const started=!!(this.state.vidOn||{})[it.id]
+          ||(playerHasOwnPoster(it.mediaUrl)&&!(it.posterUrl||'').trim());
         const rsc=it.resource||{};
         const vidOn=it.videoEnabled!==false;
         const qsOn=(it.questions||[]).filter(q=>q.enabled!==false);
@@ -18924,12 +18968,13 @@ class Component extends DCLogic {
                 const key=it.id+':'+(x.id||i);
                 const url=embedUrl(x.url), plain=String(x.url||'').trim();
                 const poster=(x.posterUrl||'').trim()||driveThumb(x.url);
-                const started=!!mvOn[key], failed=!!mvErr[key], isFile=isDirectVideo(url);
+                const started=!!mvOn[key]||(playerHasOwnPoster(x.url)&&!(x.posterUrl||'').trim());
+                const failed=!!mvErr[key], isFile=isDirectVideo(url);
                 const setErr=v=>{ const e=Object.assign({},this.state.mvErr||{});
                   if(v) e[key]=true; else delete e[key]; this.setState({mvErr:e}); };
                 return {
                   title:String(x.title||'').trim()||('Video '+(i+2)),
-                  hasPoster:!started, poster, hasPosterImg:!!poster,
+                  hasPoster:!started, poster, hasPosterImg:!!poster, posterAttr:poster||undefined,
                   onStart:()=>this.setState({mvOn:Object.assign({},this.state.mvOn||{},{[key]:true})}),
                   file:started&&isFile&&!failed,
                   embed:started&&!isFile,
@@ -22734,6 +22779,13 @@ class Component extends DCLogic {
               else editItem(ii=>{ ii.posterUrl=val; });},
             posterPreview:((orgMode?(oi.posterUrl!==undefined?oi.posterUrl:(it.posterUrl||'')):(it.posterUrl||''))||driveThumb(media)||BLANK_IMG),
             hasPosterPreview:!!((orgMode?(oi.posterUrl!==undefined?oi.posterUrl:(it.posterUrl||'')):(it.posterUrl||''))||driveThumb(media)),
+            hasPosterVal:!!String(orgMode?(oi.posterUrl!==undefined?oi.posterUrl:(it.posterUrl||'')):(it.posterUrl||'')).trim(),
+            onPosterFile:e=>this.uploadThumb(e,it.id+':v1',url=>{
+              if(orgMode) setItem({posterUrl:url}); else editItem(ii=>{ ii.posterUrl=url; }); }),
+            onPosterRemove:()=>{ if(orgMode) setItem({posterUrl:''}); else editItem(ii=>{ ii.posterUrl=''; });
+              this.setState({thUp:null}); },
+            thHasMsg:!!(s.thUp&&s.thUp.key===it.id+':v1'&&s.thUp.msg),
+            thMsg:(s.thUp&&s.thUp.key===it.id+':v1')?(s.thUp.msg||''):'',
             /* Video 1's title, and more videos after it: an optional list, each with its own
                title and link, played in this order. Saved whole, so the order
                is simply the list's order. */
@@ -22743,6 +22795,14 @@ class Component extends DCLogic {
               const setMore=list=>{ const clean=list.map(x=>Object.assign({},x));
                 if(orgMode) setItem({moreVideos:clean}); else editItem(ii=>{ ii.moreVideos=clean; }); };
               const patch=(j,p)=>setMore(more.map((x,k)=>k===j?Object.assign({},x,p):x));
+              /* For a result that arrives later (an upload): change that one
+                 video in the list as it is then, not as it was when it began. */
+              const patchLater=(vid,p)=>{
+                const upd=l=>(Array.isArray(l)?l:[]).map(x=>x&&x.id===vid?Object.assign({},x,p):x);
+                if(!orgMode||orgOwn) return editItem(ii=>{ ii.moreVideos=upd(ii.moreVideos); });
+                this.editOv(m.id,o=>{ const cur=o.items[it.id]||{};
+                  o.items[it.id]=Object.assign({},cur,{moreVideos:upd(cur.moreVideos!==undefined?cur.moreVideos:it.moreVideos)}); });
+              };
               const move=(j,d)=>{ const l=more.slice(), t=j+d; if(t<0||t>=l.length) return;
                 const x=l[j]; l[j]=l[t]; l[t]=x; setMore(l); };
               const t1=orgMode?(oi.mediaTitle!==undefined?oi.mediaTitle:(it.mediaTitle||'')):(it.mediaTitle||'');
@@ -22758,6 +22818,15 @@ class Component extends DCLogic {
                   onTitle:e=>patch(j,{title:e.target.value}),
                   onUrl:e=>patch(j,{url:e.target.value.trim()}),
                   movWarn:/\.mov(\?|#|$)/i.test(String(x.url||'')),
+                  thumbVal:x.posterUrl||'',
+                  onThumb:e=>patch(j,{posterUrl:e.target.value.trim()}),
+                  thumbPreview:(x.posterUrl||'').trim()||driveThumb(x.url)||BLANK_IMG,
+                  hasThumbPreview:!!((x.posterUrl||'').trim()||driveThumb(x.url)),
+                  hasThumbVal:!!String(x.posterUrl||'').trim(),
+                  onThumbFile:e=>this.uploadThumb(e,it.id+':'+x.id,url=>patchLater(x.id,{posterUrl:url})),
+                  onThumbRemove:()=>{ patch(j,{posterUrl:''}); this.setState({thUp:null}); },
+                  thHasMsg:!!(s.thUp&&s.thUp.key===it.id+':'+x.id&&s.thUp.msg),
+                  thMsg:(s.thUp&&s.thUp.key===it.id+':'+x.id)?(s.thUp.msg||''):'',
                   canUp:j>0, canDown:j<more.length-1,
                   upStyle:'flex:none;background:#fff;border:1px solid #C6D4E2;border-radius:6px;padding:4px 8px;font-family:inherit;font-weight:900;font-size:11px;color:#37475C;cursor:pointer',
                   onUp:this.guard('reorder these videos',()=>move(j,-1)),
