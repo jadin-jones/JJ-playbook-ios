@@ -1,5 +1,9 @@
 # Release notes
 
+## Thumbnails for every video
+
+Every video in a session can now show its own thumbnail before you press play, including the second and third videos. YouTube and Vimeo videos show their own thumbnail unless a different one is set, and videos without a thumbnail look exactly as before.
+
 ## Faster first sign-in with Microsoft
 
 Signing in with a Microsoft account for the first time is now one quick step: we email you a 6-digit code and you type it right on the sign-in screen. No links and no extra tabs, on your phone or computer.
