@@ -33,7 +33,15 @@ function app() {
   });
 }
 
-const db = () => app().firestore();
+/* Firestore over REST rather than gRPC: the functions only make one-off
+   reads, writes and transactions, and skipping gRPC's start-up makes a cold
+   function answer sooner. Set once, before the first use. */
+let restSet = false;
+const db = () => {
+  const f = app().firestore();
+  if (!restSet) { restSet = true; f.settings({ preferRest: true }); }
+  return f;
+};
 const auth = () => app().auth();
 
 module.exports = { admin, app, db, auth, missingEnv };

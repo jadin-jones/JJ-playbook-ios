@@ -15,8 +15,10 @@
 /index.html
   Cache-Control: no-store
 
+# support.js is re-checked on every visit (ETag), so a new deploy is still
+# picked up at once, but an unchanged copy costs a 304 instead of the file.
 /support.js
-  Cache-Control: no-store
+  Cache-Control: public, max-age=0, must-revalidate
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
