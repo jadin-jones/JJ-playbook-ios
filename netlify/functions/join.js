@@ -93,11 +93,11 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
     }
 
     /* Microsoft's own "verified" is not trusted (nOAuth): the first join by a
-       Microsoft sign-in needs our emailed link confirmed. Checked after
+       Microsoft sign-in needs our emailed 6-digit code confirmed. Checked after
        "revoked", so a revoked person still hears that, and before the
        approved list, so this answer says nothing about who is on it. */
     if (isMicrosoft(tok) && !(await isConfirmed(tok.uid, email))) {
-      return reply(403, { error: 'Confirm your email address first: enter your code and join to get a link at ' + email + '.',
+      return reply(403, { error: 'Confirm your email address first: enter the 6-digit code we email to ' + email + '.',
         code: 'ms-verify' });
     }
 
