@@ -7268,6 +7268,8 @@ Or upload an image
 <span style="flex:1;min-width:0;font-weight:900;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#0B5E80">Video</span>
 <button sc-camel-on-click="{{ mi.onToggleVid }}" style="{{ mi.vidToggleStyle }}">{{ mi.vidToggleLabel }}</button>
 </div>
+<div style="font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C;margin-bottom:5px">Video title</div>
+<input type="text" value="{{ mi.vid1TitleVal }}" sc-camel-on-change="{{ mi.onVid1Title }}" placeholder="{{ mi.vid1TitlePh }}" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px;margin-bottom:11px">
 <div style="display:flex;gap:7px;margin-bottom:7px">
 <label style="flex:1;display:flex;align-items:center;justify-content:center;background:#0C2647;color:#FFFFFF;border-radius:8px;padding:11px;font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Upload a video
 <input type="file" accept="video/mp4,video/webm,video/quicktime,video/*" sc-camel-on-change="{{ mi.onVideoFile }}" style="display:none">
@@ -7302,10 +7304,6 @@ Or upload an image
 </sc-if>
 <input type="text" value="{{ mi.posterVal }}" sc-camel-on-change="{{ mi.onPoster }}" placeholder="Thumbnail image URL" style="flex:1;min-width:0;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px">
 </div>
-<sc-if value="{{ mi.hasMoreVids }}" hint-placeholder-val="{{ false }}">
-<div style="font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C;margin-bottom:5px">Video 1 title</div>
-<input type="text" value="{{ mi.vid1TitleVal }}" sc-camel-on-change="{{ mi.onVid1Title }}" placeholder="Shown above the first video (defaults to Video 1)" style="width:100%;background:#fff;border:1px solid #C6D4E2;border-radius:8px;padding:9px 11px;font-size:13.5px;margin-bottom:7px;margin-bottom:11px">
-</sc-if>
 <sc-for list="{{ mi.moreVids }}" as="mv" hint-placeholder-count="0">
 <div style="background:#F3F7FB;border:1px solid #DCE6F0;border-radius:10px;padding:11px 12px;margin-bottom:9px">
 <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
@@ -18917,7 +18915,10 @@ class Component extends DCLogic {
             const on=vidOn&&extra.length>0;
             const mvOn=s.mvOn||{}, mvErr=s.mvErr||{};
             return {
-              hasVid1Title:on,
+              /* Video 1's own title: shown whenever it is set; with more
+                 videos after it, "Video 1" stands in. Blank on a one-video
+                 session, and nothing new appears. */
+              hasVid1Title:vidOn&&(on||!!String(it.mediaTitle||'').trim()),
               vid1Title:String(it.mediaTitle||'').trim()||'Video 1',
               moreVids:on?extra.map((x,i)=>{
                 const key=it.id+':'+(x.id||i);
@@ -22733,7 +22734,7 @@ class Component extends DCLogic {
               else editItem(ii=>{ ii.posterUrl=val; });},
             posterPreview:((orgMode?(oi.posterUrl!==undefined?oi.posterUrl:(it.posterUrl||'')):(it.posterUrl||''))||driveThumb(media)||BLANK_IMG),
             hasPosterPreview:!!((orgMode?(oi.posterUrl!==undefined?oi.posterUrl:(it.posterUrl||'')):(it.posterUrl||''))||driveThumb(media)),
-            /* More videos after Video 1: an optional list, each with its own
+            /* Video 1's title, and more videos after it: an optional list, each with its own
                title and link, played in this order. Saved whole, so the order
                is simply the list's order. */
             ...(()=>{
@@ -22748,6 +22749,7 @@ class Component extends DCLogic {
               return {
                 hasMoreVids:more.length>0,
                 vid1TitleVal:t1,
+                vid1TitlePh:more.length?'Optional — defaults to “Video 1”':'Optional — shown above the video',
                 onVid1Title:e=>{ const val=e.target.value;
                   if(orgMode) setItem({mediaTitle:val}); else editItem(ii=>{ ii.mediaTitle=val; }); },
                 moreVids:more.map((x,j)=>({
