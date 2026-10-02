@@ -736,30 +736,6 @@ sc-if,sc-for{display:none!important}
 <p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:16px 0 0">Wrong address? <button sc-camel-on-click="{{ onGateSwitchAccount }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Use a different account</button></p>
 </div>
 </sc-if>
-<sc-if value="{{ resetOn }}" hint-placeholder-val="{{ false }}">
-<div style="animation:jjIn .3s ease both;text-align:center">
-<p style="font-weight:900;font-size:18px;line-height:1.2;text-transform:uppercase;color:#FFFFFF;margin:14px 0 8px">Set a new password</p>
-<sc-if value="{{ resetChecking }}" hint-placeholder-val="{{ false }}">
-<p style="font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 18px">Checking your link…</p>
-</sc-if>
-<sc-if value="{{ resetShowForm }}" hint-placeholder-val="{{ false }}">
-<p style="font-size:13px;line-height:1.55;color:#7E8D9C;margin:0 0 18px">Choose a new password for <span style="color:#FFFFFF;font-weight:700">{{ resetEmail }}</span>.</p>
-<form sc-camel-on-submit="{{ onResetSubmit }}" style="margin:0">
-<input type="email" name="email" value="{{ resetEmail }}" autocomplete="username" readonly tabindex="-1" aria-hidden="true" style="display:none">
-<input type="password" name="new-password" value="{{ resetPw1 }}" sc-camel-on-change="{{ onResetPw1 }}" autocomplete="new-password" placeholder="New password" style="{{ pwInpStyle }}">
-<input type="password" name="confirm-password" value="{{ resetPw2 }}" sc-camel-on-change="{{ onResetPw2 }}" autocomplete="new-password" placeholder="New password again" style="{{ pwInpStyle }}">
-<button type="submit" style="display:block;width:100%;max-width:300px;margin:4px auto 0;background:#FADA01;color:#0C2647;border:2px solid #FADA01;border-radius:999px;padding:14px 18px;font-weight:900;font-size:14px;letter-spacing:.04em;font-family:inherit;cursor:pointer;box-shadow:0 6px 22px rgba(250,218,1,.35)">{{ resetCta }}</button>
-</form>
-</sc-if>
-<sc-if value="{{ resetHasErr }}" hint-placeholder-val="{{ false }}">
-<p style="color:#FFB4B4;font-size:13px;line-height:1.5;margin:14px 0 0">{{ resetErr }}</p>
-</sc-if>
-<sc-if value="{{ resetDead }}" hint-placeholder-val="{{ false }}">
-<button sc-camel-on-click="{{ onResetNewLink }}" style="display:block;width:100%;max-width:300px;margin:14px auto 0;background:#FADA01;color:#0C2647;border:2px solid #FADA01;border-radius:999px;padding:14px 18px;font-weight:900;font-size:14px;letter-spacing:.04em;font-family:inherit;cursor:pointer">Send a new link</button>
-</sc-if>
-<p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:16px 0 0"><button sc-camel-on-click="{{ onResetBack }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Back to sign in</button></p>
-</div>
-</sc-if>
 <sc-if value="{{ gateSignedIn }}" hint-placeholder-val="{{ false }}">
 <p style="text-align:center;font-size:12.5px;line-height:1.5;color:#7E8D9C;margin:10px 0 0">Signed in as <span style="color:#FFFFFF;font-weight:700">{{ gateAuthEmail }}</span> · <button sc-camel-on-click="{{ onGateSwitchAccount }}" style="background:none;border:none;padding:0;font:inherit;color:#FFFFFF;text-decoration:underline;cursor:pointer">Use a different account</button></p>
 </sc-if>
@@ -8547,22 +8523,6 @@ let _authRedirectMsg='';
 let _gateSignIn=false;
 let _authFirstRes;
 const _authFirst=new Promise(r=>{ _authFirstRes=r; });
-/* Firebase's emails (confirm your address, set a new password) link back to
-   this page as ?mode=…&oobCode=… once the project's action URL points here
-   (Authentication → Templates). Read once and taken out of the address bar
-   at once, so a reload or a copied address never reuses the code. */
-const _emailAct=(()=>{
-  try{
-    const q=new URLSearchParams(location.search), mode=q.get('mode'), code=q.get('oobCode');
-    if(!code||(mode!=='verifyEmail'&&mode!=='resetPassword')) return null;
-    ['mode','oobCode','apiKey','continueUrl','lang','tenantId'].forEach(k=>q.delete(k));
-    history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
-    return {mode,code};
-  }catch(e){ return null; }
-})();
-/* Settles once a ?mode=verifyEmail code has been applied: {ok:true}, or
-   {ok:false,code} with Firebase's error code. null when there was none. */
-let _verifyApplied=Promise.resolve(null);
 function authReady(){
   if(_authUser) return Promise.resolve(true);
   if(_authWait) return _authWait;
@@ -8576,7 +8536,6 @@ function authReady(){
           s.onload=ok; s.onerror=bad; document.head.appendChild(s); });
       }
       if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-      if(_emailAct&&_emailAct.mode==='verifyEmail') _verifyApplied=authApplyVerifyCode(_emailAct.code);
       _authRedirect=_checkGoogleRedirect();
       firebase.auth().onAuthStateChanged(user=>{
         /* Every sign-in passes here, a saved one included: an admin address
@@ -8588,11 +8547,10 @@ function authReady(){
           return;
         }
         /* The saved copy of the user can say "unverified" after the link was
-           clicked in another tab or the mail app, so ask Firebase once —
-           after applying the code if this page is the link itself. */
+           clicked in another tab or the mail app, so ask Firebase once. */
         if(user&&!user.emailVerified){
           _authUser=null; _authPending=user;
-          _verifyApplied.then(()=>authCheckVerified()).then(ok=>{ if(!ok) _authFirstRes(user); });
+          authCheckVerified().then(ok=>{ if(!ok) _authFirstRes(user); });
           return;
         }
         _authPending=null;
@@ -8847,11 +8805,9 @@ function authErrMsg(e,kind){
 }
 function _authLoaded(){ return typeof firebase!=='undefined'&&!!firebase.auth&&firebase.apps.length>0; }
 const _authNotLoaded={ok:false,error:'Sign-in is still loading. Try again in a moment.'};
-/* Links in Firebase's emails come back to this page, on the address the
-   person signed in on. Only our own addresses (AUTH_OWN_HOSTS): anywhere else
-   (the iOS app, a local copy) gets Firebase's default. */
+/* Links in Firebase's emails come back to this page. The iOS app's own
+   origin is not an authorized domain, so fall back to Firebase's default. */
 async function _withContinueUrl(send){
-  if(AUTH_OWN_HOSTS.indexOf(location.hostname)<0) return send(undefined);
   try{ await send({url:location.origin+location.pathname}); }
   catch(e){
     if(e&&(e.code==='auth/unauthorized-continue-uri'||e.code==='auth/invalid-continue-uri'
@@ -8875,14 +8831,8 @@ async function authResendVerify(){
 }
 /* Asks Firebase whether the pending user has clicked the link. If so, a fresh
    token carries email_verified to /api/join and the rules, and authReady()
-   resolves. Returns true once verified. Calls made while one is still
-   asking share its answer (the Check your email panel asks every few seconds). */
-let _verifyCheck=null;
-function authCheckVerified(){
-  if(!_verifyCheck) _verifyCheck=_authCheckVerified().finally(()=>{ _verifyCheck=null; });
-  return _verifyCheck;
-}
-async function _authCheckVerified(){
+   resolves. Returns true once verified. */
+async function authCheckVerified(){
   if(!_authLoaded()) return false;
   const u=_authPending||firebase.auth().currentUser;
   if(!u) return false;
@@ -8893,45 +8843,7 @@ async function _authCheckVerified(){
   _authPending=null; _authUser=fresh;
   _authFirstRes(fresh); _hideLoginOverlay();
   if(_authRes) _authRes(true);
-  _authTellTabs();
   return true;
-}
-/* Tells this site's other open tabs that an address was just confirmed, so a
-   tab waiting on Check your email asks Firebase again and carries on. */
-let _authChan=null;
-try{
-  _authChan=new BroadcastChannel('jj-auth');
-  _authChan.onmessage=e=>{ if(e&&e.data&&e.data.type==='verified'&&_authPending) authCheckVerified(); };
-}catch(e){}
-function _authTellTabs(){ try{ if(_authChan) _authChan.postMessage({type:'verified'}); }catch(e){} }
-/* The code from a confirm-your-address link. It works signed in or not, for
-   whichever account it was sent to. */
-async function authApplyVerifyCode(code){
-  try{ await firebase.auth().applyActionCode(code); _authTellTabs(); return {ok:true}; }
-  catch(e){ console.warn('applyActionCode',e&&e.code); return {ok:false,code:(e&&e.code)||''}; }
-}
-/* The set-a-new-password link: whose account the code is for, then the new
-   password. {ok,email} / {ok}, or {ok:false,error,dead} where dead means the
-   link can never work again and a new one is needed. */
-function _resetErr(e){
-  const c=(e&&e.code)||'';
-  if(c==='auth/expired-action-code'||c==='auth/invalid-action-code')
-    return {ok:false,dead:true,error:'This link has expired or has already been used.'};
-  if(c==='auth/user-disabled'||c==='auth/user-not-found')
-    return {ok:false,dead:true,error:'This account is no longer available. Ask your program lead.'};
-  if(c==='auth/weak-password'||c==='auth/password-does-not-meet-requirements')
-    return {ok:false,error:'Choose a stronger password: a longer one, with letters and numbers.'};
-  return {ok:false,error:authErrMsg(e)};
-}
-async function authResetEmail(code){
-  if(!_authLoaded()) return _authNotLoaded;
-  try{ return {ok:true,email:await firebase.auth().verifyPasswordResetCode(code)}; }
-  catch(e){ console.warn('verifyPasswordResetCode',e&&e.code); return _resetErr(e); }
-}
-async function authResetConfirm(code,pw){
-  if(!_authLoaded()) return _authNotLoaded;
-  try{ await firebase.auth().confirmPasswordReset(code,pw); return {ok:true}; }
-  catch(e){ console.warn('confirmPasswordReset',e&&e.code); return _resetErr(e); }
 }
 /* Always reports success for a well-formed address, so the reply never
    reveals whether that email has an account. */
@@ -9681,7 +9593,7 @@ class Component extends DCLogic {
       commitPick:null, commitTarget:null, openToolFund:null, openActivity:null,
       joinCode:'', joinFirst:'', joinLast:'', joining:false, enterNewCode:false,
       authChecked:false, authEmail:'', gateSignInErr:'', gateSignInBusy:false,
-      verifyEmail:'', verifyBusy:false, verifyMsg:'', verifyErr:'', verifySentAt:0, resetPw:null,
+      verifyEmail:'', verifyBusy:false, verifyMsg:'', verifyErr:'', verifySentAt:0,
       pwEmail:'', pwPass:'', pwBusy:false, pwErr:'', pwMsg:'', pwResetAt:0,
       gateStores:[], gateDepts:[], gateOrgName:'', joinStore:'', joinDept:'',
       odStore:'', odDept:'', odPerson:null, copyFrom:'', secOpen:{}, liveEdit:false,
@@ -9996,11 +9908,6 @@ class Component extends DCLogic {
     let rt=null;
     try{ rt=new URLSearchParams(location.search).get('r'); }catch(e){}
     if(rt) return this.openPeerForm(String(rt).trim().toUpperCase());
-    // A set-a-new-password link opens its own form in place of the app.
-    if(_emailAct&&_emailAct.mode==='resetPassword') return this.openPwReset(_emailAct.code);
-    // A note left for the sign-in screen (resetPwLeave), and the address to fill in.
-    let gateNote=null;
-    try{ gateNote=JSON.parse(sessionStorage.getItem('jj_gate_note')||'null'); sessionStorage.removeItem('jj_gate_note'); }catch(e){}
     /* A Microsoft confirmation link from before the 6-digit code (?msv=…).
        Links are no longer used: take it out of the address bar and say so. */
     let oldMsLink=false;
@@ -10023,14 +9930,6 @@ class Component extends DCLogic {
     /* The confirmation link opened in a window that is not signed in: say
        what to do. The link itself is checked the moment they sign in. */
     if(!_authUser&&oldMsLink) this.setState({gateNotice:'Email links are no longer used. Sign in with Microsoft and enter the 6-digit code we email you.'});
-    if(!_authUser&&gateNote) this.setState({gateNotice:gateNote.note||'',pwEmail:gateNote.email||''});
-    /* This page is a confirm-your-address link (?mode=verifyEmail). Signed in
-       here, the code was applied before the check above, so a match is
-       already in. Nobody signed in: say it worked, or that the link is spent. */
-    const verified=(_emailAct&&_emailAct.mode==='verifyEmail')?await _verifyApplied:null;
-    if(verified&&!_authUser&&!_authPending) this.setState(verified.ok
-      ?{gateNotice:'Email confirmed. Sign in to continue.'}
-      :{gateSignInErr:'This link has expired or has already been used. If your address still needs confirming, sign in and we will offer to send a new link.'});
     /* Back from a Google or Microsoft redirect that did not sign anyone in (or
        a Microsoft one signed straight out for having no email): say so on the
        gate. An unverified Microsoft sign-in whose link did not send says so
@@ -10041,15 +9940,9 @@ class Component extends DCLogic {
     });
     // Signed in but the email link is not clicked yet: the gate asks for it.
     if(!_authUser&&_authPending) this.showVerify(_authPending.email);
-    /* Still not confirmed after the link: say why once, on the panel. A code
-       that worked was for another address. */
-    if(verified&&!_authUser&&_authPending) this.setState({verifyErr:verified.ok
-      ?'That link confirmed a different address, not '+_authPending.email+'. To use that one, tap Use a different account.'
-      :'This link has expired or has already been used. Tap Resend the email for a new one.'});
     if(!(await signedIn)){
       return this.setState({booting:false,view:'gate',authChecked:true,
         gateSignInErr:'Could not load sign-in. Check your connection and reload.'}); }
-    if(verified&&verified.ok) this.toast('Email confirmed.');
     this.stopVerifyWatch();
     const me=String(currentUserEmail()||'').trim().toLowerCase();
     this.setState({authChecked:true,authEmail:me,gateSignInErr:'',gateSignInBusy:false,gateNotice:'',
@@ -13492,9 +13385,8 @@ class Component extends DCLogic {
     if(again) again();
   }
   /* The gate's "verify your email" panel. Coming back to the tab (from the
-     mail app, or the tab the link opened) checks again on its own, and so
-     does every 5 seconds while it shows; once authCheckVerified() succeeds,
-     boot's authReady() resolves and carries on. */
+     mail app, or the tab the link opened) checks again on its own; once
+     authCheckVerified() succeeds, boot's authReady() resolves and carries on. */
   showVerify(email){
     this.setState({booting:false,view:'gate',authChecked:true,authEmail:'',
       verifyEmail:String(email||'').trim().toLowerCase(),verifyMsg:'',verifyErr:''});
@@ -13502,8 +13394,6 @@ class Component extends DCLogic {
     this._verifyVis=()=>{ if(document.visibilityState==='visible'&&this.state.verifyEmail
       &&!this.state.authEmail&&!this.state.verifyBusy) authCheckVerified(); };
     document.addEventListener('visibilitychange',this._verifyVis);
-    window.addEventListener('focus',this._verifyVis);
-    this._verifyTick=setInterval(this._verifyVis,5000);
   }
   /* The gate's email and password form. Sign-in only: accounts are created
      by an admin in Firebase, and the person sets a password with Forgot
@@ -13541,36 +13431,8 @@ class Component extends DCLogic {
       :{pwBusy:false,pwErr:r.error,pwResetAt:0});
   }
   stopVerifyWatch(){
-    if(this._verifyVis){ document.removeEventListener('visibilitychange',this._verifyVis);
-      window.removeEventListener('focus',this._verifyVis); }
-    clearInterval(this._verifyTick);
-    this._verifyVis=null; this._verifyTick=null;
-  }
-  /* The set-a-new-password link (?mode=resetPassword), opened in place of the
-     app: whose account it is, the new password twice, then off to sign in. */
-  async openPwReset(code){
-    this.setState({booting:false,view:'gate',authChecked:true,authEmail:'',verifyEmail:'',
-      resetPw:{code,email:'',pw:'',pw2:'',busy:true,err:'',dead:false}});
-    authReady(); await _authFirst;
-    const r=await authResetEmail(code);
-    this.patchResetPw(r.ok?{busy:false,email:r.email}:{busy:false,err:r.error,dead:!!r.dead});
-  }
-  patchResetPw(p){ this.setState({resetPw:Object.assign({},this.state.resetPw,p)}); }
-  async resetPwSubmit(){
-    const c=this.state.resetPw;
-    if(!c||c.busy||c.dead||!c.email) return;
-    if(c.pw.length<6) return this.patchResetPw({err:'Use at least 6 characters.'});
-    if(c.pw!==c.pw2) return this.patchResetPw({err:'The two passwords do not match.'});
-    this.patchResetPw({busy:true,err:''});
-    const r=await authResetConfirm(c.code,c.pw);
-    if(!r.ok) return this.patchResetPw({busy:false,err:r.error,dead:!!r.dead});
-    this.resetPwLeave('Password changed. Sign in with your new password.',c.email);
-  }
-  /* To the sign-in screen with a note (and the address filled in), signed
-     out: whoever was signed in on this browser is not who just reset. */
-  resetPwLeave(note,email){
-    try{ sessionStorage.setItem('jj_gate_note',JSON.stringify({note,email:email||''})); }catch(e){}
-    authSignOut().then(ok=>{ if(!ok) location.replace(location.pathname); });
+    if(this._verifyVis) document.removeEventListener('visibilitychange',this._verifyVis);
+    this._verifyVis=null;
   }
   async verifyCheck(){
     if(this.state.verifyBusy) return;
@@ -17681,10 +17543,10 @@ class Component extends DCLogic {
     v.onJoin=()=>this.join();
     v.hasKnownLeader=!!s.known; v.knownLeaderName=s.known?((s.known.name||'').split(' ')[0]||'again'):'';
     // Nothing below the header shows until Firebase has said who (if anyone) is signed in.
-    v.gateNeedsSignIn=!!s.authChecked&&!s.authEmail&&!s.verifyEmail&&!s.resetPw;
+    v.gateNeedsSignIn=!!s.authChecked&&!s.authEmail&&!s.verifyEmail;
     // Until Firebase has said who is signed in, the gate says it is checking.
     v.gateAuthLoading=!s.authChecked;
-    v.gateVerify=!s.authEmail&&!!s.verifyEmail&&!s.resetPw;
+    v.gateVerify=!s.authEmail&&!!s.verifyEmail;
     /* Google refuses sign-in inside an app's embedded web view (the iOS
        app is one), so there the gate offers email and password only.
        Microsoft is hidden there too. */
@@ -17708,26 +17570,11 @@ class Component extends DCLogic {
     v.pwShowForgot=true;
     v.onPwForgot=()=>this.emailReset();
     v.verifyEmail=s.verifyEmail||'';
-    v.verifyCta=s.verifyBusy?'Checking…':'I’ve confirmed my email, continue';
+    v.verifyCta=s.verifyBusy?'Checking…':'I’ve verified — continue';
     v.onVerifyCheck=()=>this.verifyCheck();
     v.onVerifyResend=()=>this.verifyResend();
     v.verifyMsg=s.verifyMsg||''; v.verifyHasMsg=!!s.verifyMsg;
     v.verifyErr=s.verifyErr||''; v.verifyHasErr=!!s.verifyErr;
-    // Set a new password (openPwReset).
-    { const c=s.resetPw||{};
-      v.resetOn=!!s.resetPw;
-      v.resetChecking=!!c.busy&&!c.email;
-      v.resetShowForm=!!c.email&&!c.dead;
-      v.resetDead=!!c.dead;
-      v.resetEmail=c.email||'';
-      v.resetPw1=c.pw||''; v.resetPw2=c.pw2||'';
-      v.onResetPw1=e=>this.patchResetPw({pw:e.target.value,err:''});
-      v.onResetPw2=e=>this.patchResetPw({pw2:e.target.value,err:''});
-      v.onResetSubmit=e=>{ if(e&&e.preventDefault) e.preventDefault(); this.resetPwSubmit(); };
-      v.resetCta=c.busy&&c.email?'Saving…':'Save new password';
-      v.resetErr=c.err||''; v.resetHasErr=!!c.err;
-      v.onResetNewLink=()=>this.resetPwLeave('Type your email address and tap Forgot password for a new link.','');
-      v.onResetBack=()=>this.resetPwLeave('',''); }
     v.gateSignedIn=!!s.authEmail;
     v.gateAuthEmail=s.authEmail||'';
     v.onGateSwitchAccount=()=>this.signOutAccount();
