@@ -8556,6 +8556,8 @@ function authReady(){
         _authPending=null;
         _authUser=user;
         _authFirstRes(user);
+        // A saved token from before the link was clicked is swapped now (authToken).
+        if(user) authToken(user).catch(e=>console.warn('authToken',e));
         if(user){ _hideLoginOverlay(); res(true); }
         else{ _showLoginOverlay(); }
       });
@@ -8571,6 +8573,35 @@ function currentUserEmail(){ return _authUser?_authUser.email:null; }
    everything already, so they skip the round trip. */
 const ADMIN_EMAILS=['charlie@jadin-jones.com','lucas@jadin-jones.com','review@jadin-jones.com'];
 const isAdminEmail=e=>ADMIN_EMAILS.indexOf(String(e||'').trim().toLowerCase())>=0;
+/* The ID token for a server call. The functions read email_verified from the
+   token itself, and a token issued before the link was clicked still says
+   false for up to an hour, even once the saved user says verified (another
+   tab reloaded it). So a token whose claim is not true is replaced: reload
+   the user, then force a new token. */
+async function _freshToken(u){
+  try{ await u.reload(); }catch(e){ console.warn('reload',e); }
+  return (firebase.auth().currentUser||u).getIdToken(true);
+}
+async function authToken(u){
+  const t=await u.getIdTokenResult();
+  return (t.claims&&t.claims.email_verified===true)?t.token:_freshToken(u);
+}
+/* fetch() to one of our functions with the signed-in user's token. A 403
+   'unverified' gets one retry with a fresh token before the caller sees it.
+   ms is an optional timeout. */
+async function authFetch(url,opts,ms){
+  const u=firebase.auth().currentUser;
+  if(!u) throw new Error('not signed in');
+  const go=tok=>{ const o=Object.assign({},opts);
+    o.headers=Object.assign({},o.headers,{'Authorization':'Bearer '+tok});
+    return ms?withTimeout(fetch(url,o),ms):fetch(url,o); };
+  let r=await go(await authToken(u));
+  if(r.status===403){
+    let j={}; try{ j=await r.clone().json(); }catch(e){}
+    if(j.code==='unverified') r=await go(await _freshToken(u));
+  }
+  return r;
+}
 /* A Microsoft sign-in's first join needs its mailbox confirmed once
    (/api/join answers 'ms-verify'). With sendLink — a join the person just
    tapped — the link is sent straight away and the message says what to do;
@@ -8581,10 +8612,9 @@ async function ensureMember(code,opts){
   if(!u) return {ok:false,error:'Sign in first'};
   if(isAdminEmail(u.email)) return {ok:true,admin:true};
   try{
-    const token=await u.getIdToken();
-    const r=await withTimeout(fetch('/api/join',{method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body:JSON.stringify({code})}),15000);
+    const r=await authFetch('/api/join',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code})},15000);
     let j={}; try{ j=await r.json(); }catch(e){}
     if(r.ok&&j.ok) return j;
     const out={ok:false,status:r.status,reason:j.code||'',
@@ -8614,9 +8644,9 @@ async function msVerifyApi(body){
     await authReady();
     const u=firebase.auth().currentUser;
     if(!u) return {ok:false,error:'Sign in first'};
-    const r=await withTimeout(fetch('/api/ms-verify',{method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
-      body:JSON.stringify(body)}),15000);
+    const r=await authFetch('/api/ms-verify',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)},15000);
     let j={}; try{ j=await r.json(); }catch(e){}
     return Object.assign({},j,{ok:!!(r.ok&&j.ok),error:j.error||'Could not reach the server — check your connection and try again'});
   }catch(e){
@@ -8831,8 +8861,14 @@ async function authResendVerify(){
 }
 /* Asks Firebase whether the pending user has clicked the link. If so, a fresh
    token carries email_verified to /api/join and the rules, and authReady()
-   resolves. Returns true once verified. */
-async function authCheckVerified(){
+   resolves. Returns true once verified. Calls made while one is still
+   asking share its answer. */
+let _verifyCheck=null;
+function authCheckVerified(){
+  if(!_verifyCheck) _verifyCheck=_authCheckVerified().finally(()=>{ _verifyCheck=null; });
+  return _verifyCheck;
+}
+async function _authCheckVerified(){
   if(!_authLoaded()) return false;
   const u=_authPending||firebase.auth().currentUser;
   if(!u) return false;
@@ -8845,6 +8881,16 @@ async function authCheckVerified(){
   if(_authRes) _authRes(true);
   return true;
 }
+/* Back on this tab (from the mail app, or the tab the link opened): a
+   pending sign-in asks Firebase again, and a signed-in one swaps a token that
+   still says unverified, so the screen moves on without a reload. */
+function _authRecheck(){
+  if(document.visibilityState!=='visible'||!_authLoaded()) return;
+  if(_authPending) authCheckVerified();
+  else if(_authUser) authToken(_authUser).catch(e=>console.warn('authToken',e));
+}
+window.addEventListener('focus',_authRecheck);
+document.addEventListener('visibilitychange',_authRecheck);
 /* Always reports success for a well-formed address, so the reply never
    reveals whether that email has an account. */
 async function authSendReset(email){
@@ -11643,8 +11689,8 @@ class Component extends DCLogic {
     /* /api/coach answers only signed-in members of a program and admins. */
     await authReady();
     const cu=firebase.auth().currentUser; if(!cu) throw new Error('not signed in');
-    const res=await fetch('/api/coach',{method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await cu.getIdToken())},
+    const res=await authFetch('/api/coach',{method:'POST',
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({system:system,messages:messages,max_tokens:maxTokens||500})});
     if(!res.ok) throw new Error('coach endpoint '+res.status);
     const data=await res.json();
@@ -14947,9 +14993,9 @@ class Component extends DCLogic {
     try{
       await authReady();
       const u=firebase.auth().currentUser; if(!u) return {ok:false,error:'Sign in first'};
-      const r=await withTimeout(fetch('/api/members',{method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
-        body:JSON.stringify(body)}),15000);
+      const r=await authFetch('/api/members',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)},15000);
       let j={}; try{ j=await r.json(); }catch(e){}
       return (r.ok&&j.ok)?j:{ok:false,error:j.error||''};
     }catch(e){ return {ok:false,error:''}; }
@@ -14957,8 +15003,7 @@ class Component extends DCLogic {
   async fetchMembers(code){
     await authReady();
     const u=firebase.auth().currentUser; if(!u) throw new Error('not signed in');
-    const r=await withTimeout(fetch('/api/members?code='+encodeURIComponent(code),
-      {headers:{'Authorization':'Bearer '+(await u.getIdToken())}}),15000);
+    const r=await authFetch('/api/members?code='+encodeURIComponent(code),{},15000);
     let j={}; try{ j=await r.json(); }catch(e){}
     if(!r.ok||!j.ok||!Array.isArray(j.members)) throw new Error(j.error||('members '+r.status));
     return j.members;
@@ -15162,9 +15207,9 @@ class Component extends DCLogic {
       const u=firebase.auth().currentUser;
       if(!u) throw new Error('Sign in first');
       const call=async body=>{
-        const r=await withTimeout(fetch('/api/admin/migrate-peers',{method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
-          body:JSON.stringify(body)}),30000);
+        const r=await authFetch('/api/admin/migrate-peers',{method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(body)},30000);
         let j={}; try{ j=await r.json(); }catch(e){}
         if(!r.ok||!j.ok) throw new Error(j.error||('The server answered '+r.status));
         return j;
