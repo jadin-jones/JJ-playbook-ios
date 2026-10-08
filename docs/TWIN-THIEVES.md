@@ -155,7 +155,7 @@ Firebase project (jj-playbook-dev).
 
 The app chooses its Firebase project by host ("dev" in the hostname means
 Dev), and `jj-twinthieves-preview` does not contain "dev". Commit `2cabb6c`
-(from `docs/twin-thieves-preview-hosts.patch`) adds the preview host to the
+adds the preview host to the
 Dev side, so it uses jj-playbook-dev.
 
 ### 1. Code (applied in `2cabb6c`)
