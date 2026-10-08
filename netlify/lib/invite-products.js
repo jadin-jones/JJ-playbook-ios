@@ -33,7 +33,7 @@ module.exports = {
       ],
       button: 'Join now',
       afterButton: [
-        'This link is just for you. Sign in with {email}. It works once and expires on {date}.',
+        'This link is just for you. Sign in with {email}. Use Continue with Google if your email is a Gmail or Google Workspace account, or Continue with Microsoft if it\'s Outlook or Microsoft 365. It works once and expires on {date}.',
         'Button not working? Go to {site} and enter the join code {CODE}.',
         'Questions? Just reply to this email.',
         "If you weren't expecting this invitation, you can ignore it."
