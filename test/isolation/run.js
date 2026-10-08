@@ -223,8 +223,17 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
       SENT.length = 1; SENT[0] = mail;
     }
     ok('invite: the email says 10 lessons for the 10-lesson version, with the code and a Join now link',
-      /series of 10 short video lessons/.test(mail.text || '') && /TWIN10/.test(mail.text || '') && /Join now/.test(mail.html || '')
+      /series of 10 short video lessons/.test(mail.text || '') && /TWIN10/.test(mail.text || '') && />JOIN NOW<\/a>/.test(mail.html || '')
       && /https:\/\/jj-twinthieves-preview\.netlify\.app\/\?tti=[A-Za-z0-9_-]{40,}&ttc=TWIN10/.test(mail.text || ''), (mail.text || '').slice(0, 200));
+    ok('invite: the Google / Microsoft sign-in sentence follows "Sign in with <email>."',
+      (mail.text || '').indexOf('Sign in with zed@s.org. Use Continue with Google if your email is a Gmail or Google Workspace account, or Continue with Microsoft if it\'s Outlook or Microsoft 365. It works once') >= 0);
+    ok('invite: brand layout (site logo with JADIN | JONES alt text, navy, lime square button, footer link)',
+      /<img src="https:\/\/jj-twinthieves-preview\.netlify\.app\/assets\/jj-lockup\.png"[^>]* alt="JADIN \| JONES"/.test(mail.html || '')
+      && /bgcolor="#033266"/.test(mail.html || '') && /bgcolor="#D9E244" style="background:#D9E244;border-radius:0"/.test(mail.html || '')
+      && /<a href="https:\/\/jadin-jones\.com" style="color:#FFFFFF/.test(mail.html || ''));
+    ok('invite: "Jadin | Jones" keeps a real bar, drawn thin, never a capital I',
+      /Jadin<span style="font-weight:300;color:#[0-9A-F]{6};padding:0 0\.2em">\|<\/span>Jones/.test(mail.html || '')
+      && !/Jadin I Jones/i.test((mail.html || '') + (mail.text || '')) && /The Jadin \| Jones Team/.test(mail.text || ''));
     const secret = ((mail.text || '').match(/tti=([A-Za-z0-9_-]+)/) || [])[1];
     const join = loadFn('tt-join.js', st, users);
     let j = await call(join, 'T', { invite: secret, first: 'Tia', last: 'Lee' });
