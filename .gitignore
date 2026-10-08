@@ -8,3 +8,5 @@ scripts/out/
 *-sa.json
 # Firestore emulator logs (test/rules)
 *-debug.log
+# Design reference screenshots: local only, never committed (the repo is public)
+docs/twin-thieves-design/

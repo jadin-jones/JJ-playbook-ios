@@ -1,0 +1,49 @@
+--- a/public/index.html
++++ b/public/index.html
+@@ -8042,7 +8042,9 @@
+ </div>
+ </x-dc>
+ <script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:940}}">
+-const FIREBASE_CONFIG=(location.hostname.indexOf("dev")>-1)?{apiKey:"AIzaSyBuWZtJiL6Plizs6GkAtZvvipBy9Cs5KJY",authDomain:"jj-playbook-dev.firebaseapp.com",projectId:"jj-playbook-dev",storageBucket:"jj-playbook-dev.firebasestorage.app",messagingSenderId:"330195639799",appId:"1:330195639799:web:ebbfe5631dfe5ae0af22f2"}:{apiKey:"AIzaSyAgcRPj65snd_CxN-zs8v3EXiOsDcLaxI4",authDomain:"test-6b2ab.firebaseapp.com",projectId:"test-6b2ab",storageBucket:"test-6b2ab.firebasestorage.app",messagingSenderId:"468112905284",appId:"1:468112905284:web:5073dffaece8633bc9d811"};
++/* Dev hosts: any host containing "dev", and the Twin Thieves preview site. */
++const DEV_HOST=location.hostname.indexOf("dev")>-1||location.hostname==='jj-twinthieves-preview.netlify.app';
++const FIREBASE_CONFIG=DEV_HOST?{apiKey:"AIzaSyBuWZtJiL6Plizs6GkAtZvvipBy9Cs5KJY",authDomain:"jj-playbook-dev.firebaseapp.com",projectId:"jj-playbook-dev",storageBucket:"jj-playbook-dev.firebasestorage.app",messagingSenderId:"330195639799",appId:"1:330195639799:web:ebbfe5631dfe5ae0af22f2"}:{apiKey:"AIzaSyAgcRPj65snd_CxN-zs8v3EXiOsDcLaxI4",authDomain:"test-6b2ab.firebaseapp.com",projectId:"test-6b2ab",storageBucket:"test-6b2ab.firebasestorage.app",messagingSenderId:"468112905284",appId:"1:468112905284:web:5073dffaece8633bc9d811"};
+ /* Google and Microsoft sign-in hand off through Firebase's helper at
+    <authDomain>/__/auth. On these hosts that helper is served from the site
+    itself (netlify/functions/auth-proxy.js), so the handoff is first-party and
+@@ -8055,13 +8057,13 @@
+    The project itself is picked above by host: any host containing "dev"
+    (jj-playbook-dev.netlify.app, dev.playbook.jadin-jones.com) is Dev, and
+    jjplaybook.netlify.app and playbook.jadin-jones.com are live. */
+-const AUTH_OWN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com',
++const AUTH_OWN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com','jj-twinthieves-preview.netlify.app',
+   'jjplaybook.netlify.app','playbook.jadin-jones.com'];
+ /* Microsoft sign-in is offered where its Entra app lists the host's
+    /__/auth/handler. On live that app is a stopgap in the personal Azure
+    directory, and the provider is switched on in test-6b2ab only after the live
+    rules are published; until then the button answers that it is not on yet. */
+-const MS_SIGNIN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com',
++const MS_SIGNIN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com','jj-twinthieves-preview.netlify.app',
+   'jjplaybook.netlify.app','playbook.jadin-jones.com'];
+ const msSignInHere=()=>MS_SIGNIN_HOSTS.indexOf(location.hostname)>=0;
+ if(AUTH_OWN_HOSTS.indexOf(location.hostname)>=0) FIREBASE_CONFIG.authDomain=location.hostname;
+@@ -9829,7 +9831,7 @@
+    Each Firebase project has its own key pair, so the key is picked by host
+    the same way FIREBASE_CONFIG is: jj-playbook-dev on dev hosts, test-6b2ab
+    everywhere else. */
+-const PUSH_VAPID_KEY=(location.hostname.indexOf("dev")>-1)?'BC6VSCl7r-b73VfY1RtwM97uV-i1YulwK7BULCAvod6F11yYqMPYA-9CuYrJU5FfKAHIKr67G8mlDNQpjqPZu9U':'BInNmntOmHghC66oeT2bi5pu3_vMrC0efRQwCu7apRAivuOQUkWscFZrY-V8xY06Y_1Fwj2a-rHcuUn_mZH-mG0';
++const PUSH_VAPID_KEY=DEV_HOST?'BC6VSCl7r-b73VfY1RtwM97uV-i1YulwK7BULCAvod6F11yYqMPYA-9CuYrJU5FfKAHIKr67G8mlDNQpjqPZu9U':'BInNmntOmHghC66oeT2bi5pu3_vMrC0efRQwCu7apRAivuOQUkWscFZrY-V8xY06Y_1Fwj2a-rHcuUn_mZH-mG0';
+ const BUILD_STAMP='2026.08.27-a';
+ 
+ /* Desktop layout kicks in here. Below it the app is the phone column it
+--- a/netlify/lib/http.js
++++ b/netlify/lib/http.js
+@@ -9,7 +9,7 @@
+  */
+ const SITE_HOSTS = {
+   'test-6b2ab': ['jjplaybook.netlify.app', 'playbook.jadin-jones.com'],
+-  'jj-playbook-dev': ['jj-playbook-dev.netlify.app', 'dev.playbook.jadin-jones.com']
++  'jj-playbook-dev': ['jj-playbook-dev.netlify.app', 'dev.playbook.jadin-jones.com', 'jj-twinthieves-preview.netlify.app']
+ };
+ /* This site's own https origins; none if the project is not one of ours. */
+ function siteOrigins() {
