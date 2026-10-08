@@ -22,7 +22,7 @@ const V=o=>({value:JSON.stringify(o)});
     for (const e of ['tia@s.org','zed@s.org','sample-sam@s.org','ms@s.org','msok@s.org','unv@s.org','dual@a.com']) await setDoc(doc(d,'ttmembers',e),{orgs:['TT36']});
     await setDoc(doc(d,'msVerified','uid-msok'),{email:'msok@s.org'});
     await setDoc(J('org:T1'),V({name:'T'}));
-    await setDoc(J('org:TT36'),V({product:'tt',ttVersion:36,joinCode:'TWINTHIEVES36'}));
+    await setDoc(J('org:TT36'),V({product:'tt',ttVersion:36,joinCode:'TWIN36'}));
     await setDoc(J('ttlib:master'),V({lessons:[],order36:[],order10:[]}));
     await setDoc(J('program:master'),V({modules:[]}));
     await setDoc(J('knowledge:master'),V({items:[]}));

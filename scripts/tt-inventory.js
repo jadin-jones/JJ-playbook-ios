@@ -12,7 +12,7 @@
  *             all inside order36; every ordered id has a lesson; lessons
  *             outside order36 and lessons with no video are counted
  *   programs  org:TT36 / org:TT10: product 'tt', ttVersion, joinCode
- *             TWINTHIEVES36 / TWINTHIEVES10, on or off, domain limit
+ *             TWIN36 / TWIN10, on or off, domain limit
  *   records   ttm: per program, ttmembers, ttallow (list size), ttinv (by
  *             status), rev:TT36 / rev:TT10
  *   rules     what the live rules need for a member to keep working, for
@@ -27,7 +27,7 @@ const {
 } = require('./lib/common');
 
 const USAGE = 'Usage: node scripts/tt-inventory.js --project <id> [--live]';
-const PROGRAMS = { TT36: { version: 36, code: 'TWINTHIEVES36' }, TT10: { version: 10, code: 'TWINTHIEVES10' } };
+const PROGRAMS = { TT36: { version: 36, code: 'TWIN36' }, TT10: { version: 10, code: 'TWIN10' } };
 
 async function range(prefix) {
   const FP = admin.firestore.FieldPath.documentId();

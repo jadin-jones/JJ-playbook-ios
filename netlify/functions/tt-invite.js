@@ -123,7 +123,7 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
   try {
     if (body.action === 'preview') {
       const org = parseVal(await col.doc('org:' + program).get());
-      const code = (org && org.joinCode) || 'TWINTHIEVES' + PRODUCTS[PRODUCT].programs[program].lessonCount;
+      const code = (org && org.joinCode) || 'TWIN' + PRODUCTS[PRODUCT].programs[program].lessonCount;
       const mail = render(PRODUCT, program, { email: 'student@example.org', link: site + '/?tti=PREVIEW&ttc=' + code, code, site,
         expiresAt: Date.now() + PRODUCTS[PRODUCT].linkDays * 86400000 });
       return reply(200, { ok: true, mode, subject: mail.subject, html: mail.html, text: mail.text });

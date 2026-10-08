@@ -5,8 +5,8 @@
  * Only these three records are ever read or written; anything else in an
  * export file stops the script:
  *   ttlib:master   the lesson library (order36 / order10)
- *   org:TT36       the 36-lesson program and its code TWINTHIEVES36
- *   org:TT10       the 10-lesson program and its code TWINTHIEVES10
+ *   org:TT36       the 36-lesson program and its code TWIN36
+ *   org:TT10       the 10-lesson program and its code TWIN10
  * Members, progress, invites, approved lists and removals (ttm, ttmembers,
  * ttinv, ttallow, rev) are never copied, and nothing of the Playbook is
  * touched.
@@ -36,7 +36,7 @@ const {
 
 const SCRIPT = 'copy-tt';
 const IDS = ['ttlib:master', 'org:TT36', 'org:TT10'];
-const CODES = { 'org:TT36': ['TWINTHIEVES36', 36], 'org:TT10': ['TWINTHIEVES10', 10] };
+const CODES = { 'org:TT36': ['TWIN36', 36], 'org:TT10': ['TWIN10', 10] };
 const OUT_DIR = path.join(__dirname, 'out');
 const USAGE = [
   'Usage:',

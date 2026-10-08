@@ -15804,7 +15804,7 @@ class Component extends DCLogic {
   ttOrgRec(id){ return (this.state.ttOrgs||[]).find(o=>o&&o.code===id)||null; }
   ttSaveOrg(id,patch,msg){
     const cur=this.ttOrgRec(id)||{code:id,name:'Twin Thieves Leadership · '+(id==='TT10'?'10':'36')+' lessons',
-      product:'tt',ttVersion:id==='TT10'?10:36,joinCode:id==='TT10'?'TWINTHIEVES10':'TWINTHIEVES36',joinDisabled:false,joinDomain:'',createdAt:Date.now()};
+      product:'tt',ttVersion:id==='TT10'?10:36,joinCode:id==='TT10'?'TWIN10':'TWIN36',joinDisabled:false,joinDomain:'',createdAt:Date.now()};
     const next=Object.assign({},cur,patch);
     const put=()=>this.setState({ttOrgs:(this.state.ttOrgs||[]).filter(o=>o&&o.code!==id).concat([next])});
     if(this.state.ttDemo){ put(); return this.toast((msg||'Saved')+' (preview: not saved)'); }
@@ -16030,8 +16030,8 @@ class Component extends DCLogic {
         onCode:e=>setE({code:String(e.target.value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,20)}),
         onDomain:e=>setE({domain:String(e.target.value||'').trim().toLowerCase().replace(/^@/,'')}),
         onRotate:()=>{ const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let r=''; for(let k=0;k<4;k++) r+=A[Math.floor(Math.random()*A.length)];
-          setE({code:'TWINTHIEVES'+ver+r}); },
-        onSetup:()=>this.ttSaveOrg(id,{},'Program set up with code TWINTHIEVES'+ver),
+          setE({code:'TWIN'+ver+r}); },
+        onSetup:()=>this.ttSaveOrg(id,{},'Program set up with code TWIN'+ver),
         onSave:()=>{ if(!code) return this.toast('Enter a code',true); if(code.length<6) return this.toast('Use at least 6 letters or digits',true);
           const other=this.ttOrgRec(id==='TT10'?'TT36':'TT10'); if(other&&String(other.joinCode||'')===code) return this.toast('That is the other version\'s code',true);
           this.ttSaveOrg(id,{joinCode:code,joinDomain:dom},'Code saved'); this.setState({ttCodeEdit:Object.assign({},s.ttCodeEdit||{},{[id]:{}})}); },
@@ -16105,7 +16105,7 @@ class Component extends DCLogic {
       program:{modules:[]},draftProgram:{modules:[],edition:'y1'},edition:'y1',
       orgList:[{code:'SAMPLE26',name:'Sample Program A',cohort:'Preview',startDate:Date.now()},
                {code:'SAMPLE27',name:'Sample Program B',cohort:'Preview',startDate:Date.now()}],
-      ttOrgs:[{code:'TT36',name:'Twin Thieves Leadership · 36 lessons',product:'tt',ttVersion:36,joinCode:'TWINTHIEVES36',joinDisabled:false,joinDomain:''}]});
+      ttOrgs:[{code:'TT36',name:'Twin Thieves Leadership · 36 lessons',product:'tt',ttVersion:36,joinCode:'TWIN36',joinDisabled:false,joinDomain:''}]});
     // &lesson=N opens that lesson (1-36); Lesson 4 has the sample content.
     let n=4; try{ n=parseInt(new URLSearchParams(location.search).get('lesson'),10)||4; }catch(e){}
     this.setState({booting:false,role:'leader',view:which==='lesson'?'ttlesson':'tthome',tab:'lessons',

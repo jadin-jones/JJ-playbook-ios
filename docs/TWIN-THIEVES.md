@@ -23,8 +23,8 @@ Checks:
 
 ## Codes
 
-`org:TT36.joinCode` and `org:TT10.joinCode` (defaults `TWINTHIEVES36` and
-`TWINTHIEVES10`) are set in Studio → Twin Thieves → Codes:
+`org:TT36.joinCode` and `org:TT10.joinCode` (defaults `TWIN36` and
+`TWIN10`) are set in Studio → Twin Thieves → Codes:
 - **Set up this program** creates the record.
 - **Rotate** suggests a new code.
 - **Switch code off** stops new joins.

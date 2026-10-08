@@ -107,27 +107,27 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
   {
     const st = makeStore();
     st.docs['jj_playbook/org:PLAYBOOK26'] = V({ name: 'Playbook 26', allowlist: [] });
-    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves', product: 'tt', ttVersion: 36, joinCode: 'TWINTHIEVES36' });
+    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves', product: 'tt', ttVersion: 36, joinCode: 'TWIN36' });
     const join = loadFn('join.js', st, { A: U('ann@a.com') });
     const r1 = await call(join, 'A', { code: 'playbook26' });
     ok('join: a Playbook code still joins', r1.statusCode === 200 && JSON.parse(r1.body).code === 'PLAYBOOK26', r1.body);
     ok('join: it writes members/{email}', st.writes.indexOf('members/ann@a.com') >= 0, st.writes.join(','));
     const r2 = await call(join, 'A', { code: 'TT36' });
     ok('join: a Twin Thieves program id is refused as no-program', r2.statusCode === 404 && JSON.parse(r2.body).code === 'no-program', r2.body);
-    const r3 = await call(join, 'A', { code: 'TWINTHIEVES36' });
+    const r3 = await call(join, 'A', { code: 'TWIN36' });
     ok('join: a Twin Thieves code is not a Playbook code', r3.statusCode === 404, r3.body);
   }
 
   // ---- 3. /api/tt-join: joins with the code, writes only Twin Thieves records. ----
   {
     const st = makeStore();
-    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves Leadership · 36 lessons', product: 'tt', ttVersion: 36, joinCode: 'TWINTHIEVES36' });
-    st.docs['jj_playbook/org:TT10'] = V({ name: 'Twin Thieves Leadership · 10 lessons', product: 'tt', ttVersion: 10, joinCode: 'TWINTHIEVES10', joinDisabled: true });
+    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves Leadership · 36 lessons', product: 'tt', ttVersion: 36, joinCode: 'TWIN36' });
+    st.docs['jj_playbook/org:TT10'] = V({ name: 'Twin Thieves Leadership · 10 lessons', product: 'tt', ttVersion: 10, joinCode: 'TWIN10', joinDisabled: true });
     st.docs['jj_playbook/org:PLAYBOOK26'] = V({ name: 'Playbook 26' });
     st.docs['jj_playbook/rev:TT36:gone-s-org'] = V({ email: 'gone@s.org' });
     const users = { T: U('tia@s.org'), G: U('gone@s.org'), M: U('ms@s.org', 'microsoft.com'), D: U('dee@other.org') };
     const tt = loadFn('tt-join.js', st, users);
-    const r1 = await call(tt, 'T', { code: 'twinthieves36', first: 'Tia', last: 'Lee' });
+    const r1 = await call(tt, 'T', { code: 'twin36', first: 'Tia', last: 'Lee' });
     const b1 = JSON.parse(r1.body);
     ok('tt-join: the code is not case-sensitive', r1.statusCode === 200 && b1.code === 'TT36' && b1.version === 36, r1.body);
     ok('tt-join: writes only ttmembers/ and ttm: (plus its own rate-limit counts)',
@@ -137,20 +137,20 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('tt-join: the record holds only name, email, idkey, code, joinedAt and progress',
       Object.keys(rec).sort().join(',') === 'code,email,idkey,joinedAt,name,progress', Object.keys(rec).join(','));
     ok('tt-join: the record is stamped with its owner', st.docs['jj_playbook/ttm:TT36:tia-s-org'].ownerEmail === 'tia@s.org');
-    const r2 = await call(tt, 'T', { code: 'TWINTHIEVES10', first: 'Tia', last: 'Lee' });
+    const r2 = await call(tt, 'T', { code: 'TWIN10', first: 'Tia', last: 'Lee' });
     ok('tt-join: a switched-off code is refused', r2.statusCode === 403 && JSON.parse(r2.body).code === 'disabled', r2.body);
     const r3 = await call(tt, 'T', { code: 'PLAYBOOK26', first: 'Tia', last: 'Lee' });
     ok('tt-join: a Playbook code is not a Twin Thieves code', r3.statusCode === 404 && JSON.parse(r3.body).code === 'no-code', r3.body);
     const r4 = await call(tt, 'T', { code: 'TT36', first: 'Tia', last: 'Lee' });
     ok('tt-join: the program id is not a code', r4.statusCode === 404, r4.body);
-    const r5 = await call(tt, 'G', { code: 'TWINTHIEVES36', first: 'Gone', last: 'X' });
+    const r5 = await call(tt, 'G', { code: 'TWIN36', first: 'Gone', last: 'X' });
     ok('tt-join: a rev: tombstone refuses', r5.statusCode === 403 && JSON.parse(r5.body).code === 'revoked', r5.body);
-    const r6 = await call(tt, 'M', { code: 'TWINTHIEVES36', first: 'M', last: 'S' });
+    const r6 = await call(tt, 'M', { code: 'TWIN36', first: 'M', last: 'S' });
     ok('tt-join: an unconfirmed Microsoft sign-in is asked to confirm', r6.statusCode === 403 && JSON.parse(r6.body).code === 'ms-verify', r6.body);
-    st.docs['jj_playbook/org:TT36'] = V({ name: 'TT', product: 'tt', ttVersion: 36, joinCode: 'TWINTHIEVES36', joinDomain: 's.org' });
-    const r7 = await call(tt, 'D', { code: 'TWINTHIEVES36', first: 'Dee', last: 'O' });
+    st.docs['jj_playbook/org:TT36'] = V({ name: 'TT', product: 'tt', ttVersion: 36, joinCode: 'TWIN36', joinDomain: 's.org' });
+    const r7 = await call(tt, 'D', { code: 'TWIN36', first: 'Dee', last: 'O' });
     ok('tt-join: the email-domain limit refuses other domains', r7.statusCode === 403 && JSON.parse(r7.body).code === 'domain', r7.body);
-    const r8 = await call(tt, 'X', { code: 'TWINTHIEVES36', first: 'a', last: 'b' });
+    const r8 = await call(tt, 'X', { code: 'TWIN36', first: 'a', last: 'b' });
     ok('tt-join: no valid sign-in is refused', r8.statusCode === 401, r8.body);
     let last; for (let i = 0; i < 21; i++) last = await call(tt, 'T', { code: 'nope', first: 'a', last: 'b' });
     ok('tt-join: tries are rate-limited per account', last.statusCode === 429, last.body);
@@ -188,8 +188,8 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
   // ---- 6. Invites: admin-only, email and status only, links once / on time / for that address. ----
   {
     const st = makeStore();
-    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves Leadership · 36 lessons', product: 'tt', ttVersion: 36, joinCode: 'TWINTHIEVES36' });
-    st.docs['jj_playbook/org:TT10'] = V({ name: 'Twin Thieves Leadership · 10 lessons', product: 'tt', ttVersion: 10, joinCode: 'TWINTHIEVES10' });
+    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves Leadership · 36 lessons', product: 'tt', ttVersion: 36, joinCode: 'TWIN36' });
+    st.docs['jj_playbook/org:TT10'] = V({ name: 'Twin Thieves Leadership · 10 lessons', product: 'tt', ttVersion: 10, joinCode: 'TWIN10' });
     const users = { ADM: U('charlie@jadin-jones.com'), MSA: U('charlie@jadin-jones.com', 'microsoft.com'), T: U('tia@s.org'), Z: U('zed@s.org') };
     process.env.URL = 'https://jj-twinthieves-preview.netlify.app';
     const inviteCall = async (tok, body) => { const h = loadFn('tt-invite.js', st, users); const r = await call(h, tok, body); return { code: r.statusCode, body: JSON.parse(r.body) }; };
@@ -223,8 +223,8 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
       SENT.length = 1; SENT[0] = mail;
     }
     ok('invite: the email says 10 lessons for the 10-lesson version, with the code and a Join now link',
-      /series of 10 short video lessons/.test(mail.text || '') && /TWINTHIEVES10/.test(mail.text || '') && /Join now/.test(mail.html || '')
-      && /https:\/\/jj-twinthieves-preview\.netlify\.app\/\?tti=[A-Za-z0-9_-]{40,}&ttc=TWINTHIEVES10/.test(mail.text || ''), (mail.text || '').slice(0, 200));
+      /series of 10 short video lessons/.test(mail.text || '') && /TWIN10/.test(mail.text || '') && /Join now/.test(mail.html || '')
+      && /https:\/\/jj-twinthieves-preview\.netlify\.app\/\?tti=[A-Za-z0-9_-]{40,}&ttc=TWIN10/.test(mail.text || ''), (mail.text || '').slice(0, 200));
     const secret = ((mail.text || '').match(/tti=([A-Za-z0-9_-]+)/) || [])[1];
     const join = loadFn('tt-join.js', st, users);
     let j = await call(join, 'T', { invite: secret, first: 'Tia', last: 'Lee' });
@@ -259,23 +259,23 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
   // ---- 7. Approved-email list (ttallow:TTxx): code joins only for listed emails; invites unaffected. ----
   {
     const st = makeStore();
-    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves Leadership · 36 lessons', product: 'tt', ttVersion: 36, joinCode: 'TWINTHIEVES36' });
-    st.docs['jj_playbook/org:TT10'] = V({ name: 'Twin Thieves Leadership · 10 lessons', product: 'tt', ttVersion: 10, joinCode: 'TWINTHIEVES10' });
+    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves Leadership · 36 lessons', product: 'tt', ttVersion: 36, joinCode: 'TWIN36' });
+    st.docs['jj_playbook/org:TT10'] = V({ name: 'Twin Thieves Leadership · 10 lessons', product: 'tt', ttVersion: 10, joinCode: 'TWIN10' });
     st.docs['jj_playbook/ttallow:TT36'] = V({ emails: ['Tia@S.org', 'amy@s.org'] });
     st.docs['jj_playbook/ttallow:TT10'] = V({ emails: [] });
     const users = { ADM: U('charlie@jadin-jones.com'), T: U('tia@s.org'), Z: U('zed@s.org'), Q: U('quin@s.org') };
     const tt = loadFn('tt-join.js', st, users);
-    let r = await call(tt, 'T', { code: 'TWINTHIEVES36', first: 'Tia', last: 'Lee' });
+    let r = await call(tt, 'T', { code: 'TWIN36', first: 'Tia', last: 'Lee' });
     ok('allow list: a listed email joins with the code (not case-sensitive)', r.statusCode === 200 && JSON.parse(r.body).code === 'TT36', r.body);
-    r = await call(tt, 'Z', { code: 'TWINTHIEVES36', first: 'Zed', last: 'Q' });
+    r = await call(tt, 'Z', { code: 'TWIN36', first: 'Zed', last: 'Q' });
     ok('allow list: an unlisted email is refused with the agreed wording',
       r.statusCode === 403 && JSON.parse(r.body).code === 'not-listed'
       && JSON.parse(r.body).error === "Your email isn't on the list for this program. Ask the Jadin | Jones Team to add you.", r.body);
     ok('allow list: the refused join writes nothing', !st.writes.some(w => w.indexOf('zed') >= 0), st.writes.join(','));
-    r = await call(tt, 'Z', { code: 'TWINTHIEVES10', first: 'Zed', last: 'Q' });
+    r = await call(tt, 'Z', { code: 'TWIN10', first: 'Zed', last: 'Q' });
     ok('allow list: an empty list lets anyone with the code join', r.statusCode === 200 && JSON.parse(r.body).code === 'TT10', r.body);
     st.docs['jj_playbook/ttallow:TT10'] = { value: '{not json' };
-    r = await call(tt, 'Q', { code: 'TWINTHIEVES10', first: 'Quin', last: 'R' });
+    r = await call(tt, 'Q', { code: 'TWIN10', first: 'Quin', last: 'R' });
     ok('allow list: a damaged list refuses the code join (fails closed)', r.statusCode === 403 && JSON.parse(r.body).code === 'list-unreadable', r.body);
     process.env.URL = 'https://jj-twinthieves-preview.netlify.app'; delete process.env.INVITE_SEND_MODE; SENT.length = 0;
     process.env.INVITE_SEND_MODE = 'test'; process.env.INVITE_TEST_RECIPIENTS = 'quin@s.org'; process.env.SMTP_USER = 'noreply@jadin-jones.com'; process.env.SMTP_PASS = 'x'; process.env.MAIL_FROM = 'JJ Playbook <noreply@jadin-jones.com>';
