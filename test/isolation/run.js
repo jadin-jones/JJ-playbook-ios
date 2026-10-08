@@ -171,12 +171,21 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
       !!inv && Object.keys(invVal).sort().join(',') === 'delivery,email,expiresAt,joinedAt,program,sendCount,sentAt,status'
       && Object.keys(inv).sort().join(',') === 'tokenHash,value' && invVal.email === 'tia@s.org', inv ? Object.keys(invVal).join(',') : 'none');
     ok('invite: the link expires after 7 days', Math.abs(invVal.expiresAt - invVal.sentAt - 7 * 86400000) < 5000);
-    process.env.INVITE_SEND_MODE = 'test'; process.env.INVITE_TEST_RECIPIENTS = 'zed@s.org'; process.env.INVITE_SMTP_URL = 'smtps://x:y@smtp.example.com:465';
+    process.env.INVITE_SEND_MODE = 'test'; process.env.INVITE_TEST_RECIPIENTS = 'zed@s.org'; process.env.SMTP_USER = 'noreply@jadin-jones.com'; process.env.SMTP_PASS = 'x'; process.env.MAIL_FROM = 'JJ Playbook <noreply@jadin-jones.com>';
     r = await inviteCall('ADM', { action: 'send', program: 'TT10', emails: ['zed@s.org', 'someone@else.org'] });
     ok('invite: test mode sends only to test recipients', r.code === 200 && SENT.length === 1 && SENT[0].to === 'zed@s.org'
       && r.body.results[1].result === 'not-a-test-recipient' && !Object.keys(st.docs).some(k => k.indexOf('ttinv:TT10') > 0 && JSON.parse(st.docs[k].value).email === 'someone@else.org'), JSON.stringify(r.body));
     const mail = SENT[0] || {};
-    ok('invite: from "Jadin | Jones Team" <charlie@jadin-jones.com>, replies to charlie@', mail.from === '"Jadin | Jones Team" <charlie@jadin-jones.com>' && mail.replyTo === 'charlie@jadin-jones.com', mail.from);
+    ok('invite: through main\'s mailer, from "Jadin | Jones Team" <noreply@jadin-jones.com>, replies to charlie@',
+      mail.from === '"Jadin | Jones Team" <noreply@jadin-jones.com>' && mail.replyTo === 'charlie@jadin-jones.com', mail.from);
+    {
+      // The Microsoft code email goes through the same mailer and must not change.
+      const lib = path.join(ROOT, 'netlify/lib/mailer.js'); delete require.cache[lib];
+      SENT.length = 0; await require(lib).sendMail({ to: 'mm@a.com', subject: 'Your code', text: '123456' });
+      ok('mailer: the Microsoft code email is unchanged (MAIL_FROM, plain text, no Reply-To)',
+        SENT.length === 1 && SENT[0].from === 'JJ Playbook <noreply@jadin-jones.com>' && Object.keys(SENT[0]).sort().join(',') === 'from,subject,text,to', JSON.stringify(SENT[0]));
+      SENT.length = 1; SENT[0] = mail;
+    }
     ok('invite: the email says 10 lessons for the 10-lesson version, with the code and a Join now link',
       /series of 10 short video lessons/.test(mail.text || '') && /TWINTHIEVES10/.test(mail.text || '') && /Join now/.test(mail.html || '')
       && /https:\/\/jj-twinthieves-preview\.netlify\.app\/\?tti=[A-Za-z0-9_-]{40,}&ttc=TWINTHIEVES10/.test(mail.text || ''), (mail.text || '').slice(0, 200));
@@ -206,7 +215,10 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     j = await call(loadFn('tt-join.js', st, users), 'T', { invite: s2, first: 'Tia', last: 'Lee' });
     ok('invite: a cancelled invite\'s link is refused', r.code === 200 && j.statusCode === 404, j.body);
     ok('invite: never writes members/, resp: or push:', !st.writes.some(w => /^members\/|\/resp:|\/push:/.test(w)), st.writes.join(','));
-    delete process.env.INVITE_SEND_MODE; delete process.env.INVITE_TEST_RECIPIENTS; delete process.env.INVITE_SMTP_URL;
+    delete process.env.SMTP_PASS;
+    r = await inviteCall('ADM', { action: 'send', program: 'TT36', emails: ['zed@s.org'] });
+    ok('invite: without SMTP_USER/SMTP_PASS a send reports no-mail-setup', r.code === 200 && r.body.results[0].result === 'no-mail-setup', JSON.stringify(r.body));
+    delete process.env.INVITE_SEND_MODE; delete process.env.INVITE_TEST_RECIPIENTS; delete process.env.SMTP_USER; delete process.env.SMTP_PASS; delete process.env.MAIL_FROM;
   }
   // ---- 7. Approved-email list (ttallow:TTxx): code joins only for listed emails; invites unaffected. ----
   {
@@ -230,12 +242,12 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     r = await call(tt, 'Q', { code: 'TWINTHIEVES10', first: 'Quin', last: 'R' });
     ok('allow list: a damaged list refuses the code join (fails closed)', r.statusCode === 403 && JSON.parse(r.body).code === 'list-unreadable', r.body);
     process.env.URL = 'https://jj-twinthieves-preview.netlify.app'; delete process.env.INVITE_SEND_MODE; SENT.length = 0;
-    process.env.INVITE_SEND_MODE = 'test'; process.env.INVITE_TEST_RECIPIENTS = 'quin@s.org'; process.env.INVITE_SMTP_URL = 'smtps://x:y@smtp.example.com:465';
+    process.env.INVITE_SEND_MODE = 'test'; process.env.INVITE_TEST_RECIPIENTS = 'quin@s.org'; process.env.SMTP_USER = 'noreply@jadin-jones.com'; process.env.SMTP_PASS = 'x'; process.env.MAIL_FROM = 'JJ Playbook <noreply@jadin-jones.com>';
     await call(loadFn('tt-invite.js', st, users), 'ADM', { action: 'send', program: 'TT36', emails: ['quin@s.org'] });
     const secret = (((SENT[0] || {}).text || '').match(/tti=([A-Za-z0-9_-]+)/) || [])[1];
     r = await call(loadFn('tt-join.js', st, users), 'Q', { invite: secret, first: 'Quin', last: 'R' });
     ok('allow list: an invite still joins an address that is not on the list', !!secret && r.statusCode === 200 && JSON.parse(r.body).code === 'TT36', r.body);
-    delete process.env.INVITE_SEND_MODE; delete process.env.INVITE_TEST_RECIPIENTS; delete process.env.INVITE_SMTP_URL;
+    delete process.env.INVITE_SEND_MODE; delete process.env.INVITE_TEST_RECIPIENTS; delete process.env.SMTP_USER; delete process.env.SMTP_PASS; delete process.env.MAIL_FROM;
     const join = loadFn('join.js', st, { A: U('ann@a.com') });
     st.docs['jj_playbook/org:PLAYBOOK26'] = V({ name: 'Playbook 26', allowlist: [] });
     r = await call(join, 'A', { code: 'playbook26' });

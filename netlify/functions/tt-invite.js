@@ -24,10 +24,13 @@
  *                    (comma-separated); any other address is refused, not
  *                    recorded.
  *   on               sent to anyone.
- * Mail goes through INVITE_SMTP_URL (a Google Workspace app password for the
- * sender in invite-products.js).
+ * Mail goes through netlify/lib/mailer.js, the same Workspace mailbox as the
+ * Microsoft code email (SMTP_USER, SMTP_PASS, MAIL_FROM). It shows the
+ * product's fromName with that mailbox's address, and replies go to the
+ * product's fromEmail (invite-products.js).
  *
- * Env: FIREBASE_*, INVITE_SEND_MODE, INVITE_TEST_RECIPIENTS, INVITE_SMTP_URL, URL.
+ * Env: FIREBASE_*, INVITE_SEND_MODE, INVITE_TEST_RECIPIENTS, SMTP_USER,
+ * SMTP_PASS, MAIL_FROM, URL.
  */
 const crypto = require('crypto');
 const { db, auth, missingEnv } = require('../lib/firebase-admin');
@@ -36,6 +39,7 @@ const { withCors, ownOrigin } = require('../lib/http');
 const { ADMINS } = require('../lib/admins');
 const { allow, clientIp, HOUR } = require('../lib/rate-limit');
 const { render, PRODUCTS } = require('../lib/invite-email');
+const { sendMail, missingMailEnv } = require('../lib/mailer');
 
 const COLL = 'jj_playbook';
 const PRODUCT = 'tt';
@@ -64,15 +68,6 @@ function siteUrl(event) {
   return /^https:\/\/[a-z0-9.-]+$/i.test(u) ? u : '';
 }
 
-let transport = null;
-function mailer() {
-  if (transport) return transport;
-  const url = String(process.env.INVITE_SMTP_URL || '');
-  if (!url) return null;
-  transport = require('nodemailer').createTransport(url);
-  return transport;
-}
-
 /* Record (and, if the mode allows, send) one invite. Returns { email, result }. */
 async function inviteOne(program, email, site, uid, mode) {
   const p = PRODUCTS[PRODUCT];
@@ -87,10 +82,10 @@ async function inviteOne(program, email, site, uid, mode) {
   const mail = render(PRODUCT, program, { email, link, code: org.joinCode, site, expiresAt });
   let delivery = 'off';
   if (mode === 'on' || mode === 'test') {
-    const t = mailer();
-    if (!t) return { email, result: 'no-mail-setup' };
-    try { await t.sendMail({ from: mail.from, replyTo: p.fromEmail, to: email, subject: mail.subject, text: mail.text, html: mail.html }); delivery = 'sent'; }
-    catch (e) { console.error('tt-invite send', e && (e.code || e.responseCode)); return { email, result: 'send-failed' }; }
+    if (missingMailEnv().length) return { email, result: 'no-mail-setup' };
+    try { await sendMail({ to: email, subject: mail.subject, text: mail.text, html: mail.html, replyTo: p.fromEmail, fromName: p.fromName }); delivery = 'sent'; }
+    // mailer.js errors never hold the password.
+    catch (e) { console.error('tt-invite send', e && e.message); return { email, result: 'send-failed' }; }
   } else {
     console.log('tt-invite (sending off): to', email, '| subject:', mail.subject, '| link not logged');
   }
