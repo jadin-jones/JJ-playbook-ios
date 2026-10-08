@@ -30,6 +30,7 @@ const V=o=>({value:JSON.stringify(o)});
     await setDoc(doc(d,'tt_data','x'),{a:1});
     await setDoc(J('knowledge:master'),V({items:[]}));
     await setDoc(J('knowledge:misses'),V({items:[{q:'a member question'}]}));
+    await setDoc(J('coachmiss:SEEDSEEDSEEDSEED1'),V({id:'SEEDSEEDSEEDSEED1',q:'a member question',ts:1}));
     await setDoc(J('demo:ann-a-com:1'),V({token:'t'}));
     await setDoc(doc(d,'rateLimits','x'),{count:1});
     await setDoc(J('program:master'),V({modules:[{id:'m1',items:[{id:'i1',mediaUrl:'https://x/1.mp4'}]}]}));
@@ -55,6 +56,7 @@ const V=o=>({value:JSON.stringify(o)});
   const tia=who('uid-tia','tia@s.org'), gone=who('uid-gone','gone@s.org');
   const dual=who('uid-dual','dual@a.com');
   const TT=[
+   ['TT: student files a coach miss',false,()=>setDoc(J(tia,'coachmiss:AbCdEfGh1234567F'),V({q:'x'}))],
    ['TT: student reads the lesson library',true,()=>getDoc(J(tia,'ttlib:master'))],
    ['TT: Playbook member reads the lesson library',false,()=>getDoc(J(ann,'ttlib:master'))],
    ['TT: student reads own program',true,()=>getDoc(J(tia,'org:TT36'))],
@@ -142,6 +144,23 @@ const V=o=>({value:JSON.stringify(o)});
    ['admin reads knowledge:misses',true,()=>getDoc(J(adm,'knowledge:misses'))],
    ['member reads demo:',false,()=>getDoc(J(ann,'demo:ann-a-com:1'))],
    ['member writes knowledge:misses',false,()=>setDoc(J(ann,'knowledge:misses'),V({items:[]}),{merge:true})],
+   // The coach's unanswered questions: one coachmiss:ID each, create-only for members.
+   ['member files a coach miss (app save)',true,()=>setDoc(J(ann,'coachmiss:AbCdEfGh12345678'),V({id:'AbCdEfGh12345678',q:'how do I x',ts:1}),{merge:true})],
+   ['member files the largest coach miss the app sends (300 characters, all escaped)',true,()=>setDoc(J(ann,'coachmiss:AbCdEfGh1234567G'),V({id:'AbCdEfGh1234567G',q:'"'.repeat(300),ts:Date.now()}),{merge:true})],
+   ['member files a coach miss with another field',false,()=>setDoc(J(ann,'coachmiss:AbCdEfGh12345679'),Object.assign(V({q:'x'}),{ownerEmail:'ann@a.com'}))],
+   ['member files a coach miss over 800 characters',false,()=>setDoc(J(ann,'coachmiss:AbCdEfGh1234567A'),{value:'x'.repeat(801)})],
+   ['member files a coach miss with a non-string value',false,()=>setDoc(J(ann,'coachmiss:AbCdEfGh1234567B'),{value:{q:'x'}})],
+   ['member files a coach miss with a short id',false,()=>setDoc(J(ann,'coachmiss:short'),V({q:'x'}))],
+   ['member files a coach miss with a sample- id',false,()=>setDoc(J(ann,'coachmiss:sample-AbCdEfGh1234'),V({q:'x'}))],
+   ['member reads a coach miss',false,()=>getDoc(J(ann,'coachmiss:SEEDSEEDSEEDSEED1'))],
+   ['member lists coach misses',false,()=>getDocs(query(collection(ann,'jj_playbook'),where(documentId(),'>=','coachmiss:'),where(documentId(),'<','coachmiss:\uf8ff')))],
+   ['member overwrites a coach miss',false,()=>setDoc(J(ann,'coachmiss:SEEDSEEDSEEDSEED1'),V({q:'changed'}),{merge:true})],
+   ['member deletes a coach miss',false,()=>deleteDoc(J(ann,'coachmiss:SEEDSEEDSEEDSEED1'))],
+   ['Microsoft member, unconfirmed, files a coach miss',false,()=>setDoc(J(mm1,'coachmiss:AbCdEfGh1234567C'),V({q:'x'}))],
+   ['Microsoft member, confirmed, files a coach miss',true,()=>setDoc(J(mm2,'coachmiss:AbCdEfGh1234567D'),V({q:'x'}))],
+   ['signed out, files a coach miss',false,()=>setDoc(J(env.unauthenticatedContext().firestore(),'coachmiss:AbCdEfGh1234567E'),V({q:'x'}))],
+   ['admin lists coach misses',true,()=>getDocs(query(collection(adm,'jj_playbook'),where(documentId(),'>=','coachmiss:'),where(documentId(),'<','coachmiss:\uf8ff')))],
+   ['admin deletes a coach miss',true,()=>deleteDoc(J(adm,'coachmiss:AbCdEfGh12345678'))],
    ['member creates demo:',false,()=>setDoc(J(ann,'demo:ann-a-com:2'),V({token:'t'}))],
    ['member reads rateLimits',false,()=>getDoc(doc(ann,'rateLimits','x'))],
    ['admin writes rateLimits',false,()=>setDoc(doc(adm,'rateLimits','y'),{count:0})],

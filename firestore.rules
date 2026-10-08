@@ -52,6 +52,17 @@ service cloud.firestore {
       // only admins (the migration) reach them.
       function peerKind() { return kind() == 'peer' && parts().size() == 3; }
       function revKind() { return kind() == 'rev'; }
+      // coachmiss:ID: one question the AI coach's library could not answer.
+      // Any Playbook member may file one; only admins read, change or delete
+      // them (a question can be personal). It replaces the shared
+      // knowledge:misses list, which a member could only add to by reading
+      // and rewriting everyone's questions.
+      function missKind() { return kind() == 'coachmiss' && parts().size() == 2 && parts()[1].matches('[A-Za-z0-9]{16,40}'); }
+      function missOk() {
+        return request.resource.data.keys().hasOnly(['value'])
+          && request.resource.data.value is string
+          && request.resource.data.value.size() <= 800;
+      }
       // Twin Thieves keys never count as preview or sample records: tt-join
       // names ttm: records after the email, so sample-x@... would match.
       function isPreviewOrSample() {
@@ -99,7 +110,8 @@ service cloud.firestore {
       allow create: if isAdmin()
         || (personalKind() && inOrg(parts()[1]) && ownsIncoming())
         || (peerKind() && inOrg(parts()[1]) && ownsIncoming() && peerFieldsOk())
-        || (teamKind() && inOrg(parts()[1]));
+        || (teamKind() && inOrg(parts()[1]))
+        || (missKind() && isAnyMember() && missOk());
       allow update: if isAdmin()
         || (personalKind() && ownsExisting() && ownsIncoming() && keepsOwner())
         || (peerKind() && inOrg(parts()[1]) && ownsExisting() && ownsIncoming() && keepsOwner()

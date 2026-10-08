@@ -14,7 +14,8 @@ let bad = 0, n = 0;
 const ok = (name, cond, detail) => { n++; if (cond) console.log('PASS', name); else { bad++; console.log('FAIL', name, detail || ''); } };
 
 // ---- 1. Rules: main's V3 rules unchanged apart from the two changes published
-// on test-6b2ab on 8 Oct 2026; Twin Thieves only adds a section at the end. ----
+// on test-6b2ab on 8 Oct 2026 and the coachmiss rule; Twin Thieves only adds a
+// section at the end. ----
 {
   const cur = fs.readFileSync(path.join(ROOT, 'firestore.rules'), 'utf8');
   let base = '';
@@ -36,10 +37,26 @@ const ok = (name, cond, detail) => { n++; if (cond) console.log('PASS', name); e
      + "    // 8 Oct 2026: no code on any branch, no live page, no function). Under the\n"
      + "    // Sept 25 rules they were open to anyone. Admin-only until something needs\n"
      + "    // them. Twin Thieves data is not here: it is ttmembers/ and the tt keys in\n"
-     + "    // jj_playbook (the section at the end).\n"]];
+     + "    // jj_playbook (the section at the end).\n"],
+    // Prepared 8 Oct 2026, after that publish: coachmiss:ID, create-only for members.
+    ["      function revKind() { return kind() == 'rev'; }\n",
+     "      function revKind() { return kind() == 'rev'; }\n"
+     + "      // coachmiss:ID: one question the AI coach's library could not answer.\n"
+     + "      // Any Playbook member may file one; only admins read, change or delete\n"
+     + "      // them (a question can be personal). It replaces the shared\n"
+     + "      // knowledge:misses list, which a member could only add to by reading\n"
+     + "      // and rewriting everyone's questions.\n"
+     + "      function missKind() { return kind() == 'coachmiss' && parts().size() == 2 && parts()[1].matches('[A-Za-z0-9]{16,40}'); }\n"
+     + "      function missOk() {\n"
+     + "        return request.resource.data.keys().hasOnly(['value'])\n"
+     + "          && request.resource.data.value is string\n"
+     + "          && request.resource.data.value.size() <= 800;\n"
+     + "      }\n"],
+    ["        || (teamKind() && inOrg(parts()[1]));\n      allow update: if isAdmin()\n",
+     "        || (teamKind() && inOrg(parts()[1]))\n        || (missKind() && isAnyMember() && missOk());\n      allow update: if isAdmin()\n"]];
   const want = PUBLISHED.reduce((b, [a, z]) => (b.split(a).length === 2 ? b.replace(a, z) : ''), base);
   ok('rules: main\'s rules (c3c8dd6) are readable', !!base);
-  ok('rules: main\'s rules are unchanged apart from the two published changes, in order, at the top',
+  ok('rules: main\'s rules are unchanged apart from the listed changes, in order, at the top',
     !!want && want.endsWith(tail) && cur.startsWith(want.slice(0, -tail.length)));
   const added = want ? cur.slice(want.length - tail.length, cur.length - tail.length) : '';
   ok('rules: the added section only matches ttmembers and jj_playbook',

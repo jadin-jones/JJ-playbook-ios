@@ -8887,6 +8887,11 @@ async function sha256Hex(str){
 // no O/0, I/1, S/5, B/8 — these get read aloud and typed by hand
 const PEER_ALPHA='ACDEFGHJKLMNPQRTUVWXY34679';
 // New rounds get 10 characters; links already sent with 6 keep working.
+/* The id of a coachmiss: record: 20 random letters and digits. */
+function missId(){
+  const A='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', b=new Uint8Array(20);
+  try{ crypto.getRandomValues(b); }catch(e){ for(let i=0;i<b.length;i++) b[i]=Math.floor(Math.random()*256); }
+  let s=''; for(let i=0;i<b.length;i++) s+=A[b[i]%A.length]; return s; }
 function peerToken(n){ let s=''; for(let i=0;i<(n||10);i++) s+=PEER_ALPHA[Math.floor(Math.random()*PEER_ALPHA.length)]; return s; }
 function peerLink(t){ try{ return location.origin+location.pathname+'?r='+t; }catch(e){ return '?r='+t; } }
 /* Peer and team rounds live at peer:CODE:TOKEN, so the V3 rules can check the
@@ -12039,24 +12044,30 @@ class Component extends DCLogic {
     const more=chars<body.length-40;
     return head+'\n\n'+(bi>0?'…':'')+picked.join('\n\n')+(more?'…':''); }
   /* Every question the library could not answer, kept so an admin can see what
-     to load next. Shared like the library itself, capped, newest first. */
+     to load next. Each is its own coachmiss:ID record, which members may only
+     create (the rules keep everyone's questions from each other); Studio adds
+     them up by question, together with the older shared knowledge:misses
+     list, capped, newest first. */
   async loadCoachMiss(){
-    const rec=await sget('knowledge:misses').catch(()=>null);
-    const list=(rec&&Array.isArray(rec.items))?rec.items:[];
+    const [rec,each]=await Promise.all([sget('knowledge:misses').catch(()=>null),slistDocs('coachmiss:').catch(()=>[])]);
+    const old=(rec&&Array.isArray(rec.items))?rec.items:[];
+    const one=(each||[]).filter(m=>m&&typeof m.q==='string');
+    const by={};
+    old.concat(one.map(m=>({q:m.q,n:1,ts:m.ts}))).forEach(m=>{
+      const k=String(m.q||'').trim().toLowerCase(); if(!k) return;
+      const x=by[k]||(by[k]={q:String(m.q).trim(),n:0,ts:0});
+      x.n+=(Number(m.n)||1); x.ts=Math.max(x.ts,Number(m.ts)||0); });
+    const list=Object.keys(by).map(k=>by[k]).sort((a,b)=>b.ts-a.ts).slice(0,60);
+    // Every record, not only the 60 shown, so Clear empties the lot.
+    this._missIds=one.map(m=>m.id).filter(id=>/^[A-Za-z0-9]{16,40}$/.test(String(id||'')));
     this.setState({coachMiss:list});
     return list; }
   logCoachMiss(q){
-    const t=String(q||'').trim(); if(t.length<4) return;
+    const t=String(q||'').trim().slice(0,300); if(t.length<4) return;
     if(this._missSent&&this._missSent[t.toLowerCase()]) return;
     this._missSent=Object.assign({},this._missSent||{},{[t.toLowerCase()]:1});
-    sget('knowledge:misses').then(rec=>{
-      const list=(rec&&Array.isArray(rec.items))?rec.items.slice():[];
-      const key=t.toLowerCase();
-      const at=list.findIndex(x=>String(x.q||'').toLowerCase()===key);
-      if(at>=0) list[at]=Object.assign({},list[at],{n:(list[at].n||1)+1,ts:Date.now()});
-      else list.unshift({q:t,n:1,ts:Date.now()});
-      return sset('knowledge:misses',{items:list.slice(0,60),at:Date.now()});
-    }).catch(()=>{}); }
+    const id=missId();
+    sset('coachmiss:'+id,{id,q:t,ts:Date.now()}).catch(()=>{}); }
   coachChatLog(){ const r=this.state.resp; return (r&&r.coachChat)||[]; }
   coachMem(){ const r=this.state.resp; const m=(r&&r.coachMemory); return Array.isArray(m)?m:[]; }
   coachPush(role,text){ const r=this.state.resp; if(!r) return;
@@ -22406,8 +22417,10 @@ class Component extends DCLogic {
         missSummary:((s.coachMiss||[]).length||0)+' unanswered question'
           +(((s.coachMiss||[]).length||0)===1?'':'s'),
         onClearMisses:()=>{ if(!window.confirm('Clear the unanswered list?')) return;
+          const ids=this._missIds||[]; this._missIds=[];
           this.setState({coachMiss:[]});
-          sset('knowledge:misses',{items:[],at:Date.now()}).catch(()=>{}); },
+          sset('knowledge:misses',{items:[],at:Date.now()}).catch(()=>{});
+          ids.forEach(id=>sdel('coachmiss:'+id).catch(()=>{})); },
         titleVal:s.mkTitle||'',
         onTitle:e=>this.setState({mkTitle:e.target.value}),
         bodyVal:s.mkBody||'',
