@@ -8217,10 +8217,6 @@ const AUTH_OWN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.co
 const MS_SIGNIN_HOSTS=['jj-playbook-dev.netlify.app','dev.playbook.jadin-jones.com','jj-twinthieves-preview.netlify.app',
   'jjplaybook.netlify.app','playbook.jadin-jones.com','twinthieves.jadin-jones.com'];
 const msSignInHere=()=>MS_SIGNIN_HOSTS.indexOf(location.hostname)>=0;
-/* The Twin Thieves sites (preview on Dev, live on test-6b2ab). Only the
-   sign-in screen's wording changes on them. */
-const TT_HOSTS=['jj-twinthieves-preview.netlify.app','twinthieves.jadin-jones.com'];
-const ttHostHere=()=>TT_HOSTS.indexOf(location.hostname)>=0;
 if(AUTH_OWN_HOSTS.indexOf(location.hostname)>=0) FIREBASE_CONFIG.authDomain=location.hostname;
 const COLL='jj_playbook';
 // Two editions of the same nine-fundamental format. Y1 keeps the original
@@ -18783,7 +18779,8 @@ class Component extends DCLogic {
     const inApp=this.isNativeApp();
     v.gateShowGoogle=!inApp;
     v.gateShowMicrosoft=!inApp&&msSignInHere();
-    v.gateSignInTitle=ttHostHere()?'Sign in to Jadin | Jones':'Sign in to your playbook';
+    // One site for both products: the code entered picks the program.
+    v.gateSignInTitle='Sign in to Jadin | Jones';
     v.gateSignInHint=inApp
       ?'Sign in with your email and password. Use the email your program invited you with. First time? Tap Forgot password to set one.'
       :'Use the email your program invited you with. First time? Continue with Google, or tap Forgot password to set one.';

@@ -248,8 +248,8 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     const line = re => { const m = html.match(re); return m ? m[0] : ''; };
     const pick = host => {
       const src = [line(/const DEV_HOST=.*;/), line(/const FIREBASE_CONFIG=.*;/), line(/const PUSH_VAPID_KEY=.*;/),
-        line(/const AUTH_OWN_HOSTS=\[[^\]]*\];/), line(/const MS_SIGNIN_HOSTS=\[[^\]]*\];/), line(/const TT_HOSTS=\[[^\]]*\];/)].join('\n');
-      return new Function('location', src + '\nreturn {p:FIREBASE_CONFIG.projectId,k:PUSH_VAPID_KEY.slice(0,9),own:AUTH_OWN_HOSTS.indexOf(location.hostname)>=0,ms:MS_SIGNIN_HOSTS.indexOf(location.hostname)>=0,tt:TT_HOSTS.indexOf(location.hostname)>=0};')({ hostname: host });
+        line(/const AUTH_OWN_HOSTS=\[[^\]]*\];/), line(/const MS_SIGNIN_HOSTS=\[[^\]]*\];/)].join('\n');
+      return new Function('location', src + '\nreturn {p:FIREBASE_CONFIG.projectId,k:PUSH_VAPID_KEY.slice(0,9),own:AUTH_OWN_HOSTS.indexOf(location.hostname)>=0,ms:MS_SIGNIN_HOSTS.indexOf(location.hostname)>=0};')({ hostname: host });
     };
     const want = { 'jjplaybook.netlify.app': 'test-6b2ab', 'playbook.jadin-jones.com': 'test-6b2ab', 'twinthieves.jadin-jones.com': 'test-6b2ab',
       'jj-playbook-dev.netlify.app': 'jj-playbook-dev', 'dev.playbook.jadin-jones.com': 'jj-playbook-dev', 'jj-twinthieves-preview.netlify.app': 'jj-playbook-dev' };
@@ -257,13 +257,14 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('hosts: each host picks its project and VAPID key (twinthieves.jadin-jones.com is live)',
       got.every(([h, g]) => g.p === want[h] && g.k === (want[h] === 'test-6b2ab' ? 'BInNmntOm' : 'BC6VSCl7r')), JSON.stringify(got));
     ok('hosts: every one of our hosts signs in through its own /__/auth and offers Microsoft', got.every(([, g]) => g.own && g.ms), JSON.stringify(got));
-    ok('hosts: only the two Twin Thieves hosts count as Twin Thieves', got.every(([h, g]) => g.tt === /twinthieves/.test(h)), JSON.stringify(got));
+    ok('hosts: no host list picks the product (the code entered does)', !/TT_HOSTS|ttHostHere/.test(html));
     const { SITE_HOSTS } = require(path.join(ROOT, 'netlify/lib/http.js'));
     ok('hosts: live CORS adds only twinthieves.jadin-jones.com; Dev unchanged',
       SITE_HOSTS['test-6b2ab'].join(',') === 'jjplaybook.netlify.app,playbook.jadin-jones.com,twinthieves.jadin-jones.com'
       && SITE_HOSTS['jj-playbook-dev'].join(',') === 'jj-playbook-dev.netlify.app,dev.playbook.jadin-jones.com,jj-twinthieves-preview.netlify.app', JSON.stringify(SITE_HOSTS));
-    ok('sign-in: "Sign in to Jadin | Jones" only on Twin Thieves hosts, the Playbook wording elsewhere',
-      /v\.gateSignInTitle=ttHostHere\(\)\?'Sign in to Jadin \| Jones':'Sign in to your playbook';/.test(html) && />\{\{ gateSignInTitle \}\}<\/p>/.test(html));
+    ok('sign-in: "Sign in to Jadin | Jones" on every host',
+      /v\.gateSignInTitle='Sign in to Jadin \| Jones';/.test(html) && !/Sign in to your playbook/.test(html)
+      && />\{\{ gateSignInTitle \}\}<\/p>/.test(html));
     ok('my groups: a Twin Thieves program skips the resp: read the rules refuse',
       /ttCodes\.has\(code\)\?Promise\.resolve\(null\):sgetStrict\('resp:'\+code\+':'\+idkey\)/.test(html));
     ok('my groups: "you are here" and Back return a Twin Thieves member to Twin Thieves',
