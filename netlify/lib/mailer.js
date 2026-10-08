@@ -9,6 +9,12 @@
  * Sent through smtp.gmail.com:465. jadin-jones.com's SPF already includes
  * Google and Google signs it with DKIM, so nothing else is needed.
  *
+ * sendMail({ to, subject, text }) sends plain text from MAIL_FROM. Optional:
+ * html (a second, HTML part), replyTo, and fromName, which replaces only the
+ * display name (the address stays MAIL_FROM's, else SMTP_USER: Gmail rewrites
+ * any address the mailbox has no Send-as alias for). Twin Thieves invites use
+ * all three; the Microsoft code email uses none, so it is unchanged.
+ *
  * sendMail() resolves true, or throws an Error whose message is safe to log:
  * it never holds the password.
  */
@@ -35,12 +41,24 @@ function getTransport() {
   return transport;
 }
 
-async function sendMail({ to, subject, text }) {
+/* The bare address in MAIL_FROM ("Name <a@b>" or "a@b"), else SMTP_USER. */
+function fromAddress() {
+  const f = envValue('MAIL_FROM');
+  const m = /<([^<>\s]+@[^<>\s]+)>\s*$/.exec(f) || /^([^<>\s"]+@[^<>\s"]+)$/.exec(f);
+  return m ? m[1] : envValue('SMTP_USER');
+}
+
+async function sendMail({ to, subject, text, html, replyTo, fromName }) {
   const missing = missingMailEnv();
   if (missing.length) throw new Error('mail not configured: missing ' + missing.join(', '));
-  const from = envValue('MAIL_FROM') || ('"JJ Playbook" <' + envValue('SMTP_USER') + '>');
+  const name = String(fromName || '').replace(/["\r\n<>]/g, '').trim();
+  const from = name ? '"' + name + '" <' + fromAddress() + '>'
+    : (envValue('MAIL_FROM') || ('"JJ Playbook" <' + envValue('SMTP_USER') + '>'));
+  const msg = { from, to, subject, text };
+  if (html) msg.html = html;
+  if (replyTo) msg.replyTo = replyTo;
   try {
-    const info = await getTransport().sendMail({ from, to, subject, text });
+    const info = await getTransport().sendMail(msg);
     if (info && Array.isArray(info.rejected) && info.rejected.length) throw new Error('recipient rejected');
     return true;
   } catch (e) {

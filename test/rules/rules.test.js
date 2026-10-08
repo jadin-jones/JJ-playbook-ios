@@ -30,14 +30,74 @@ const V=o=>({value:JSON.stringify(o)});
     await setDoc(doc(d,'tt_data','x'),{a:1});
     await setDoc(J('knowledge:master'),V({items:[]}));
     await setDoc(J('knowledge:misses'),V({items:[{q:'a member question'}]}));
+    await setDoc(J('coachmiss:SEEDSEEDSEEDSEED1'),V({id:'SEEDSEEDSEEDSEED1',q:'a member question',ts:1}));
     await setDoc(J('demo:ann-a-com:1'),V({token:'t'}));
     await setDoc(doc(d,'rateLimits','x'),{count:1});
     await setDoc(J('program:master'),V({modules:[{id:'m1',items:[{id:'i1',mediaUrl:'https://x/1.mp4'}]}]}));
+    // Twin Thieves: tia and zed are students in TT36 only; ann is a Playbook member only.
+    await setDoc(doc(d,'ttmembers','tia@s.org'),{orgs:['TT36']}); await setDoc(doc(d,'ttmembers','zed@s.org'),{orgs:['TT36']});
+    await setDoc(J('ttlib:master'),V({lessons:[]}));
+    await setDoc(J('ttinv:TT36:abc'),Object.assign(V({email:'tia@s.org',program:'TT36',status:'invited'}),{tokenHash:'h'}));
+    await setDoc(J('org:TT36'),V({product:'tt',ttVersion:36,joinCode:'TWIN36'}));
+    await setDoc(J('org:TT10'),V({product:'tt',ttVersion:10,joinCode:'TWIN10'}));
+    await setDoc(J('ttm:TT36:tia-s-org'),Object.assign(V({name:'Tia',progress:{}}),{ownerEmail:'tia@s.org'}));
+    await setDoc(J('ttm:TT36:zed-s-org'),Object.assign(V({name:'Zed',progress:{}}),{ownerEmail:'zed@s.org'}));
+    await setDoc(J('rev:TT36:gone-s-org'),V({email:'gone@s.org'}));
+    await setDoc(doc(d,'ttmembers','gone@s.org'),{orgs:['TT36']});
+    await setDoc(J('ttallow:TT36'),V({emails:['tia@s.org','amy@s.org']}));
+    // dual@a.com is in the Playbook's T1 and Twin Thieves' TT36.
+    await setDoc(doc(d,'members','dual@a.com'),{orgs:['T1']}); await setDoc(doc(d,'ttmembers','dual@a.com'),{orgs:['TT36']});
+    await setDoc(J('ttm:TT36:dual-a-com'),Object.assign(V({name:'Dual',progress:{}}),{ownerEmail:'dual@a.com'}));
   });
   const who=(uid,email,prov)=>env.authenticatedContext(uid,{email,email_verified:true,firebase:{sign_in_provider:prov||'google.com'}}).firestore();
   const ann=who('uid-ann','ann@a.com'), bob=who('uid-bob','bob@a.com'), adm=who('uid-c','charlie@jadin-jones.com'),
         admMs=who('uid-cms','charlie@jadin-jones.com','microsoft.com'), mm1=who('uid-mm1','mm@a.com','microsoft.com'), mm2=who('uid-mm2','mm@a.com','microsoft.com');
   const J=(db,id)=>doc(db,'jj_playbook',id);
+  const tia=who('uid-tia','tia@s.org'), gone=who('uid-gone','gone@s.org');
+  const dual=who('uid-dual','dual@a.com');
+  const TT=[
+   ['TT: student files a coach miss',false,()=>setDoc(J(tia,'coachmiss:AbCdEfGh1234567F'),V({q:'x'}))],
+   ['TT: student reads the lesson library',true,()=>getDoc(J(tia,'ttlib:master'))],
+   ['TT: Playbook member reads the lesson library',false,()=>getDoc(J(ann,'ttlib:master'))],
+   ['TT: student reads own program',true,()=>getDoc(J(tia,'org:TT36'))],
+   ['TT: student reads the other version',false,()=>getDoc(J(tia,'org:TT10'))],
+   ['TT: student reads own progress',true,()=>getDoc(J(tia,'ttm:TT36:tia-s-org'))],
+   ['TT: student reads another student',false,()=>getDoc(J(tia,'ttm:TT36:zed-s-org'))],
+   ['TT: student lists the program\'s progress',false,()=>getDocs(query(collection(tia,'jj_playbook'),where(documentId(),'>=','ttm:TT36:'),where(documentId(),'<','ttm:TT36:\uf8ff')))],
+   ['TT: student saves own progress',true,()=>setDoc(J(tia,'ttm:TT36:tia-s-org'),Object.assign(V({name:'Tia',progress:{tt01:{doneAt:1}}}),{ownerEmail:'tia@s.org'}),{merge:true})],
+   ['TT: student changes own ownerEmail',false,()=>setDoc(J(tia,'ttm:TT36:tia-s-org'),{ownerEmail:'zed@s.org'},{merge:true})],
+   ['TT: student writes another student',false,()=>setDoc(J(tia,'ttm:TT36:zed-s-org'),Object.assign(V({}),{ownerEmail:'tia@s.org'}),{merge:true})],
+   ['TT: student deletes own progress',false,()=>deleteDoc(J(tia,'ttm:TT36:tia-s-org'))],
+   ['TT: student edits the lesson library',false,()=>setDoc(J(tia,'ttlib:master'),V({lessons:[]}),{merge:true})],
+   ['TT: admin edits the lesson library',true,()=>setDoc(J(adm,'ttlib:master'),V({lessons:[]}),{merge:true})],
+   ['TT: admin reads a student\'s progress',true,()=>getDoc(J(adm,'ttm:TT36:zed-s-org'))],
+   ['TT: student reads own ttmembers',true,()=>getDoc(doc(tia,'ttmembers','tia@s.org'))],
+   ['TT: student adds a program to own ttmembers',false,()=>setDoc(doc(tia,'ttmembers','tia@s.org'),{orgs:['TT36','TT10']})],
+   ['TT: student reads own missing tombstone',true,()=>getDoc(J(tia,'rev:TT36:tia-s-org'))],
+   ['TT: revoked student reads own tombstone',false,()=>getDoc(J(gone,'rev:TT36:gone-s-org'))],
+   ['TT: Playbook member reads a student\'s progress',false,()=>getDoc(J(ann,'ttm:TT36:tia-s-org'))],
+   ['TT isolation: student creates chat:TT36',false,()=>setDoc(J(tia,'chat:TT36'),{messages:[{t:1}]})],
+   ['TT isolation: student creates push:TT36',false,()=>setDoc(J(tia,'push:TT36:tia-s-org'),Object.assign(V({token:'t'}),{ownerEmail:'tia@s.org'}))],
+   ['TT isolation: student creates a peer round in TT36',false,()=>setDoc(J(tia,'peer:TT36:ZZZ'),Object.assign(V({}),{ownerEmail:'tia@s.org',peerToken:'ZZZ',peerMode:'team'}))],
+   ['TT isolation: student reads Playbook program content',false,()=>getDoc(J(tia,'program:master'))],
+   ['TT isolation: student reads a Playbook org',false,()=>getDoc(J(tia,'org:T1'))],
+   ['TT isolation: student reads a Playbook member',false,()=>getDoc(J(tia,'resp:T1:ann-a-com'))],
+   ['TT isolation: student reads knowledge:master',false,()=>getDoc(J(tia,'knowledge:master'))],
+   ['TT invites: student reads an invite (even their own)',false,()=>getDoc(J(tia,'ttinv:TT36:abc'))],
+   ['TT invites: Playbook member reads an invite',false,()=>getDoc(J(ann,'ttinv:TT36:abc'))],
+   ['TT invites: student writes an invite',false,()=>setDoc(J(tia,'ttinv:TT36:abc'),V({status:'joined'}),{merge:true})],
+   ['TT invites: admin reads an invite',true,()=>getDoc(J(adm,'ttinv:TT36:abc'))],
+   ['TT approved list: student reads it (even listed)',false,()=>getDoc(J(tia,'ttallow:TT36'))],
+   ['TT approved list: Playbook member reads it',false,()=>getDoc(J(ann,'ttallow:TT36'))],
+   ['TT approved list: student writes it',false,()=>setDoc(J(tia,'ttallow:TT36'),V({emails:[]}))],
+   ['TT approved list: admin reads it',true,()=>getDoc(J(adm,'ttallow:TT36'))],
+   ['TT approved list: admin writes it',true,()=>setDoc(J(adm,'ttallow:TT10'),V({emails:['a@b.org']}))],
+   ['TT approved list: Microsoft admin writes it',false,()=>setDoc(J(admMs,'ttallow:TT10'),V({emails:[]}))],
+   ['TT both products: reads own ttm: record',true,()=>getDoc(J(dual,'ttm:TT36:dual-a-com'))],
+   ['TT both products: reads own missing TT36 tombstone',true,()=>getDoc(J(dual,'rev:TT36:dual-a-com'))],
+   ['TT both products: reads org:TT36',true,()=>getDoc(J(dual,'org:TT36'))],
+   ['TT both products: a resp:TT36 read is refused (why My groups reads ttm: instead)',false,()=>getDoc(J(dual,'resp:TT36:dual-a-com'))],
+  ];
   const tests=[
    ['member reads own resp',true,()=>getDoc(J(ann,'resp:T1:ann-a-com'))],
    ['member reads colleague resp',false,()=>getDoc(J(ann,'resp:T1:bob-a-com'))],
@@ -84,6 +144,23 @@ const V=o=>({value:JSON.stringify(o)});
    ['admin reads knowledge:misses',true,()=>getDoc(J(adm,'knowledge:misses'))],
    ['member reads demo:',false,()=>getDoc(J(ann,'demo:ann-a-com:1'))],
    ['member writes knowledge:misses',false,()=>setDoc(J(ann,'knowledge:misses'),V({items:[]}),{merge:true})],
+   // The coach's unanswered questions: one coachmiss:ID each, create-only for members.
+   ['member files a coach miss (app save)',true,()=>setDoc(J(ann,'coachmiss:AbCdEfGh12345678'),V({id:'AbCdEfGh12345678',q:'how do I x',ts:1}),{merge:true})],
+   ['member files the largest coach miss the app sends (300 characters, all escaped)',true,()=>setDoc(J(ann,'coachmiss:AbCdEfGh1234567G'),V({id:'AbCdEfGh1234567G',q:'"'.repeat(300),ts:Date.now()}),{merge:true})],
+   ['member files a coach miss with another field',false,()=>setDoc(J(ann,'coachmiss:AbCdEfGh12345679'),Object.assign(V({q:'x'}),{ownerEmail:'ann@a.com'}))],
+   ['member files a coach miss over 800 characters',false,()=>setDoc(J(ann,'coachmiss:AbCdEfGh1234567A'),{value:'x'.repeat(801)})],
+   ['member files a coach miss with a non-string value',false,()=>setDoc(J(ann,'coachmiss:AbCdEfGh1234567B'),{value:{q:'x'}})],
+   ['member files a coach miss with a short id',false,()=>setDoc(J(ann,'coachmiss:short'),V({q:'x'}))],
+   ['member files a coach miss with a sample- id',false,()=>setDoc(J(ann,'coachmiss:sample-AbCdEfGh1234'),V({q:'x'}))],
+   ['member reads a coach miss',false,()=>getDoc(J(ann,'coachmiss:SEEDSEEDSEEDSEED1'))],
+   ['member lists coach misses',false,()=>getDocs(query(collection(ann,'jj_playbook'),where(documentId(),'>=','coachmiss:'),where(documentId(),'<','coachmiss:\uf8ff')))],
+   ['member overwrites a coach miss',false,()=>setDoc(J(ann,'coachmiss:SEEDSEEDSEEDSEED1'),V({q:'changed'}),{merge:true})],
+   ['member deletes a coach miss',false,()=>deleteDoc(J(ann,'coachmiss:SEEDSEEDSEEDSEED1'))],
+   ['Microsoft member, unconfirmed, files a coach miss',false,()=>setDoc(J(mm1,'coachmiss:AbCdEfGh1234567C'),V({q:'x'}))],
+   ['Microsoft member, confirmed, files a coach miss',true,()=>setDoc(J(mm2,'coachmiss:AbCdEfGh1234567D'),V({q:'x'}))],
+   ['signed out, files a coach miss',false,()=>setDoc(J(env.unauthenticatedContext().firestore(),'coachmiss:AbCdEfGh1234567E'),V({q:'x'}))],
+   ['admin lists coach misses',true,()=>getDocs(query(collection(adm,'jj_playbook'),where(documentId(),'>=','coachmiss:'),where(documentId(),'<','coachmiss:\uf8ff')))],
+   ['admin deletes a coach miss',true,()=>deleteDoc(J(adm,'coachmiss:AbCdEfGh12345678'))],
    ['member creates demo:',false,()=>setDoc(J(ann,'demo:ann-a-com:2'),V({token:'t'}))],
    ['member reads rateLimits',false,()=>getDoc(doc(ann,'rateLimits','x'))],
    ['admin writes rateLimits',false,()=>setDoc(doc(adm,'rateLimits','y'),{count:0})],
@@ -91,7 +168,8 @@ const V=o=>({value:JSON.stringify(o)});
    ['member reads another members doc',false,()=>getDoc(doc(ann,'members','bob@a.com'))],
   ];
   let bad=0;
-  for(const [name,ok,fn] of tests){ try{ await (ok?assertSucceeds:assertFails)(fn()); console.log('PASS',name); }catch(e){ bad++; console.log('FAIL',name,'expected',ok?'allowed':'refused', String(e.message).slice(0,150)); } }
-  console.log(bad?bad+' FAILED':'ALL '+tests.length+' PASSED');
+  const ALL=tests.concat(TT);
+  for(const [name,ok,fn] of ALL){ try{ await (ok?assertSucceeds:assertFails)(fn()); console.log('PASS',name); }catch(e){ bad++; console.log('FAIL',name,'expected',ok?'allowed':'refused', String(e.message).slice(0,150)); } }
+  console.log(bad?bad+' FAILED':'ALL '+ALL.length+' PASSED ('+tests.length+' Playbook + '+TT.length+' Twin Thieves)');
   await env.cleanup(); process.exit(bad?1:0);
 })().catch(e=>{console.error(e);process.exit(2);});
