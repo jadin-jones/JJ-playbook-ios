@@ -13,16 +13,35 @@ const ROOT = path.join(__dirname, '..', '..');
 let bad = 0, n = 0;
 const ok = (name, cond, detail) => { n++; if (cond) console.log('PASS', name); else { bad++; console.log('FAIL', name, detail || ''); } };
 
-// ---- 1. Rules: the Playbook's rules are unchanged; Twin Thieves only adds. ----
+// ---- 1. Rules: main's V3 rules unchanged apart from the two changes published
+// on test-6b2ab on 8 Oct 2026; Twin Thieves only adds a section at the end. ----
 {
   const cur = fs.readFileSync(path.join(ROOT, 'firestore.rules'), 'utf8');
   let base = '';
-  try { base = execSync('git show develop:firestore.rules', { cwd: ROOT }).toString(); } catch (e) {}
+  // main just before the Twin Thieves merge: V3 as it was written and tested.
+  try { base = execSync('git show c3c8dd6:firestore.rules', { cwd: ROOT }).toString(); } catch (e) {}
   const tail = '  }\n}\n';
-  ok('rules: develop\'s firestore.rules is readable', !!base);
-  ok('rules: every line of develop\'s rules is unchanged, in order, at the top',
-    !!base && base.endsWith(tail) && cur.startsWith(base.slice(0, -tail.length)));
-  const added = base ? cur.slice(base.length - tail.length, cur.length - tail.length) : '';
+  const PUBLISHED = [
+    ["      function isPreviewOrSample() { return docId.matches('.*:(__preview__|sample-[^:]*)'); }\n",
+     "      // Twin Thieves keys never count as preview or sample records: tt-join\n"
+     + "      // names ttm: records after the email, so sample-x@... would match.\n"
+     + "      function isPreviewOrSample() {\n"
+     + "        return docId.matches('.*:(__preview__|sample-[^:]*)')\n"
+     + "          && !(kind() in ['ttm', 'ttinv', 'ttallow', 'ttlib'])\n"
+     + "          && !(parts().size() > 1 && parts()[1] in ['TT36', 'TT10']);\n"
+     + "      }\n"],
+    ["    // Nothing in this app uses these two; they were open to every member.\n"
+     + "    // Closed to admins until whatever uses them is known.\n",
+     "    // Nothing in this app or the Twin Thieves site uses these two (checked\n"
+     + "    // 8 Oct 2026: no code on any branch, no live page, no function). Under the\n"
+     + "    // Sept 25 rules they were open to anyone. Admin-only until something needs\n"
+     + "    // them. Twin Thieves data is not here: it is ttmembers/ and the tt keys in\n"
+     + "    // jj_playbook (the section at the end).\n"]];
+  const want = PUBLISHED.reduce((b, [a, z]) => (b.split(a).length === 2 ? b.replace(a, z) : ''), base);
+  ok('rules: main\'s rules (c3c8dd6) are readable', !!base);
+  ok('rules: main\'s rules are unchanged apart from the two published changes, in order, at the top',
+    !!want && want.endsWith(tail) && cur.startsWith(want.slice(0, -tail.length)));
+  const added = want ? cur.slice(want.length - tail.length, cur.length - tail.length) : '';
   ok('rules: the added section only matches ttmembers and jj_playbook',
     !!added && (added.match(/match \/[a-z_]+\//g) || []).every(m => m === 'match /ttmembers/' || m === 'match /jj_playbook/'));
   ok('rules: the added section never uses members/ or inOrg()', !!added && !/documents\/members\/|inOrg\(|isAnyMember\(/.test(added));

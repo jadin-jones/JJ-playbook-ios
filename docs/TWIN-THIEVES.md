@@ -16,9 +16,10 @@ A second product in the same app, on the branch `feature/twin-thieves`
 | Studio | Championship Playbook view (`orgList` excludes Twin Thieves) | Twin Thieves Leadership view (its own data) |
 
 Checks:
-- `node test/isolation/run.js`: 61 checks, no network.
-- `npm --prefix test/rules install && npm --prefix test/rules test`: 86 rules
-  cases, the Playbook's 46 unchanged plus 40 Twin Thieves ones.
+- `node test/isolation/run.js`: 63 checks, no network.
+- `npm --prefix test/rules install && npm --prefix test/rules test`: 90 rules
+  cases (the Playbook's 50 plus 40 Twin Thieves ones), then the 54 cases in
+  `live.test.js` that were checked before the rules went live.
 
 ## Codes
 
@@ -92,21 +93,22 @@ else counts as `off`:
 | `test` | only addresses in `INVITE_TEST_RECIPIENTS` (comma-separated) get an email; others are refused |
 | `on` | everyone gets an email. Live only, and only when the owner says so |
 
+**Mail** goes through `netlify/lib/mailer.js`, the same Workspace mailbox as
+the Microsoft code email: `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM`, already
+set on jj-playbook-dev and jjplaybook. An invite shows "Jadin | Jones Team"
+with that mailbox's address (noreply@jadin-jones.com), and replies go to
+charlie@jadin-jones.com (`fromEmail` in `invite-products.js`). To send from
+charlie@ itself, add it as a Gmail "Send mail as" alias on the mailbox
+first, otherwise Gmail rewrites the address.
+
 **Setup before any email goes out:**
-1. charlie@jadin-jones.com: 2-Step Verification on, then create an app
-   password named "Twin Thieves invites" (the Workspace admin must allow app
-   passwords).
-2. Netlify env on the site:
-   - `INVITE_SMTP_URL` = `smtps://charlie%40jadin-jones.com:APP_PASSWORD@smtp.gmail.com:465`
+1. Netlify env on the site:
    - `INVITE_SEND_MODE` = `test`
    - `INVITE_TEST_RECIPIENTS` = your own addresses
-3. **DKIM for jadin-jones.com**, which none of its DNS records have yet: Google Admin
+2. **DKIM for jadin-jones.com**, which none of its DNS records have yet: Google Admin
    → Apps → Google Workspace → Gmail → Authenticate email → Generate new
    record, add that TXT record at GoDaddy, then Start authentication. SPF
    already allows Google (`_spf.google.com`), and DMARC is `p=none`.
-4. The invite function uses nodemailer 10, which needs Node 20 or later for the
-   Netlify functions. If a send fails with a Node version error, set
-   `AWS_LAMBDA_JS_RUNTIME` = `nodejs20.x` on the site.
 
 ## Design preview
 
@@ -116,9 +118,8 @@ Codespace (`*.app.github.dev`) or `jj-twinthieves-preview.netlify.app`.
 
 ## Signing in and My groups
 
-- On the Twin Thieves hosts (`TT_HOSTS`: the preview site and
-  twinthieves.jadin-jones.com), the sign-in heading says "Sign in to
-  Jadin | Jones". Every other host keeps "Sign in to your playbook".
+- The sign-in heading is "Sign in to Jadin | Jones" on every host. One
+  site serves both products, and the code entered picks the program.
 - My groups lists Playbook programs first, then Twin Thieves programs under
   their own heading. Tapping a Twin Thieves program opens Twin Thieves.
   `myPrograms` reads a Twin Thieves program's `ttm:` record and never its
@@ -144,7 +145,8 @@ when they choose to):
 - The Netlify site that serves the host: the live service account's env
   (`FIREBASE_PROJECT_ID` = `test-6b2ab`), a DNS record for the subdomain,
   and `URL` for invite links.
-- The Twin Thieves rules section published on test-6b2ab.
+- The Twin Thieves rules section published on test-6b2ab: done 8 Oct 2026,
+  together with V3 (`firestore.rules`; see docs/GO-LIVE-LOG.md).
 
 ## Preview site
 
@@ -173,8 +175,8 @@ Dev side, so it uses jj-playbook-dev.
   - Redirect URI: `https://jj-twinthieves-preview.netlify.app/__/auth/handler`
 - Azure → the Dev Entra app → Authentication → redirect URI:
   `https://jj-twinthieves-preview.netlify.app/__/auth/handler`.
-- Firestore rules on Dev: publish `firestore.rules` from this branch (the
-  Twin Thieves section is added at the end; nothing above it changes).
+- Firestore rules on Dev: publish `firestore.rules` (the same text as live:
+  main's V3 with two changes, plus the Twin Thieves section at the end).
 
 ### 3. The Netlify site
 
