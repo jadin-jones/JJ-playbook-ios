@@ -9127,9 +9127,9 @@ async function ttJoinApi(code,first,last,invite){
   const u=firebase.auth().currentUser;
   if(!u) return {ok:false,error:'Sign in first'};
   try{
-    const r=await withTimeout(fetch('/api/tt-join',{method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
-      body:JSON.stringify(invite?{code,first,last,invite}:{code,first,last})}),15000);
+    const r=await authFetch('/api/tt-join',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(invite?{code,first,last,invite}:{code,first,last})},15000);
     let j={}; try{ j=await r.json(); }catch(e){}
     if(r.ok&&j.ok) return j;
     const out={ok:false,status:r.status,reason:j.code||'',error:j.error||'Could not join. Check your connection and try again.'};
@@ -15811,9 +15811,9 @@ class Component extends DCLogic {
     try{
       await authReady();
       const u=firebase.auth().currentUser; if(!u) return {ok:false,error:'Sign in first'};
-      const r=await withTimeout(fetch('/api/tt-invite',{method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await u.getIdToken())},
-        body:JSON.stringify(body)}),30000);
+      const r=await authFetch('/api/tt-invite',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)},30000);
       let j={}; try{ j=await r.json(); }catch(e){}
       return (r.ok&&j.ok)?j:{ok:false,error:j.error||'Could not reach the invite service'};
     }catch(e){ return {ok:false,error:'Could not reach the invite service'}; }
