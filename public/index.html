@@ -9120,9 +9120,10 @@ async function ensureMember(code,opts){
 }
 /* /api/tt-join: join Twin Thieves with its code (the raw typed code: it can
    be longer than a Playbook code). Returns the server's JSON plus ok. A
-   Microsoft sign-in that still needs its mailbox confirmed is sent the
-   link, as ensureMember does. */
-async function ttJoinApi(code,first,last,invite){
+   Microsoft sign-in that still needs its mailbox confirmed gets the 6-digit
+   code screen, as ensureMember does (msCode:true); the caller sets
+   _msRetry so the join runs again once the code is right. */
+async function ttJoinApi(code,first,last,invite,_again){
   await authReady();
   const u=firebase.auth().currentUser;
   if(!u) return {ok:false,error:'Sign in first'};
@@ -9134,10 +9135,12 @@ async function ttJoinApi(code,first,last,invite){
     if(r.ok&&j.ok) return j;
     const out={ok:false,status:r.status,reason:j.code||'',error:j.error||'Could not join. Check your connection and try again.'};
     if(out.reason==='ms-verify'){
-      const s=await msVerifyApi({action:'send',code:cleanCode(code)});
-      const how=' Open it, tap Continue on the page it opens, then join again.';
-      if(s.ok&&s.verified) return ttJoinApi(code,first,last,invite);
-      out.error=s.ok?'Check your email: we sent a link to '+u.email+' to confirm it is yours.'+how:(s.code==='wait'?s.error+how:s.error);
+      const st=await msVerifyApi({action:'status'});
+      // Confirmed already: one more try (only one, as ensureMember).
+      if(st.ok&&st.verified&&!_again) return ttJoinApi(code,first,last,invite,true);
+      out.msCode=true;
+      out.error='Enter the 6-digit code we email to '+u.email+'.';
+      if(_msCodeHook) _msCodeHook();
     }
     return out;
   }catch(e){ console.error('ttJoinApi',e); return {ok:false,error:'Could not join. Check your connection and try again.'}; }
@@ -13638,7 +13641,7 @@ class Component extends DCLogic {
       const parts=String(name).trim().split(/\s+/);
       const tt=await ttJoinApi(raw,parts[0]||'',parts.slice(1).join(' ')||parts[0]||'');
       if(tt.ok) return {ok:true,code:tt.code,orgName:'Twin Thieves Leadership'};
-      if(tt.reason!=='no-code') return {ok:false,error:tt.error};
+      if(tt.reason!=='no-code') return {ok:false,error:tt.error,msCode:!!tt.msCode};
     }
     if(!mem.ok) return {ok:false,error:mem.error,msCode:!!mem.msCode};
     try{
@@ -13803,11 +13806,12 @@ class Component extends DCLogic {
     if(!mem.ok&&mem.reason==='no-program'){
       let inv=''; try{ inv=sessionStorage.getItem('jj_tti')||''; }catch(e){}
       const tt=await ttJoinApi(this.state.joinCode,first,last,inv);
-      // Used or refused, an invite is tried once; a retry uses the code.
-      if(inv){ try{ sessionStorage.removeItem('jj_tti'); sessionStorage.removeItem('jj_tti_code'); }catch(e){} this.setState({gateNotice:''}); }
+      // Used or refused, an invite is tried once; a retry uses the code. Not
+      // when the code screen opened: the join after it uses the invite.
+      if(inv&&!tt.msCode){ try{ sessionStorage.removeItem('jj_tti'); sessionStorage.removeItem('jj_tti_code'); }catch(e){} this.setState({gateNotice:''}); }
       if(tt.ok){ this._justJoined=true; const ok=await this.loadTTLeader(tt.code,slug(email),tt.name,email);
         this.setState({joining:false}); if(ok) this.toast('Welcome to Twin Thieves Leadership'); return; }
-      if(tt.reason!=='no-code'){ this.setState({joining:false}); return this.toast(tt.error,true); }
+      if(tt.reason!=='no-code'){ this.setState({joining:false}); return tt.msCode?null:this.toast(tt.error,true); }
     }
     if(!mem.ok){ this.setState({joining:false}); return mem.msCode?null:this.toast(mem.error,true); }
     const idkeyEarly=slug(email);
