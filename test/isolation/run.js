@@ -440,6 +440,9 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('lessons: a version\'s own name only renames; progress stays keyed by lesson id',
       /title:String\(nm\[l\.id\]\|\|''\)\.trim\(\)\|\|l\.title/.test(html) && /ttDone\(id\)\{ const p=this\.state\.ttProg\|\|\{\}; return !!\(p\[id\]&&p\[id\]\.doneAt\); \}/.test(html));
     ok('lessons: "← All lessons" at the top and the bottom of every lesson', (html.match(/aria-label="Back to all lessons"/g) || []).length === 2);
+    ok('lessons menu: the sidebar list fills the height only for Twin Thieves; the drawer rule covers phones and iPad portrait',
+      (html.match(/data-tt-side="1" style=/g) || []).length === 1 && /<sc-if value="\{\{ tb\.hasTTList \}\}"[^>]*>\n<div data-tt-list="1" data-tt-side="1"/.test(html)
+      && /hasTTList:W&&this\.isTT\(\)&&t\.k==='lessons'/.test(html) && /@media \(max-width:899px\)\{\n\[data-tt-drawer="1"\]/.test(html));
     const j1 = fs.readFileSync(path.join(ROOT, 'netlify/functions/join.js'), 'utf8'), j2 = fs.readFileSync(path.join(ROOT, 'netlify/functions/tt-join.js'), 'utf8');
     ok('logging: the temporary sign-in error logs are gone', !/verify', e && e\.code, e && e\.message/.test(j1 + j2));
   }
