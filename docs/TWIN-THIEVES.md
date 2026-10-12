@@ -55,6 +55,43 @@ A lesson's video URL may be YouTube, Vimeo, Google Drive or a direct MP4
 - A direct file plays in a `<video>`, and chapters jump too.
 - Google Drive shows in its preview frame, and chapters cannot jump.
 
+## Lessons (October 2026 updates)
+
+- **One library, two versions.** `ttlib:master` holds every lesson once
+  (video, thumbnail, questions, handouts), plus `order36` and `order10`. A
+  version can show its own name for a lesson: Studio → Twin Thieves →
+  Versions, saved as `names['36'|'10'][lessonId]`. Empty means the library
+  name. Progress is kept by lesson id, so a name never resets it.
+- **Thumbnails.** Studio → a lesson → Video thumbnail: a link, or Upload a
+  thumbnail (JPG or PNG; anything over 1920 px or 600 KB is redrawn as a
+  1920 px JPEG first). The upload uses the Playbook's `uploadMedia()` and its
+  Storage folder `session-thumbnails/`. Saved as the lesson's `thumbUrl` and
+  shown as the video's cover; with none, the usual navy cover stays.
+- **Thank you lesson.** It can have a video and thumbnail like any lesson. It
+  shows no "In the book" or "Where this fits" row and is never flagged for a
+  book chapter.
+- **Transcripts** are no longer shown or edited. Saved transcripts stay in
+  the library.
+- **"← All lessons"** sits at the top and the bottom of every lesson and
+  returns to the overview (Your lessons).
+- **Phone menu.** The lesson drawer respects the phone's safe areas. On
+  phones (under 600 px) its rows share the height between the heading and My
+  Profile; a long list keeps its spacing and scrolls. iPad and desktop are
+  unchanged.
+
+## Notifications: none for Twin Thieves
+
+- Someone in Twin Thieves only never gets the "Turn on notifications"
+  prompt. Twin Thieves' My profile has no notification switch. Someone also
+  in a Playbook program keeps the prompt as before.
+- The app never writes a `push:` record for TT36/TT10. The iOS app's token
+  save is skipped in a Twin Thieves program.
+- Every Firebase Functions sender skips `push:` records under TT36/TT10, by
+  key or by the program code stored in them (`isTTPush` in
+  `functions/index.js`). This needs a Functions deploy.
+- `scripts/tt-inventory.js` counts any such records, and those of Twin
+  Thieves-only members (read-only; nothing is deleted).
+
 ## Privacy (members may be under 18)
 
 Kept: name, email and which lessons are complete, with the time. Nothing
