@@ -68,8 +68,14 @@ const ok = (name, cond, detail) => { n++; if (cond) console.log('PASS', name); e
 function makeStore() {
   const docs = {}, writes = [];
   const snap = (id, d) => ({ id, exists: !!d, get: k => (d ? d[k] : undefined), data: () => d });
+  // arrayUnion is applied as Firestore does: added to the list, once.
+  const put = (key, v, o) => { const cur = o && o.merge ? (docs[key] || {}) : {}, out = Object.assign({}, cur);
+    Object.keys(v).forEach(k => { const x = v[k];
+      out[k] = x && x.union ? Array.from(new Set((Array.isArray(cur[k]) ? cur[k] : []).concat(x.union))) : x; });
+    docs[key] = out; };
   const ref = (c, id) => ({ c, id, get: async () => snap(id, docs[c + '/' + id]),
-    set: async (v, o) => { writes.push(c + '/' + id); docs[c + '/' + id] = Object.assign(o && o.merge ? (docs[c + '/' + id] || {}) : {}, v); } });
+    set: async (v, o) => { writes.push(c + '/' + id); put(c + '/' + id, v, o); },
+    delete: async () => { writes.push('delete ' + c + '/' + id); delete docs[c + '/' + id]; } });
   const coll = c => ({ doc: id => ref(c, id),
     where: (f, op, lo) => op === '=='
       ? { limit: () => ({ get: async () => ({ docs: Object.keys(docs).filter(k => k.startsWith(c + '/') && docs[k][f] === lo)
@@ -78,7 +84,8 @@ function makeStore() {
       .map(k => k.slice(c.length + 1)).filter(id => id >= lo && id < hi).map(id => snap(id, docs[c + '/' + id])) }) }) }) });
   const db = () => ({ collection: coll, runTransaction: async fn => fn({
     get: r => r.get(),
-    set: (r, v) => { writes.push(r.c + '/' + r.id); docs[r.c + '/' + r.id] = Object.assign({}, v); },
+    set: (r, v, o) => { writes.push(r.c + '/' + r.id); put(r.c + '/' + r.id, v, o); },
+    delete: r => { writes.push('delete ' + r.c + '/' + r.id); delete docs[r.c + '/' + r.id]; },
     update: (r, v) => { writes.push(r.c + '/' + r.id); Object.assign(docs[r.c + '/' + r.id], v); } }) });
   return { docs, writes, db };
 }
@@ -92,7 +99,7 @@ function loadFn(file, store, users) {
   Object.keys(require.cache).forEach(k => { if (k.indexOf(path.join(ROOT, 'netlify')) === 0) delete require.cache[k]; });
   require.cache[lib] = { id: lib, filename: lib, loaded: true, exports: {
     admin: { firestore: { FieldPath: { documentId: () => '__id' }, Timestamp: { fromMillis: x => x },
-      FieldValue: { arrayUnion: x => ({ union: x }), serverTimestamp: () => 0 } } },
+      FieldValue: { arrayUnion: (...x) => ({ union: x }), serverTimestamp: () => 0 } } },
     db: store.db, auth: () => ({ verifyIdToken: async t => { if (!users[t]) throw new Error('bad'); return users[t]; } }),
     missingEnv: () => [] } };
   require.cache[ms] = { id: ms, filename: ms, loaded: true, exports: { isMicrosoft: t => t.firebase.sign_in_provider === 'microsoft.com', isConfirmed: async () => false } };
@@ -313,6 +320,84 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('allow list: the Playbook join is untouched by it', r.statusCode === 200 && JSON.parse(r.body).code === 'PLAYBOOK26', r.body);
   }
 
+  // ---- 7b. Removed members: the code can't bring them back; an invite, the approved list or Restore access does. ----
+  {
+    const st = makeStore();
+    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves Leadership · 36 lessons', product: 'tt', ttVersion: 36, joinCode: 'TWIN36' });
+    st.docs['jj_playbook/org:TT10'] = V({ name: 'Twin Thieves Leadership · 10 lessons', product: 'tt', ttVersion: 10, joinCode: 'TWIN10' });
+    st.docs['jj_playbook/ttallow:TT10'] = V({ emails: ['rem@s.org', 'old@s.org'] });
+    // rem@s.org: in TT10 and TT36, and in a Playbook program, with progress in TT10.
+    st.docs['members/rem@s.org'] = { orgs: ['PB1'] };
+    st.docs['jj_playbook/resp:PB1:rem-s-org'] = Object.assign(V({ email: 'rem@s.org' }), { ownerEmail: 'rem@s.org' });
+    st.docs['jj_playbook/ttm:TT36:rem-s-org'] = Object.assign(V({ name: 'Rem', email: 'rem@s.org', progress: { tt05: { doneAt: 5 } } }), { ownerEmail: 'rem@s.org' });
+    const PROG = { tt01: { doneAt: 1 }, tt02: { doneAt: 2 } };
+    st.docs['jj_playbook/ttm:TT10:rem-s-org'] = Object.assign(V({ name: 'Rem', email: 'rem@s.org', idkey: 'rem-s-org', code: 'TT10', progress: PROG }), { ownerEmail: 'rem@s.org' });
+    // Studio's Remove (as the app does it): the marker, the code out of ttmembers; the record and progress stay.
+    const remove = () => { st.docs['jj_playbook/rev:TT10:rem-s-org'] = V({ at: 1, email: 'rem@s.org', emails: ['rem@s.org'], name: 'Rem' });
+      st.docs['ttmembers/rem@s.org'] = { email: 'rem@s.org', orgs: ['TT36'] }; };
+    remove();
+    const users = { ADM: U('charlie@jadin-jones.com'), R: U('rem@s.org'), T: U('tia@s.org') };
+    const ttJoin = () => call(loadFn('tt-join.js', st, users), 'R', { code: 'TWIN10', first: 'Rem', last: 'R' });
+    const inv = body => call(loadFn('tt-invite.js', st, users), 'ADM', Object.assign({ program: 'TT10' }, body)).then(r => ({ code: r.statusCode, body: JSON.parse(r.body) }));
+    const restoredOK = () => !st.docs['jj_playbook/rev:TT10:rem-s-org']
+      && JSON.stringify((st.docs['ttmembers/rem@s.org'] || {}).orgs) === JSON.stringify(['TT36', 'TT10'])
+      && JSON.stringify(JSON.parse(st.docs['jj_playbook/ttm:TT10:rem-s-org'].value).progress) === JSON.stringify(PROG)
+      && st.docs['jj_playbook/ttm:TT10:rem-s-org'].ownerEmail === 'rem@s.org'
+      && JSON.stringify(JSON.parse(st.docs['jj_playbook/ttm:TT36:rem-s-org'].value).progress) === JSON.stringify({ tt05: { doneAt: 5 } })
+      && JSON.stringify(st.docs['members/rem@s.org']) === JSON.stringify({ orgs: ['PB1'] }) && !!st.docs['jj_playbook/resp:PB1:rem-s-org'];
+    let r = await ttJoin();
+    ok('removed: the code alone is refused, even on the approved list', r.statusCode === 403 && JSON.parse(r.body).code === 'revoked', r.body);
+    // 1. A new invite from Studio.
+    process.env.INVITE_SEND_MODE = 'test'; process.env.INVITE_TEST_RECIPIENTS = 'rem@s.org';
+    process.env.SMTP_USER = 'noreply@jadin-jones.com'; process.env.SMTP_PASS = 'x'; process.env.URL = 'https://dev.playbook.jadin-jones.com';
+    SENT.length = 0;
+    let x = await inv({ action: 'send', emails: ['rem@s.org'] });
+    ok('restore by invite: sending an invite restores access and emails it', x.code === 200 && x.body.results[0].result === 'restored-sent' && SENT.length === 1, JSON.stringify(x.body));
+    ok('restore by invite: progress kept; other program, members/ and resp: untouched', restoredOK());
+    r = await ttJoin();
+    ok('restore by invite: the code works again', r.statusCode === 200 && JSON.parse(r.body).code === 'TT10', r.body);
+    ok('restore by invite: joining again keeps the progress', JSON.stringify(JSON.parse(st.docs['jj_playbook/ttm:TT10:rem-s-org'].value).progress) === JSON.stringify(PROG));
+    // 2. The approved list saved with them on it (Studio calls restore for the removed people on the list).
+    remove();
+    x = await inv({ action: 'restore', emails: ['rem@s.org', 'old@s.org'] });
+    ok('restore by approved list: restored; a listed address that was never removed is left alone',
+      x.code === 200 && x.body.results[0].result === 'restored' && x.body.results[1].result === 'not-removed' && !st.docs['ttmembers/old@s.org'], JSON.stringify(x.body));
+    ok('restore by approved list: progress kept; other program, members/ and resp: untouched', restoredOK());
+    // 3. Restore access in Studio.
+    remove();
+    x = await inv({ action: 'restore', emails: ['rem@s.org'] });
+    ok('restore button: restored, progress kept, nothing else touched', x.code === 200 && x.body.results[0].result === 'restored' && restoredOK(), JSON.stringify(x.body));
+    x = await inv({ action: 'restore', emails: ['rem@s.org'] });
+    ok('restore button: a second press does nothing', x.body.results[0].result === 'not-removed');
+    // 4. Resend, even when their old invite was used.
+    remove();
+    const iid = require(path.join(ROOT, 'netlify/functions/tt-invite.js'))._inviteId('TT10', 'rem@s.org');
+    st.docs['jj_playbook/' + iid] = V({ email: 'rem@s.org', program: 'TT10', status: 'joined', sentAt: 1, expiresAt: 2 });
+    SENT.length = 0;
+    x = await inv({ action: 'resend', email: 'rem@s.org' });
+    ok('restore by resend: restores and sends a new link, though the old invite was used',
+      x.code === 200 && x.body.results[0].result === 'restored-sent' && SENT.length === 1 && restoredOK(), JSON.stringify(x.body));
+    // 5. Removed before this change: the record (and progress) was deleted; restoring gives an empty one they own.
+    st.docs['jj_playbook/rev:TT10:old-s-org'] = V({ at: 1, email: 'old@s.org', emails: ['old@s.org'], name: 'Old One' });
+    x = await inv({ action: 'restore', emails: ['old@s.org'] });
+    const oldRec = st.docs['jj_playbook/ttm:TT10:old-s-org'];
+    ok('restore after an older Remove: a fresh record they own, with their name',
+      x.body.results[0].result === 'restored' && !!oldRec && oldRec.ownerEmail === 'old@s.org' && JSON.parse(oldRec.value).name === 'Old One'
+      && JSON.stringify(st.docs['ttmembers/old@s.org'].orgs) === JSON.stringify(['TT10']) && !st.docs['jj_playbook/rev:TT10:old-s-org']);
+    // Only admins restore.
+    remove();
+    const nope = await call(loadFn('tt-invite.js', st, users), 'T', { action: 'restore', program: 'TT10', emails: ['rem@s.org'] });
+    ok('restore: a member cannot restore anyone', nope.statusCode === 403 && !!st.docs['jj_playbook/rev:TT10:rem-s-org'], nope.body);
+    delete process.env.INVITE_SEND_MODE; delete process.env.INVITE_TEST_RECIPIENTS; delete process.env.SMTP_USER; delete process.env.SMTP_PASS;
+    // The app: Remove keeps the record; saving the approved list restores; Studio marks the removed.
+    const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
+    const rm = html.slice(html.indexOf('  ttRemoveMember(m){'), html.indexOf('  ttStudioVM(v){'));
+    ok('app: Remove keeps the progress record and stores the name on the marker', !!rm && !/sdel\('ttm:/.test(rm) && /name:String\(m\.name\|\|''\)\}/.test(rm));
+    ok('app: saving the approved list restores the removed people on it',
+      /\.filter\(e=>e&&emails\.indexOf\(e\)>=0\);[\s\S]{0,40}const n=back\.length\?await this\.ttRestore\(id,back,true\):0;/.test(html));
+    ok('app: Studio marks removed members and offers Restore access',
+      /st==='removed'\?'Removed'/.test(html) && /canRestore:!!m\.removed,onRestore:\(\)=>this\.ttRestore\(/.test(html) && />Restore access<\/button>/.test(html));
+  }
   // ---- 8. Hosts, sign-in wording, My groups, and no leftover debug logging. ----
   {
     const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
