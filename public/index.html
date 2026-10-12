@@ -5725,6 +5725,7 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ mr.hasProg }}" hint-placeholder-val="{{ true }}"><span style="flex:none;font-weight:800;font-size:12px;color:#0C2647">{{ mr.prog }}</span></sc-if>
 <sc-if value="{{ mr.canResend }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mr.onResend }}" style="{{ ttBtnMini }}">Resend</button></sc-if>
 <sc-if value="{{ mr.canCancel }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mr.onCancel }}" style="{{ ttBtnMini }}">Cancel invite</button></sc-if>
+<sc-if value="{{ mr.canRestore }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mr.onRestore }}" style="flex:none;background:#2F7F55;border:2px solid #2F7F55;color:#fff;border-radius:9px;padding:6px 10px;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Restore access</button></sc-if>
 <sc-if value="{{ mr.canRemove }}" hint-placeholder-val="{{ true }}"><button sc-camel-on-click="{{ mr.onRemove }}" style="flex:none;background:transparent;border:2px solid #D5502B;color:#8F2D13;border-radius:9px;padding:6px 10px;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Remove</button></sc-if>
 </div>
 </sc-for>
@@ -15840,7 +15841,11 @@ class Component extends DCLogic {
     if(s.ttDemo) return this.toast(done()+' (preview: not saved)');
     return this.guard('change the approved emails',async()=>{
       if(!(await sset('ttallow:'+id,{emails,updatedAt:Date.now()}))) return this.toast('Could not save',true);
-      this.toast(done());
+      // Anyone on the list who was removed from this program gets their access back.
+      let back=[]; try{ back=(await slistDocs('rev:'+id+':')).map(r=>String(r&&(r.email||(r.emails||[])[0])||'').toLowerCase())
+        .filter(e=>e&&emails.indexOf(e)>=0); }catch(e){}
+      const n=back.length?await this.ttRestore(id,back,true):0;
+      this.toast(done()+(n?' · access restored for '+n:''));
     })();
   }
   /* Studio → a lesson → Upload a thumbnail: JPG or PNG, shrunk if large, then
@@ -15932,6 +15937,22 @@ class Component extends DCLogic {
     this.setState({ttInvResult:{mode:r.mode,results:r.results||[]},ttInvText:''});
     this.ttLoadMembers().catch(()=>{});
   }
+  /* Restore access for removed members of one program (Studio's Restore
+     access, and saving the approved list). Returns the number restored. */
+  async ttRestore(code,emails,quiet){
+    emails=(emails||[]).filter(Boolean); if(!emails.length) return 0;
+    if(this.state.ttDemo){ this.setState({ttRemoved:(this.state.ttRemoved||[]).filter(r=>!(r.code===code&&emails.indexOf(r.email)>=0))});
+      if(!quiet) this.toast('Access restored (preview)'); return emails.length; }
+    let n=0;
+    for(let i=0;i<emails.length;i+=100){
+      const r=await this.ttInviteApi({action:'restore',program:code,emails:emails.slice(i,i+100)});
+      if(!r.ok){ this.toast(r.error||'Could not restore access',true); break; }
+      n+=(r.results||[]).filter(x=>x.result==='restored').length;
+    }
+    if(!quiet) this.toast(n?'Access restored. Their progress is back.':'Nothing to restore');
+    this.ttLoadMembers().catch(()=>{});
+    return n;
+  }
   async ttInviteAction(action,inv){
     if(action==='cancel'&&!window.confirm('Cancel the invite for '+inv.email+'? The link in their email stops working.')) return;
     if(this.state.ttDemo){
@@ -15963,26 +15984,30 @@ class Component extends DCLogic {
     this.setState({ttMemBusy:true});
     const rows=[];
     const invs=[];
+    const removed=[];
     for(const code of ['TT36','TT10']){
       try{ (await slistDocs('ttm:'+code+':')).forEach(r=>{ if(r&&r.idkey) rows.push(Object.assign({code},r)); }); }catch(e){}
       try{ (await slistDocs('ttinv:'+code+':')).forEach(r=>{ if(r&&r.email) invs.push(r); }); }catch(e){}
+      try{ (await slistDocs('rev:'+code+':')).forEach(r=>{ const e=String(r&&(r.email||(r.emails||[])[0])||'').toLowerCase();
+        if(e) removed.push({code,email:e,idkey:slug(e),name:String(r.name||''),at:r.at||0}); }); }catch(e){}
     }
-    this.setState({ttMembers:rows,ttInvites:invs,ttMemBusy:false});
+    this.setState({ttMembers:rows,ttInvites:invs,ttRemoved:removed,ttMemBusy:false});
   }
-  /* Remove: the same order as the Playbook's Remove, for this product only:
-     a rev: tombstone, the code out of ttmembers/{email}.orgs, then the record. */
+  /* Remove: a rev: marker (the code alone can't bring them back), then the
+     code out of ttmembers/{email}.orgs. Their ttm: record and its progress
+     stay, unreadable to them while removed, and come back with a restore
+     (an invite, the approved list, or Restore access: /api/tt-invite). */
   ttRemoveMember(m){
-    if(!window.confirm('Remove '+(m.name||m.email)+' from Twin Thieves Leadership ('+m.code+')? Their progress is deleted.')) return;
+    if(!window.confirm('Remove '+(m.name||m.email)+' from Twin Thieves Leadership ('+m.code+')? They lose access straight away. Their progress is kept and comes back if you restore them.')) return;
     if(this.state.ttDemo){ this.setState({ttMembers:(this.state.ttMembers||[]).filter(x=>!(x.code===m.code&&x.idkey===m.idkey))}); return this.toast('Removed (preview)'); }
     return this.guard('remove this member',async()=>{
       const email=String(m.email||'').trim().toLowerCase();
-      if(!(await sset('rev:'+m.code+':'+m.idkey,{at:Date.now(),email,emails:[email]}))) return this.toast('Could not remove. Try again.',true);
+      if(!(await sset('rev:'+m.code+':'+m.idkey,{at:Date.now(),email,emails:[email],name:String(m.name||'')}))) return this.toast('Could not remove. Try again.',true);
       try{ const db=fb(); if(db&&email) await db.collection('ttmembers').doc(email).update({
         orgs:firebase.firestore.FieldValue.arrayRemove(m.code),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}); }
       catch(e){ return this.toast('Access partly removed. Tap Remove again to finish.',true); }
-      await sdel('ttm:'+m.code+':'+m.idkey);
-      this.setState({ttMembers:(this.state.ttMembers||[]).filter(x=>!(x.code===m.code&&x.idkey===m.idkey))});
-      this.toast('Removed');
+      this.toast('Removed. Their progress is kept if you restore them.');
+      this.ttLoadMembers().catch(()=>{});
     })();
   }
   ttStudioVM(v){
@@ -16132,7 +16157,11 @@ class Component extends DCLogic {
     });
     // Members and progress, grouped by email domain (the organization, for a
     // solo product). Invites join the list: one row per person and version.
-    const mem=(s.ttMembers||[]).map(m=>Object.assign({},m,{isMember:true}));
+    const remKey=new Set((s.ttRemoved||[]).map(r=>r.email+'|'+r.code));
+    const mem=(s.ttMembers||[]).map(m=>Object.assign({},m,{isMember:true,removed:remKey.has(String(m.email||'').toLowerCase()+'|'+m.code)}));
+    // Removed before 12 Oct 2026, their record was deleted: list them from the marker.
+    (s.ttRemoved||[]).forEach(r=>{ if(!mem.some(m=>String(m.email||'').toLowerCase()===r.email&&m.code===r.code))
+      mem.push({email:r.email,code:r.code,idkey:r.idkey,name:r.name,isMember:true,removed:true,progress:{},noRecord:true}); });
     const have=new Set(mem.map(m=>String(m.email||'').toLowerCase()+'|'+m.code));
     (s.ttInvites||[]).forEach(inv=>{ const k=String(inv.email).toLowerCase()+'|'+inv.program;
       const m=mem.find(x=>String(x.email||'').toLowerCase()+'|'+x.code===k);
@@ -16153,27 +16182,30 @@ class Component extends DCLogic {
     v.onTTInvPreview=()=>this.ttPreviewInviteEmail();
     const RL={sent:'Sent','recorded-not-sent':'Recorded, not sent (sending is off on this site)','not-a-test-recipient':'Not sent: not on this site\'s test list',
       'already-a-member':'Already a member','already-invited':'Already invited (use Resend)','duplicate':'Listed twice','not-an-email':'Not an email address',
-      'no-program':'Set up this version in Codes first','no-mail-setup':'Mail is not set up on this site','send-failed':'Could not send','rate-limited':'Too many invites this hour'};
+      'no-program':'Set up this version in Codes first','no-mail-setup':'Mail is not set up on this site','send-failed':'Could not send','rate-limited':'Too many invites this hour',
+      'restored':'Access restored (their invite link still works)','restored-sent':'Access restored and invite sent','restored-recorded-not-sent':'Access restored (sending is off on this site)'};
     const res=s.ttInvResult;
     v.ttInvHasResult=!!res;
     v.ttInvModeNote=!res?'':(res.mode==='off'?'Sending is off on this site: invites are recorded, and no email goes out.'
       :(res.mode==='test'?'Test mode: only this site\'s test addresses get an email.':'Invites are emailed.'));
-    v.ttInvResults=(res&&res.results||[]).map(r=>({email:r.email,text:RL[r.result]||r.result,
-      style:'font-size:12.5px;color:'+(r.result==='sent'?'#2F7F55':(r.result==='recorded-not-sent'?'#5C4B00':'#8F2D13'))}));
+    v.ttInvResults=(res&&res.results||[]).map(r=>({email:r.email,text:RL[r.result]||(/^restored-/.test(r.result)?'Access restored; invite not sent ('+r.result.slice(9)+')':r.result),
+      style:'font-size:12.5px;color:'+(r.result==='sent'||/^restored/.test(r.result)?'#2F7F55':(r.result==='recorded-not-sent'?'#5C4B00':'#8F2D13'))}));
     v.ttMemLoading=!!s.ttMemBusy; v.ttMemEmpty=!s.ttMemBusy&&!mem.length;
     const nMem=mem.filter(m=>m.isMember).length, nInv=mem.length-nMem;
-    v.ttMemSummary=nMem+' member'+(nMem===1?'':'s')+(nInv?' · '+nInv+' invite'+(nInv===1?'':'s'):'')+' · '+Object.keys(groups).length+' organization'+(Object.keys(groups).length===1?'':'s');
+    const nRem=mem.filter(m=>m.removed).length;
+    v.ttMemSummary=(nMem-nRem)+' member'+((nMem-nRem)===1?'':'s')+(nRem?' · '+nRem+' removed':'')+(nInv?' · '+nInv+' invite'+(nInv===1?'':'s'):'')+' · '+Object.keys(groups).length+' organization'+(Object.keys(groups).length===1?'':'s');
     v.ttMemGroups=Object.keys(groups).sort().map(dom=>({dom:'@'+dom,count:groups[dom].length+' member'+(groups[dom].length===1?'':'s'),
       rows:groups[dom].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(m=>{
         const tot=this.ttLessons(m.code==='TT10'?10:36).filter(l=>!l.closing).length||(m.code==='TT10'?10:36);
         const done=Object.keys(m.progress||{}).filter(k=>m.progress[k]&&m.progress[k].doneAt).length;
-        const inv=m.invite, st=m.isMember||(inv&&inv.status==='joined')?'joined'
+        const inv=m.invite, st=m.removed?'removed':m.isMember||(inv&&inv.status==='joined')?'joined'
           :(inv&&inv.status==='cancelled'?'cancelled':(inv&&inv.expiresAt>Date.now()?'invited':'expired'));
         return {name:m.name||m.email,email:m.isMember?m.email+' · ':'',ver:m.code==='TT10'?'10 lessons':'36 lessons',
-          prog:m.isMember?done+' of '+tot:'',hasProg:!!m.isMember,
-          status:st==='joined'?'Joined':(st==='invited'?'Invited '+day(inv.sentAt):(st==='expired'?'Expired':'Cancelled')),
-          statusStyle:st==='joined'?chip('#E3F3EA','#2F7F55'):(st==='invited'?chip('#EAF6FC','#0A6C96'):(st==='expired'?chip('#FFF7CC','#5C4B00'):chip('#EEF1F5','#7E8D9C'))),
-          canResend:!m.isMember&&(st==='invited'||st==='expired'||st==='cancelled'),canCancel:!m.isMember&&st==='invited',canRemove:!!m.isMember,
+          prog:m.noRecord?'':(m.isMember?done+' of '+tot:''),hasProg:!!m.isMember&&!m.noRecord,
+          status:st==='removed'?'Removed':st==='joined'?'Joined':(st==='invited'?'Invited '+day(inv.sentAt):(st==='expired'?'Expired':'Cancelled')),
+          statusStyle:st==='removed'?chip('#FDECE6','#8F2D13'):st==='joined'?chip('#E3F3EA','#2F7F55'):(st==='invited'?chip('#EAF6FC','#0A6C96'):(st==='expired'?chip('#FFF7CC','#5C4B00'):chip('#EEF1F5','#7E8D9C'))),
+          canResend:!m.isMember&&(st==='invited'||st==='expired'||st==='cancelled'),canCancel:!m.isMember&&st==='invited',canRemove:!!m.isMember&&!m.removed,
+          canRestore:!!m.removed,onRestore:()=>this.ttRestore(m.code,[String(m.email||'').toLowerCase()]),
           onResend:()=>this.ttInviteAction('resend',inv),onCancel:()=>this.ttInviteAction('cancel',inv),
           onRemove:()=>this.ttRemoveMember(m)}; })}));
     v.onTTMemReload=()=>this.ttLoadMembers();
