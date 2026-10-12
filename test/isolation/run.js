@@ -162,6 +162,20 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('functions: never read ttm: records or ttmembers', !/ttm:|ttmembers|ttlib/.test(fx));
     const pushPrefixes = (fx.match(/'push:'|"push:"/g) || []).length;
     ok('functions: senders find people through push: and resp: records, which Twin Thieves never writes', pushPrefixes > 0);
+    // Twin Thieves sends no notifications: every sender skips TT36/TT10 push: records.
+    const loops = (fx.match(/if \(doc\.id\.indexOf\('push:'\) !== 0\) continue;\n    if \(isTTPush\(doc\)\) continue;/g) || []).length;
+    const allLoops = (fx.match(/if \(doc\.id\.indexOf\('push:'\) !== 0\) continue;/g) || []).length;
+    ok('functions: every scheduled sender skips Twin Thieves push: records', allLoops > 0 && loops === allLoops, loops + ' of ' + allLoops);
+    ok('functions: tokensFor, the admin list and the fundamental-done push skip them too',
+      (fx.match(/\.filter\(\(d\) => d\.id\.indexOf\('push:'\) === 0 && !isTTPush\(d\)\)/g) || []).length === 2
+      && !/\.filter\(\(d\) => d\.id\.indexOf\('push:'\) === 0\)/.test(fx) && /if \(isTTPush\(pushDoc\)\) return;/.test(fx));
+    const pv = fx.slice(fx.indexOf('function parseValue'), fx.indexOf('\n}\n', fx.indexOf('function parseValue')) + 3);
+    const hp = fx.slice(fx.indexOf('const TT_PROGRAMS'), fx.indexOf('\n}\n', fx.indexOf('function isTTPush')) + 3);
+    const isTTPush = new Function(pv + hp + 'return isTTPush;')();
+    const D = (id, v) => ({ id, exists: true, data: () => (v ? { value: JSON.stringify(v) } : {}) });
+    ok('functions: isTTPush knows a Twin Thieves record by key or stored code, and never a Playbook one',
+      isTTPush(D('push:TT36:a', {})) && isTTPush(D('push:TT10:a')) && isTTPush(D('push:a', { code: 'TT36' }))
+      && !isTTPush(D('push:PLAYBOOK26:a', { code: 'PLAYBOOK26' })) && !isTTPush(D('push:a', { code: 'T1' })) && !isTTPush(D('resp:TT36:a', {})));
   }
 
   // ---- 5. The app: Twin Thieves code never writes Playbook records. ----
@@ -327,6 +341,20 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('my groups: "you are here" and Back return a Twin Thieves member to Twin Thieves',
       /g\.code===s\.code\) return this\.setState\(\{view:this\.isTT\(\)\?'tthome':'home'/.test(html)
       && /onGateBackToApp=\(\)=>this\.setState\(\{view:this\.isTT\(\)\?'tthome':'home'/.test(html));
+    // Notifications: Twin Thieves-only members are never asked, and the iOS app writes no push: record under a Twin Thieves program.
+    ok('push: no prompt in a Twin Thieves program unless they are also in a Playbook program',
+      /pushAskDue\(\)\{\n    if\(this\.state\.role!=='leader'\|\|this\.state\.previewMode\) return false;\n    \/\/ [^\n]*\n    if\(this\.isTT\(\)&&this\.state\.ttHasPlaybook!==true\) return false;/.test(html)
+      && /const hasPB=out\?out\.some\(g=>g&&g\.product!=='tt'\):null;/.test(html));
+    ok('push: the iOS app saves no token record in a Twin Thieves program', /async saveNativeToken\(token\)\{\n    \/\/ [^\n]*\n    if\(this\.isTT\(\)\) return;/.test(html));
+    // Lessons: transcripts hidden (kept in the data), the Thank you lesson, per-version names.
+    ok('lessons: no transcript is shown to members or edited in Studio',
+      !/ttTranscript|ttIsTranscript|ttEdTranscript|>Transcript</.test(html) && /transcript:''/.test(html));
+    ok('lessons: the Thank you lesson has no book or "Where this fits" row, and Studio can give it a video',
+      /<sc-if value="\{\{ ttNotThanks \}\}" hint-placeholder-val="\{\{ true \}\}">\n<div style="\{\{ ttFitRowStyle \}\}">/.test(html)
+      && /<\/sc-raw-select>\n<\/sc-if>\n<div style="\{\{ ttK \}\}">Video URL<\/div>/.test(html));
+    ok('lessons: a version\'s own name only renames; progress stays keyed by lesson id',
+      /title:String\(nm\[l\.id\]\|\|''\)\.trim\(\)\|\|l\.title/.test(html) && /ttDone\(id\)\{ const p=this\.state\.ttProg\|\|\{\}; return !!\(p\[id\]&&p\[id\]\.doneAt\); \}/.test(html));
+    ok('lessons: "← All lessons" at the top and the bottom of every lesson', (html.match(/aria-label="Back to all lessons"/g) || []).length === 2);
     const j1 = fs.readFileSync(path.join(ROOT, 'netlify/functions/join.js'), 'utf8'), j2 = fs.readFileSync(path.join(ROOT, 'netlify/functions/tt-join.js'), 'utf8');
     ok('logging: the temporary sign-in error logs are gone', !/verify', e && e\.code, e && e\.message/.test(j1 + j2));
   }

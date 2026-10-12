@@ -516,6 +516,15 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:#00A3E0;box-sh
 @keyframes jjFadeIn{from{opacity:0}to{opacity:1}}
 /* Twin Thieves phone menu: slides in from the left. */
 @keyframes jjDrawerIn{from{transform:translateX(-100%)}to{transform:none}}
+/* Twin Thieves lesson menu on phones: the rows share the height between the
+   heading and My Profile (--tt-n rows); never less than a row's own height,
+   so the 36-lesson list keeps its spacing and scrolls. */
+@media (max-width:599px){
+[data-tt-drawer="1"] [data-tt-drawer-row="1"]{display:flex;align-items:center;
+  min-height:max(40px,calc((100vh - 132px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) / var(--tt-n,40)));
+  min-height:max(40px,calc((100dvh - 132px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) / var(--tt-n,40)))}
+[data-tt-drawer="1"] [data-tt-drawer-row="1"]>button{margin-bottom:0!important}
+}
 @keyframes jjFall{0%{transform:translateY(0) rotate(0deg);opacity:0}8%{opacity:.95}100%{transform:translateY(112vh) rotate(540deg);opacity:.15}}
 @keyframes jjPop{0%{opacity:0;transform:scale(.72)}60%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
 @keyframes jjSweep{from{opacity:0;transform:translateX(-70px)}to{opacity:1;transform:translateX(0)}}
@@ -5406,8 +5415,8 @@ sc-if,sc-for{display:none!important}
 <p style="margin:0 0 12px;background:#FFF7CC;border:1px solid #F1DC6B;border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.45;color:#5C4B00">Design preview: sample content. Nothing is saved.</p>
 </sc-if>
 <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px">
-<sc-if value="{{ ttPhone }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ onTTMenu }}" style="background:#fff;border:1px solid #DCE6F0;border-radius:999px;padding:7px 12px;cursor:pointer;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#0C2647">☰ Lessons</button></sc-if>
-<sc-if value="{{ ttWide }}" hint-placeholder-val="{{ true }}"><button sc-camel-on-click="{{ onTTHome }}" style="background:none;border:0;padding:0;cursor:pointer;font-family:inherit;font-weight:800;font-size:12px;color:#00A3E0">← All lessons</button></sc-if>
+<button sc-camel-on-click="{{ onTTHome }}" aria-label="Back to all lessons" style="background:none;border:0;padding:10px 4px;min-height:44px;cursor:pointer;font-family:inherit;font-weight:800;font-size:13px;letter-spacing:.02em;color:#00A3E0">← All lessons</button>
+<sc-if value="{{ ttPhone }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ onTTMenu }}" style="background:#fff;border:1px solid #DCE6F0;border-radius:999px;padding:7px 12px;min-height:36px;cursor:pointer;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#0C2647">☰ Lessons</button></sc-if>
 <sc-if value="{{ ttBackToStudio }}" hint-placeholder-val="{{ false }}">
 <button sc-camel-on-click="{{ onTTBackToStudio }}" style="background:#FADA01;color:#0C2647;border:0;border-radius:999px;padding:6px 12px;cursor:pointer;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase">Back to Studio</button>
 </sc-if>
@@ -5417,7 +5426,7 @@ sc-if,sc-for{display:none!important}
 <p style="margin:0 0 14px;font-size:13px;color:#37475C">{{ ttSub }}</p>
 <div style="background:#0C2647;border-radius:14px;overflow:hidden;aspect-ratio:16/9;position:relative">
 <sc-if value="{{ ttShowPoster }}" hint-placeholder-val="{{ true }}">
-<button sc-camel-on-click="{{ onTTPlay }}" aria-label="Play the lesson video" style="position:absolute;inset:0;width:100%;height:100%;border:0;cursor:pointer;background:radial-gradient(circle at 50% 45%,#1E4C7D,#0C2647 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:inherit">
+<button sc-camel-on-click="{{ onTTPlay }}" aria-label="Play the lesson video" style="{{ ttPosterStyle }}">
 <span style="width:68px;height:68px;border-radius:50%;background:#FADA01;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 8px rgba(250,218,1,.18)"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M8 5v14l11-7z" fill="#0C2647"></path></svg></span>
 <sc-if value="{{ ttNoVideo }}" hint-placeholder-val="{{ false }}"><span style="font-weight:800;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#A9BDD6">Video coming soon</span></sc-if>
 </button>
@@ -5426,15 +5435,11 @@ sc-if,sc-for{display:none!important}
 <iframe src="{{ ttVideoSrc }}" title="Lesson video" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen="allowfullscreen" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
 </sc-if>
 <sc-if value="{{ ttVideoFile }}" hint-placeholder-val="{{ false }}">
-<video src="{{ ttVideoSrc }}" controls="controls" autoplay="autoplay" playsinline="playsinline" style="position:absolute;inset:0;width:100%;height:100%;background:#000"></video>
+<video src="{{ ttVideoSrc }}" poster="{{ ttVideoPoster }}" controls="controls" autoplay="autoplay" playsinline="playsinline" style="position:absolute;inset:0;width:100%;height:100%;background:#000"></video>
 </sc-if>
 </div>
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;margin-top:12px">
-<div style="display:flex;padding:0 16px;border-bottom:1px solid #EEF3F8">
-<sc-for list="{{ ttTabs }}" as="tb" hint-placeholder-count="2"><button sc-camel-on-click="{{ tb.onTap }}" style="{{ tb.style }}">{{ tb.label }}</button></sc-for>
-</div>
 <div style="padding:14px 16px 16px">
-<sc-if value="{{ ttIsOverview }}" hint-placeholder-val="{{ true }}">
 <h3 style="margin:0 0 6px;font-weight:900;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#0C1B2E">Summary</h3>
 <sc-if value="{{ ttHasSummary }}" hint-placeholder-val="{{ true }}"><p style="margin:0;font-size:14px;line-height:1.6;color:#37475C">{{ ttSummary }}</p></sc-if>
 <sc-if value="{{ ttNoSummary }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:13px;color:#7E8D9C">No summary yet.</p></sc-if>
@@ -5443,11 +5448,6 @@ sc-if,sc-for{display:none!important}
 <sc-for list="{{ ttChapters }}" as="ch" hint-placeholder-count="5">
 <button sc-camel-on-click="{{ ch.onTap }}" style="display:flex;gap:12px;align-items:baseline;width:100%;text-align:left;background:none;border:0;padding:6px 0;cursor:pointer;font-family:inherit"><span style="flex:none;min-width:44px;font-weight:800;font-size:13px;color:#00A3E0;font-variant-numeric:tabular-nums">{{ ch.t }}</span><span style="font-size:14px;color:#0C1B2E">{{ ch.label }}</span></button>
 </sc-for>
-</sc-if>
-</sc-if>
-<sc-if value="{{ ttIsTranscript }}" hint-placeholder-val="{{ false }}">
-<sc-if value="{{ ttHasTranscript }}" hint-placeholder-val="{{ true }}"><p style="margin:0;white-space:pre-wrap;font-size:14px;line-height:1.6;color:#37475C">{{ ttTranscript }}</p></sc-if>
-<sc-if value="{{ ttNoTranscript }}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:13px;color:#7E8D9C">No transcript yet.</p></sc-if>
 </sc-if>
 </div>
 </div>
@@ -5474,6 +5474,7 @@ sc-if,sc-for{display:none!important}
 <p style="margin:8px 0 0;font-size:14px;line-height:1.55;color:#37475C">{{ ttProgressText }}</p>
 </div>
 </sc-if>
+<sc-if value="{{ ttNotThanks }}" hint-placeholder-val="{{ true }}">
 <div style="{{ ttFitRowStyle }}">
 <sc-if value="{{ ttHasBook }}" hint-placeholder-val="{{ true }}">
 <section style="{{ ttBookCardStyle }}">
@@ -5503,9 +5504,13 @@ sc-if,sc-for{display:none!important}
 <p style="margin:6px 0 auto;text-align:center;font-weight:700;font-size:12px;color:#A9BDD6">{{ ttFitText }}</p>
 </section>
 </div>
+</sc-if>
 <sc-if value="{{ ttHasNextLesson }}" hint-placeholder-val="{{ false }}">
 <button sc-camel-on-click="{{ onTTNext }}" style="width:100%;margin-top:14px;background:transparent;border:2px solid #C6D4E2;color:#0C2647;border-radius:10px;padding:12px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">{{ ttNextLabel }} ›</button>
 </sc-if>
+<div style="margin-top:10px;padding-top:6px;border-top:1px solid #DCE6F0">
+<button sc-camel-on-click="{{ onTTHome }}" aria-label="Back to all lessons" style="background:none;border:0;padding:10px 4px;min-height:44px;cursor:pointer;font-family:inherit;font-weight:800;font-size:13px;letter-spacing:.02em;color:#00A3E0">← All lessons</button>
+</div>
 </div>
 </sc-if>
 
@@ -5572,10 +5577,22 @@ sc-if,sc-for{display:none!important}
 <sc-raw-select value="{{ ttEdBook }}" sc-camel-on-change="{{ onTTEdBook }}" style="{{ ttInp }};margin:6px 0 12px">
 <sc-for list="{{ ttBookOptions }}" as="bo" hint-placeholder-count="37"><option value="{{ bo.value }}">{{ bo.label }}</option></sc-for>
 </sc-raw-select>
+</sc-if>
 <div style="{{ ttK }}">Video URL</div>
 <input type="url" value="{{ ttEdVideo }}" sc-camel-on-change="{{ onTTEdVideo }}" placeholder="https://www.youtube.com/watch?v=…" style="{{ ttInp }};margin:6px 0 4px">
 <p style="margin:0 0 12px;font-size:12px;color:#7E8D9C">{{ ttEdVideoNote }}</p>
+<div style="{{ ttK }}">Video thumbnail (optional)</div>
+<div style="display:flex;gap:10px;align-items:center;margin:6px 0 8px">
+<sc-if value="{{ ttEdHasThumb }}" hint-placeholder-val="{{ false }}">
+<img sc-camel-src="{{ ttEdThumb }}" alt="" style="flex:none;width:88px;aspect-ratio:16/9;object-fit:cover;border-radius:7px;border:1px solid #C6D4E2;background:#EAF1F8">
 </sc-if>
+<input type="url" value="{{ ttEdThumb }}" sc-camel-on-change="{{ onTTEdThumb }}" placeholder="Thumbnail image URL" style="{{ ttInp }};flex:1;min-width:0">
+</div>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+<label style="flex:none;display:inline-flex;align-items:center;justify-content:center;background:#0C2647;color:#FFFFFF;border-radius:8px;padding:8px 12px;font-weight:800;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Upload a thumbnail<input type="file" accept="image/jpeg,image/png" sc-camel-on-change="{{ onTTEdThumbFile }}" style="display:none"></label>
+<sc-if value="{{ ttEdHasThumb }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ onTTEdThumbRemove }}" style="flex:none;background:none;border:none;padding:0 2px;font-family:inherit;font-weight:800;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#D5502B;cursor:pointer">Remove thumbnail</button></sc-if>
+</div>
+<p style="margin:6px 0 12px;font-size:12px;color:#7E8D9C">{{ ttEdThumbNote }}</p>
 <div style="{{ ttK }}">Summary (optional)</div>
 <textarea value="{{ ttEdSummary }}" sc-camel-on-change="{{ onTTEdSummary }}" style="{{ ttTextArea }};margin:6px 0 12px"></textarea>
 <sc-if value="{{ ttEdIsLesson }}" hint-placeholder-val="{{ true }}">
@@ -5599,8 +5616,6 @@ sc-if,sc-for{display:none!important}
 <div style="display:flex;gap:6px;margin-top:6px"><input type="text" value="{{ eh.label }}" sc-camel-on-change="{{ eh.onLabel }}" placeholder="Printable PDF" style="{{ ttInp }};width:150px;flex:none"><input type="url" value="{{ eh.url }}" sc-camel-on-change="{{ eh.onUrl }}" placeholder="https://drive.google.com/…" style="{{ ttInp }}"><button sc-camel-on-click="{{ eh.onRemove }}" style="{{ ttBtnMini }}">✕</button></div>
 </sc-for>
 <button sc-camel-on-click="{{ onTTAddHand }}" style="{{ ttBtnMini }};margin:8px 0 14px">+ Add handout</button>
-<div style="{{ ttK }}">Transcript (optional)</div>
-<textarea value="{{ ttEdTranscript }}" sc-camel-on-change="{{ onTTEdTranscript }}" style="{{ ttTextArea }};min-height:120px;margin:6px 0 14px"></textarea>
 </sc-if>
 <div style="display:flex;flex-wrap:wrap;gap:8px">
 <button sc-camel-on-click="{{ onTTEdSave }}" style="{{ ttBtnNavy }}">Save</button>
@@ -5631,16 +5646,17 @@ sc-if,sc-for{display:none!important}
 <p style="margin:0 4px 10px;font-size:12.5px;color:#7E8D9C">{{ ttV10Count }}. Tick "Include in 10-lesson version" below, then set the order here. Editing a lesson changes it in both versions.</p>
 <sc-if value="{{ ttV10Empty }}" hint-placeholder-val="{{ false }}"><p style="margin:0 4px 6px;font-size:13px;color:#8F2D13">No lessons chosen yet.</p></sc-if>
 <sc-for list="{{ ttV10 }}" as="t" hint-placeholder-count="3">
-<div style="display:flex;align-items:center;gap:8px;border-top:1px solid #EEF3F8;padding:8px 4px"><span style="flex:none;width:24px;font-weight:900;color:#0C2647">{{ t.num }}</span><span style="flex:1;min-width:0;font-weight:700;font-size:13.5px;color:#0C1B2E">{{ t.title }}</span><button sc-camel-on-click="{{ t.onUp }}" style="{{ ttBtnMini }}">↑</button><button sc-camel-on-click="{{ t.onDown }}" style="{{ ttBtnMini }}">↓</button><button sc-camel-on-click="{{ t.onRemove }}" style="{{ ttBtnMini }}">✕</button></div>
+<div style="display:flex;align-items:center;gap:8px;border-top:1px solid #EEF3F8;padding:8px 4px"><span style="flex:none;width:24px;font-weight:900;color:#0C2647">{{ t.num }}</span><span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:12px;color:#7E8D9C">Library: {{ t.title }}</span><input type="text" value="{{ t.name }}" sc-camel-on-change="{{ t.onName }}" placeholder="{{ t.title }}" aria-label="Name in this version" style="{{ ttInp }};margin-top:4px;padding:7px 10px;font-size:13px"></span><button sc-camel-on-click="{{ t.onUp }}" style="{{ ttBtnMini }}">↑</button><button sc-camel-on-click="{{ t.onDown }}" style="{{ ttBtnMini }}">↓</button><button sc-camel-on-click="{{ t.onRemove }}" style="{{ ttBtnMini }}">✕</button></div>
 </sc-for>
 </div>
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:14px 12px">
-<p style="margin:0 4px 10px;font-weight:900;font-size:14px;text-transform:uppercase;color:#0C1B2E">36-lesson order</p>
+<p style="margin:0 4px 4px;font-weight:900;font-size:14px;text-transform:uppercase;color:#0C1B2E">36-lesson order</p>
+<p style="margin:0 4px 10px;font-size:12.5px;color:#7E8D9C">{{ ttVerNameNote }}</p>
 <sc-for list="{{ ttV36 }}" as="t" hint-placeholder-count="6">
 <div style="display:flex;align-items:center;gap:8px;border-top:1px solid #EEF3F8;padding:8px 4px">
 <button sc-camel-on-click="{{ t.onToggle10 }}" aria-label="Include in 10-lesson version" title="Include in 10-lesson version" style="{{ t.boxStyle }}">{{ t.box }}</button>
 <span style="flex:none;width:24px;font-weight:900;color:#0C2647">{{ t.num }}</span>
-<span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#00A3E0">{{ t.fund }}</span><span style="display:block;font-weight:700;font-size:13.5px;color:#0C1B2E">{{ t.title }}</span></span>
+<span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#00A3E0">{{ t.fund }}</span><span style="display:block;font-weight:700;font-size:12px;color:#7E8D9C">Library: {{ t.title }}</span><input type="text" value="{{ t.name }}" sc-camel-on-change="{{ t.onName }}" placeholder="{{ t.title }}" aria-label="Name in this version" style="{{ ttInp }};margin-top:4px;padding:7px 10px;font-size:13px"></span>
 <button sc-camel-on-click="{{ t.onUp }}" style="{{ ttBtnMini }}">↑</button><button sc-camel-on-click="{{ t.onDown }}" style="{{ ttBtnMini }}">↓</button>
 </div>
 </sc-for>
@@ -7957,16 +7973,16 @@ Or upload an image
 <sc-if value="{{ ttMenuOpen }}" hint-placeholder-val="{{ false }}">
 <div style="position:fixed;inset:0;z-index:80;display:flex;animation:jjFadeIn .18s ease both">
 <div style="width:min(86vw,340px);height:100%;background:#F3F7FB;box-shadow:6px 0 30px rgba(7,20,38,.35);display:flex;flex-direction:column;animation:jjDrawerIn .22s ease both">
-<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 16px 10px">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:calc(16px + env(safe-area-inset-top)) 16px 10px calc(16px + env(safe-area-inset-left))">
 <span style="font-weight:800;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:#9DAAB8">Twin Thieves · Lessons</span>
 <button sc-camel-on-click="{{ onTTMenuClose }}" aria-label="Close" style="background:none;border:0;font-size:22px;line-height:1;color:#0C2647;cursor:pointer">✕</button>
 </div>
-<div data-tt-list="1" style="flex:1;min-height:0;overflow-y:auto;position:relative;padding:0 10px 10px">
+<div data-tt-list="1" data-tt-drawer="1" style="{{ ttDrawerListStyle }}">
 <sc-for list="{{ ttSide }}" as="sl" hint-placeholder-count="8">
-<button data-tt-cur="{{ sl.cur }}" sc-camel-on-click="{{ sl.onTap }}" style="{{ sl.style }}"><span style="{{ sl.numStyle }}">{{ sl.num }}</span><span style="{{ sl.titleStyle }}">{{ sl.title }}</span><sc-if value="{{ sl.done }}" hint-placeholder-val="{{ false }}"><span style="flex:none;margin-left:auto;color:#2F7F55;font-weight:900;font-size:14px" aria-label="Completed">✓</span></sc-if></button>
+<div data-tt-drawer-row="1"><button data-tt-cur="{{ sl.cur }}" sc-camel-on-click="{{ sl.onTap }}" style="{{ sl.style }}"><span style="{{ sl.numStyle }}">{{ sl.num }}</span><span style="{{ sl.titleStyle }}">{{ sl.title }}</span><sc-if value="{{ sl.done }}" hint-placeholder-val="{{ false }}"><span style="flex:none;margin-left:auto;color:#2F7F55;font-weight:900;font-size:14px" aria-label="Completed">✓</span></sc-if></button></div>
 </sc-for>
 </div>
-<button sc-camel-on-click="{{ onTTMenuProfile }}" style="margin:0 10px 16px;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DCE6F0;border-radius:12px;padding:12px 14px;font-family:inherit;font-weight:800;font-size:14px;color:#0C1B2E;cursor:pointer"><span style="color:#7E8D9C">●</span> My Profile</button>
+<button sc-camel-on-click="{{ onTTMenuProfile }}" style="margin:0 10px calc(16px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DCE6F0;border-radius:12px;padding:12px 14px;font-family:inherit;font-weight:800;font-size:14px;color:#0C1B2E;cursor:pointer"><span style="color:#7E8D9C">●</span> My Profile</button>
 </div>
 <button sc-camel-on-click="{{ onTTMenuClose }}" aria-label="Close the menu" style="flex:1;border:0;background:rgba(7,20,38,.45);cursor:pointer"></button>
 </div>
@@ -8413,6 +8429,25 @@ function ttVideo(u,start){
   if(isDirectVideo(u)) return {kind:'file',src:u+(st?'#t='+st:'')};
   return {kind:'frame',src:embedUrl(u)};
 }
+/* A JPG or PNG for a video cover. One over 1920 px on its long side, or over
+   600 KB, is redrawn at most 1920 px as a JPEG at 85% (on navy, for PNG
+   transparency); a smaller one is uploaded as it is. */
+async function shrinkImage(f){
+  const MAX=1920, LIMIT=600*1024;
+  const img=await new Promise((res,rej)=>{ const u=URL.createObjectURL(f), i=new Image();
+    i.onload=()=>{ URL.revokeObjectURL(u); res(i); };
+    i.onerror=()=>{ URL.revokeObjectURL(u); rej(new Error('that image could not be read')); };
+    i.src=u; });
+  const w=img.naturalWidth||1, h=img.naturalHeight||1, sc=Math.min(1,MAX/Math.max(w,h));
+  if(sc===1&&f.size<=LIMIT) return f;
+  const cv=document.createElement('canvas'); cv.width=Math.max(1,Math.round(w*sc)); cv.height=Math.max(1,Math.round(h*sc));
+  const g=cv.getContext('2d'); g.fillStyle='#0C2647'; g.fillRect(0,0,cv.width,cv.height); g.drawImage(img,0,0,cv.width,cv.height);
+  const blob=await new Promise(res=>cv.toBlob(res,'image/jpeg',0.85));
+  if(!blob) throw new Error('that image could not be shrunk');
+  return new File([blob],String(f.name||'thumbnail').replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg'});
+}
+/* A thumbnail link as a CSS url(): only http(s), quotes and brackets escaped. */
+const ttCssUrl=u=>/^https?:\/\//i.test(String(u||''))?'url("'+String(u).replace(/["\\()\s]/g,c=>encodeURIComponent(c))+'")':'';
 /* The design preview (?ttpreview=home|lesson|studio) shows sample content
    with no sign-in and saves nothing. Only on a developer's own machine, a
    Codespace, or the Twin Thieves preview site; never on the live or Dev
@@ -10869,6 +10904,8 @@ class Component extends DCLogic {
   /* Same record and field names the web path writes, so the functions target a
      wrapped install exactly as they target a browser. */
   async saveNativeToken(token){
+    // Never a push record under a Twin Thieves program (it sends nothing).
+    if(this.isTT()) return;
     const pkey=this.pushKey(null,this.state.idkey||String(token).slice(0,12));
     const prev=(await sget(pkey).catch(()=>({})))||{};
     await sset(pkey,Object.assign({},prev,{
@@ -11148,6 +11185,8 @@ class Component extends DCLogic {
      per-account is a hard browser denial, so that still ends it. */
   pushAskDue(){
     if(this.state.role!=='leader'||this.state.previewMode) return false;
+    // Twin Thieves only (no Playbook program, or not known yet): never asked.
+    if(this.isTT()&&this.state.ttHasPlaybook!==true) return false;
     if(this.state.pushOn) return false;
     // They switched notifications off here: no prompt, ever, until they switch it on.
     if(this.pushOffHere()) return false;
@@ -13628,6 +13667,11 @@ class Component extends DCLogic {
   }
   async loadMyGroups(email){
     const out=await this.myPrograms(email).catch(()=>null);
+    /* Twin Thieves has no notifications: whether they are also in a Playbook
+       program decides if a Twin Thieves screen may offer them (null: not
+       known, so no offer). Someone in both keeps the offer as before. */
+    const hasPB=out?out.some(g=>g&&g.product!=='tt'):null;
+    this.setState({ttHasPlaybook:hasPB},()=>{ if(this.isTT()&&hasPB&&this.pushAskDue()) this.armPushAsk(); });
     // A single membership is not a choice; only offer the switch when it is one.
     if(!out||out.length<2) return this.setState({myGroups:[]});
     this.setState({myGroups:out},()=>this.watchOtherGroups());
@@ -15697,11 +15741,17 @@ class Component extends DCLogic {
   isTT(){ const o=this.state.org; return !!(o&&o.product==='tt'); }
   ttVersion(){ const o=this.state.org; return (o&&Number(o.ttVersion)===10)?10:36; }
   ttLib(){ return this.state.ttLib||ttSeedLibrary(); }
-  /* This version's lessons in order, numbered, then the closing Thank you! */
+  /* This version's lessons in order, numbered, then the closing Thank you!
+     A lesson shows this version's own name when Studio set one
+     (lib.names['36'|'10'][id]), else the library's; libTitle keeps the
+     library's. Progress is kept by lesson id, so a name never touches it. */
   ttLessons(ver){
     const lib=this.ttLib(), by={}; (lib.lessons||[]).forEach(l=>{ by[l.id]=l; });
-    const ids=(ver||this.ttVersion())===10?(lib.order10||[]):(lib.order36||[]);
-    const list=ids.map(id=>by[id]).filter(l=>l&&!l.closing).map((l,i)=>Object.assign({},l,{n:i+1}));
+    const v=(ver||this.ttVersion())===10?10:36;
+    const ids=v===10?(lib.order10||[]):(lib.order36||[]);
+    const nm=(lib.names&&lib.names[String(v)])||{};
+    const list=ids.map(id=>by[id]).filter(l=>l&&!l.closing)
+      .map((l,i)=>Object.assign({},l,{n:i+1,libTitle:l.title,title:String(nm[l.id]||'').trim()||l.title}));
     if(by[TT_THANKS_ID]) list.push(Object.assign({},by[TT_THANKS_ID],{n:0}));
     return list;
   }
@@ -15792,6 +15842,31 @@ class Component extends DCLogic {
       if(!(await sset('ttallow:'+id,{emails,updatedAt:Date.now()}))) return this.toast('Could not save',true);
       this.toast(done());
     })();
+  }
+  /* Studio → a lesson → Upload a thumbnail: JPG or PNG, shrunk if large, then
+     uploaded like the Playbook's session thumbnails (uploadMedia, the
+     session-thumbnails/ folder). The link goes into the lesson being edited;
+     Save publishes it. */
+  async ttUploadThumb(e,id){
+    const f=e.target.files&&e.target.files[0]; e.target.value='';
+    if(!f) return;
+    const note=(msg,busy)=>this.setState({ttThUp:{id,msg,busy:!!busy}});
+    if(!/^image\/(jpeg|png)$/.test(f.type||'')) return note('That is not a JPG or PNG image.');
+    if(f.size>40*1024*1024) return note('That image is over 40 MB. Use a smaller one.');
+    if(this.state.ttDemo) return note('Preview: uploads are off. Paste an image link instead.');
+    note('Preparing '+f.name+'…',true);
+    try{
+      const file=await shrinkImage(f);
+      note('Uploading '+f.name+'…',true);
+      const url=await this.uploadMedia(file,'session-thumbnails',pct=>note('Uploading '+f.name+' — '+pct+'%',true));
+      const d=this.state.ttDraft;
+      // Only into the lesson the upload started from.
+      if(!d||d.id!==id) return note('Uploaded, but that lesson is no longer open. Upload it again from the lesson.');
+      this.setState({ttDraft:Object.assign({},d,{thumbUrl:url})});
+      note('Uploaded'+(file!==f?' (shrunk to '+Math.round(file.size/1024)+' KB)':'')+'. Save to publish it.');
+    }catch(err){
+      note('Upload failed: '+((err&&(err.code||err.message))||'try again')+'. You can paste an image link instead.');
+    }
   }
   ttSaveLib(lib,msg){
     if(this.state.ttDemo){ this.setState({ttLib:lib}); return this.toast((msg||'Saved')+' (preview: not saved)'); }
@@ -15935,7 +16010,7 @@ class Component extends DCLogic {
     v.ttStudioSummary=all.filter(l=>!l.closing).length+' lessons and a closing Thank you! · '
       +all.filter(l=>!l.closing&&!miss(l).length).length+' complete';
     v.ttStudioRows=all.map(l=>{ const m=l.closing?[]:miss(l);
-      return {num:l.closing?'—':String(l.n),fund:(TT_FUND_NAMES[l.fund]||'').toUpperCase()||'CLOSING',title:l.title,
+      return {num:l.closing?'—':String(l.n),fund:(TT_FUND_NAMES[l.fund]||'').toUpperCase()||'CLOSING',title:l.libTitle||l.title,
         chips:(m.length?m.map(x=>({text:'No '+x.toLowerCase(),miss:true,ok:false})):[{text:l.closing?'Closing page':'Ready',ok:true,miss:false}])
           .concat(ttBook(l).bookReview?[{text:'Book chapter: needs review',miss:true,ok:false}]:[]),
         chipStyle:'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 8px;margin:0 4px 4px 0;background:#FDECE6;color:#8F2D13',
@@ -15961,8 +16036,14 @@ class Component extends DCLogic {
       const vk=ttVideo(d.videoUrl).kind;
       v.ttEdVideoNote=!d.videoUrl?'YouTube, Vimeo, Google Drive or a direct MP4 link.'
         :(vk==='file'?'Plays as a video file. Chapters jump to their time.':(/youtu|vimeo/i.test(d.videoUrl)?'Embedded player. Chapters jump to their time.':'Shown in a frame (e.g. Google Drive). Chapters cannot jump the video.'));
+      // The video's cover image (optional): a link, or an upload shrunk first.
+      v.ttEdThumb=d.thumbUrl||''; v.ttEdHasThumb=!!d.thumbUrl;
+      v.onTTEdThumb=e=>set({thumbUrl:e.target.value.trim()});
+      v.onTTEdThumbRemove=()=>{ set({thumbUrl:''}); this.setState({ttThUp:null}); };
+      v.onTTEdThumbFile=e=>this.ttUploadThumb(e,d.id);
+      const up=s.ttThUp&&s.ttThUp.id===d.id?s.ttThUp:null;
+      v.ttEdThumbNote=up?up.msg:'JPG or PNG. Large images are shrunk to at most 1920 px before upload. Shown before the video plays; with none, the lesson keeps its usual cover.';
       v.ttEdSummary=d.summary||''; v.onTTEdSummary=e=>set({summary:e.target.value});
-      v.ttEdTranscript=d.transcript||''; v.onTTEdTranscript=e=>set({transcript:e.target.value});
       v.ttEdDisc=listEd('discussion','A discussion question');
       v.onTTAddDisc=()=>set({discussion:(d.discussion||[]).concat([''])});
       v.ttEdAdd=listEd('additional','An additional question');
@@ -15979,6 +16060,7 @@ class Component extends DCLogic {
       v.onTTAddChap=()=>set({chapters:(d.chapters||[]).concat([{t:'0:00',label:''}])});
       const clean=()=>{ const x=Object.assign(JSON.parse(JSON.stringify(this.state.ttDraft)),ttBook(this.state.ttDraft));
         x.title=String(x.title||'').trim()||'Untitled';
+        x.thumbUrl=String(x.thumbUrl||'').trim();
         ['discussion','additional'].forEach(k=>{ x[k]=(x[k]||[]).map(q=>String(q||'').trim()).filter(Boolean); });
         x.handouts=(x.handouts||[]).filter(h=>h&&String(h.label||'').trim()).map(h=>({label:String(h.label).trim(),url:String(h.url||'').trim()}));
         x.chapters=(x.chapters||[]).filter(c=>c&&String(c.label||'').trim()).map(c=>({t:String(c.t||'0:00').trim(),label:String(c.label).trim()}));
@@ -15991,14 +16073,24 @@ class Component extends DCLogic {
     // Versions: the 36-lesson order, and the 10-lesson picks and their order.
     const o36=lib.order36||[], o10=lib.order10||[];
     const move=(arr,i,dir)=>{ const a=arr.slice(), j=i+dir; if(j<0||j>=a.length) return a; [a[i],a[j]]=[a[j],a[i]]; return a; };
+    /* A lesson's name in one version: blank, or the library's own name, means
+       the library's. Saved with the versions. */
+    const names=lib.names||{};
+    const setName=(ver,id,val)=>{ const L=this.state.ttLib||lib, all=JSON.parse(JSON.stringify(L.names||{}));
+      const m=all[ver]||(all[ver]={}), t=String(val||'').replace(/\s+/g,' ').trim().slice(0,120);
+      if(t&&t!==String((by[id]||{}).title||'')) m[id]=t; else delete m[id];
+      this.setState({ttLib:Object.assign({},L,{names:all}),ttVerDirty:true}); };
+    v.ttVerNameNote='Each version can show its own name for a lesson. Leave a name empty to use the library name. Progress is never affected.';
     v.ttV36=o36.map((id,i)=>{ const l=by[id]||{}; const in10=o10.indexOf(id)>=0;
       return {num:String(i+1),title:l.title||id,fund:TT_FUND_NAMES[l.fund]||'',
+        name:(names['36']||{})[id]||'',onName:e=>setName('36',id,e.target.value),
         box:in10?'☑':'☐',boxStyle:'flex:none;background:none;border:0;cursor:pointer;font-size:20px;line-height:1;padding:0 2px;color:'+(in10?'#2F7F55':'#9DAAB8'),
         onToggle10:()=>{ const n10=in10?o10.filter(x=>x!==id):o10.concat([id]); this.setState({ttLib:Object.assign({},lib,{order10:n10}),ttVerDirty:true}); },
         onUp:()=>this.setState({ttLib:Object.assign({},lib,{order36:move(o36,i,-1)}),ttVerDirty:true}),
         onDown:()=>this.setState({ttLib:Object.assign({},lib,{order36:move(o36,i,1)}),ttVerDirty:true})}; });
     v.ttV10=o10.map((id,i)=>{ const l=by[id]||{};
       return {num:String(i+1),title:l.title||id,
+        name:(names['10']||{})[id]||'',onName:e=>setName('10',id,e.target.value),
         onUp:()=>this.setState({ttLib:Object.assign({},lib,{order10:move(o10,i,-1)}),ttVerDirty:true}),
         onDown:()=>this.setState({ttLib:Object.assign({},lib,{order10:move(o10,i,1)}),ttVerDirty:true}),
         onRemove:()=>this.setState({ttLib:Object.assign({},lib,{order10:o10.filter(x=>x!==id)}),ttVerDirty:true})}; });
@@ -16163,6 +16255,8 @@ class Component extends DCLogic {
         titleStyle:'font-size:12.5px;line-height:1.3;color:#0C1B2E;font-weight:'+(me?'800':'600'),
         onTap:()=>this.ttOpen(l.id)}; });
     v.ttSideListStyle='position:relative;max-height:calc(100vh - 290px);min-height:120px;overflow-y:auto;margin:2px 0 10px;padding:4px 4px 4px 6px;border-left:2px solid #DCE6F0';
+    // The phone menu's list; --tt-n spreads its rows over the height (CSS above).
+    v.ttDrawerListStyle='flex:1;min-height:0;overflow-y:auto;position:relative;padding:0 10px 10px calc(10px + env(safe-area-inset-left));--tt-n:'+Math.max(1,list.length);
     v.ttPhone=!W; v.ttWide=!!W;
     v.ttMenuOpen=!!s.ttMenu&&!W;
     v.onTTMenu=()=>{ this.setState({ttMenu:true},()=>this.ttScrollSide()); };
@@ -16182,16 +16276,18 @@ class Component extends DCLogic {
       v.ttVideoFrame=s.ttPlay&&vid.kind==='frame'; v.ttVideoFile=s.ttPlay&&vid.kind==='file';
       v.ttVideoSrc=vid.src||'';
       v.onTTPlay=()=>{ if(!v.ttHasVideo) return this.toast('No video added for this lesson yet'); this.setState({ttPlay:true}); };
-      const tab=s.ttTab==='transcript'?'transcript':'overview';
-      v.ttTabs=[['overview','Overview'],['transcript','Transcript']].map(([k,label])=>({label,
-        onTap:()=>this.setState({ttTab:k}),
-        style:'background:none;border:0;border-bottom:3px solid '+(tab===k?'#FADA01':'transparent')+';padding:12px 2px 9px;margin-right:22px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;color:'+(tab===k?'#0C1B2E':'#7E8D9C')}));
-      v.ttIsOverview=tab==='overview'; v.ttIsTranscript=tab==='transcript';
+      /* The cover before it plays: the lesson's thumbnail if it has one (a
+         light veil keeps the play button readable), else the usual navy. */
+      const thumb=ttCssUrl(cur.thumbUrl);
+      v.ttVideoPoster=thumb?String(cur.thumbUrl):'';
+      v.ttPosterStyle='position:absolute;inset:0;width:100%;height:100%;border:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:inherit;'
+        +(thumb?'background:linear-gradient(rgba(12,38,71,.18),rgba(12,38,71,.38)),'+thumb+' center/cover no-repeat #0C2647'
+          :'background:radial-gradient(circle at 50% 45%,#1E4C7D,#0C2647 70%)');
       v.ttSummary=cur.summary||''; v.ttHasSummary=!!cur.summary; v.ttNoSummary=!cur.summary;
       v.ttChapters=(cur.chapters||[]).filter(c=>c&&c.label).map(c=>({t:c.t,label:c.label,
         onTap:()=>{ if(!v.ttHasVideo) return this.toast('No video added for this lesson yet'); this.setState({ttPlay:true,ttSeek:ttSecs(c.t)}); window.scrollTo({top:0,behavior:'smooth'}); }}));
       v.ttHasChapters=v.ttChapters.length>0;
-      v.ttTranscript=cur.transcript||''; v.ttHasTranscript=!!cur.transcript; v.ttNoTranscript=!cur.transcript;
+      // Transcripts are kept in the library but not shown (Studio no longer edits them).
       // Where this fits: the Playbook pyramid, this lesson's block lit, display-only.
       const hl=TT_PYR.some(p=>p.id===cur.fund)?cur.fund:null;
       const pyr=this.pyramidVM(TT_PYR,{highlight:hl,readOnly:true});
