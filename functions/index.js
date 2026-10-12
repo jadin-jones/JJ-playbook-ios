@@ -354,6 +354,19 @@ function parseValue(snap) {
   try { return JSON.parse(d.value); } catch (e) { return null; }
 }
 
+/* Twin Thieves Leadership (programs TT36 and TT10) sends no notifications.
+   The app never registers push for them, but a push:TT36:<idkey> or
+   push:TT10:<idkey> record could exist from before the 8 Oct 2026 rules (the
+   iOS app wrote push:<current program>:<idkey>). Every sender skips such a
+   record, by its key or the program code stored in it. */
+const TT_PROGRAMS = ['TT36', 'TT10'];
+function isTTPush(doc) {
+  if (!doc || !doc.id || doc.id.indexOf('push:') !== 0) return false;
+  if (TT_PROGRAMS.indexOf(doc.id.split(':')[1]) >= 0) return true;
+  const rec = parseValue(doc);
+  return !!(rec && TT_PROGRAMS.indexOf(String(rec.code || '')) >= 0);
+}
+
 function listFrom(snap) {
   const v = parseValue(snap);
   return Array.isArray(v) ? v : [];
@@ -389,7 +402,7 @@ async function tokensFor(code, group, exclude) {
   });
 
   const all = snap.docs
-    .filter((d) => d.id.indexOf('push:') === 0)
+    .filter((d) => d.id.indexOf('push:') === 0 && !isTTPush(d))
     .map((d) => parseValue(d))
     .filter((p) => p && p.token);
 
@@ -439,7 +452,7 @@ async function adminTokens() {
   });
 
   const tokens = snap.docs
-    .filter((d) => d.id.indexOf('push:') === 0)
+    .filter((d) => d.id.indexOf('push:') === 0 && !isTTPush(d))
     .map((d) => parseValue(d))
     .filter((p) => {
     if (!p || !p.token) return false;
@@ -745,6 +758,7 @@ exports.dailyReminders = onSchedule('every 5 minutes', async () => {
   let fired = 0;
   for (const doc of snap.docs) {
     if (doc.id.indexOf('push:') !== 0) continue;
+    if (isTTPush(doc)) continue;
     const rec = parseValue(doc);
     if (!rec || !rec.token || !Array.isArray(rec.schedule)) continue;
 
@@ -854,6 +868,7 @@ exports.weeklyReview = onSchedule('every 60 minutes', async () => {
 
   for (const doc of snap.docs) {
     if (doc.id.indexOf('push:') !== 0) continue;
+    if (isTTPush(doc)) continue;
     const rec = parseValue(doc);
     if (!rec || !rec.token) continue;
     const away = rec.away || {};
@@ -890,6 +905,7 @@ exports.streakSave = onSchedule('every 60 minutes', async () => {
 
   for (const doc of snap.docs) {
     if (doc.id.indexOf('push:') !== 0) continue;
+    if (isTTPush(doc)) continue;
     const rec = parseValue(doc);
     if (!rec || !rec.token) continue;
     if ((rec.away || {}).streak === false) continue;
@@ -933,6 +949,7 @@ exports.monthlyUnlock = onSchedule('every 60 minutes', async () => {
   let fired = 0;
   for (const doc of snap.docs) {
     if (doc.id.indexOf('push:') !== 0) continue;
+    if (isTTPush(doc)) continue;
     const rec = parseValue(doc);
     if (!rec || !rec.token || !rec.code) continue;
     if ((rec.away || {}).unlock === false) continue;
@@ -990,6 +1007,7 @@ exports.deepWorkInvite = onSchedule('every 60 minutes', async () => {
   let fired = 0;
   for (const doc of snap.docs) {
     if (doc.id.indexOf('push:') !== 0) continue;
+    if (isTTPush(doc)) continue;
     const rec = parseValue(doc);
     if (!rec || !rec.token || !rec.code) continue;
 
@@ -1073,6 +1091,8 @@ exports.onFundamentalDone = onDocumentWritten(COLL + '/{docId}', async (event) =
   if (!pushDoc.exists) {
     pushDoc = await db.collection(COLL).doc('push:' + after.idkey).get();
   }
+  if (isTTPush(pushDoc)) return;
+
   if (!pushDoc.exists) return;
   const rec = parseValue(pushDoc);
   if (!rec || !rec.token) return;
@@ -1114,6 +1134,7 @@ exports.celebrations = onSchedule('every 60 minutes', async () => {
   let fired = 0;
   for (const doc of snap.docs) {
     if (doc.id.indexOf('push:') !== 0) continue;
+    if (isTTPush(doc)) continue;
     const rec = parseValue(doc);
     if (!rec || !rec.token) continue;
 
@@ -1183,6 +1204,7 @@ exports.awayNudges = onSchedule('every 60 minutes', async () => {
 
   for (const doc of snap.docs) {
     if (doc.id.indexOf('push:') !== 0) continue;
+    if (isTTPush(doc)) continue;
     const rec = parseValue(doc);
     if (!rec || !rec.token || !rec.lastOpenAt) continue;
 
