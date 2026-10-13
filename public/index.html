@@ -517,19 +517,21 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:#00A3E0;box-sh
 /* Twin Thieves phone menu: slides in from the left. */
 @keyframes jjDrawerIn{from{transform:translateX(-100%)}to{transform:none}}
 /* Twin Thieves lesson menu (phones and iPad in portrait, under 900 px): the
-   rows share the height between the heading and My Profile (--tt-n rows);
+   lesson rows share the height between the Playbook item and My Profile
+   (--tt-n rows), after the fundamental headings' own 24px each (--tt-hh);
    never less than a row's own height, so the 36-lesson list keeps its
    spacing and scrolls. */
 @media (max-width:899px){
 [data-tt-drawer="1"] [data-tt-drawer-row="1"]{display:flex;align-items:center;
-  min-height:max(40px,calc((100vh - 132px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) / var(--tt-n,40)));
-  min-height:max(40px,calc((100dvh - 132px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) / var(--tt-n,40)))}
+  min-height:max(40px,calc((100vh - 184px - var(--tt-hh,0px) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) / var(--tt-n,40)));
+  min-height:max(40px,calc((100dvh - 184px - var(--tt-hh,0px) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) / var(--tt-n,40)))}
 [data-tt-drawer="1"] [data-tt-drawer-row="1"]>button{margin-bottom:0!important}
 }
 /* The same in the Twin Thieves sidebar (desktop and iPad in landscape): the
-   list is as tall as the space down to My Profile (--tt-h), and its rows
-   share it. Only the Twin Thieves list carries these attributes. */
-[data-tt-side="1"] [data-tt-side-row="1"]{display:flex;align-items:center;min-height:max(36px,calc(var(--tt-h) / var(--tt-n,40)))}
+   list is as tall as the space down to My Profile (--tt-h), and its lesson
+   rows share what the headings leave. Only the Twin Thieves list carries
+   these attributes. */
+[data-tt-side="1"] [data-tt-side-row="1"]{display:flex;align-items:center;min-height:max(36px,calc((var(--tt-h) - var(--tt-hh,0px)) / var(--tt-n,40)))}
 [data-tt-side="1"] [data-tt-side-row="1"]>button{margin-bottom:0!important}
 @keyframes jjFall{0%{transform:translateY(0) rotate(0deg);opacity:0}8%{opacity:.95}100%{transform:translateY(112vh) rotate(540deg);opacity:.15}}
 @keyframes jjPop{0%{opacity:0;transform:scale(.72)}60%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
@@ -5372,16 +5374,41 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 
 <sc-if value="{{ showTTHome }}" hint-placeholder-val="{{ false }}">
-<div style="padding:18px 14px 8px;animation:jjIn .28s ease both">
+<div data-tt-pyr="1" style="padding:18px 14px 8px;animation:jjIn .28s ease both">
 <sc-if value="{{ ttDemo }}" hint-placeholder-val="{{ false }}">
 <p style="margin:0 0 12px;background:#FFF7CC;border:1px solid #F1DC6B;border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.45;color:#5C4B00">Design preview: sample content. Nothing is saved.</p>
 </sc-if>
-<p style="margin:0;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#00A3E0">{{ ttKicker }}</p>
-<h1 style="font-weight:900;font-size:clamp(26px,6vw,34px);line-height:1.05;letter-spacing:-.3px;text-transform:uppercase;color:#0C1B2E;margin:6px 0 10px">Your lessons</h1>
-<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:14px 16px">
-<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span style="font-weight:800;font-size:13px;color:#0C1B2E">{{ ttProgressText }}</span></div>
-<div style="height:8px;background:#EAF1F8;border-radius:999px;margin-top:9px;overflow:hidden"><div style="{{ ttBarStyle }}"></div></div>
-</div>
+<sc-if value="{{ ttBackToStudio }}" hint-placeholder-val="{{ false }}">
+<button sc-camel-on-click="{{ onTTBackToStudio }}" style="margin:0 0 12px;background:#FADA01;color:#0C2647;border:0;border-radius:999px;padding:6px 12px;cursor:pointer;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase">Back to Studio</button>
+</sc-if>
+<section style="{{ ttHeroStyle }}">
+<div style="font-weight:800;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:#6FC0EA">{{ ttKicker }}</div>
+<h1 style="font-weight:900;font-size:22px;line-height:1;margin:6px 0 0;text-transform:uppercase;letter-spacing:.01em;color:#FFFFFF">Playbook Overview</h1>
+<div style="font-size:11.5px;color:#A9BDD6;margin-top:4px">{{ ttProgressText }}</div>
+<svg sc-camel-view-box="-62 4 364 256" style="width:100%;height:auto;display:block;margin:14px 0 2px;overflow:visible">
+<polygon points="150,10 10,250 -58,250" fill="#0A1F3A"></polygon>
+{{ ttPyrTiers }}
+<sc-for list="{{ ttPyrCells }}" as="c" hint-placeholder-count="9">
+<g data-tt-block="{{ c.fund }}" data-tt-empty="{{ c.empty }}" sc-camel-on-click="{{ c.onTap }}" style="{{ c.gStyle }}">
+<polygon points="{{ c.points }}" fill="{{ c.fill }}" stroke="rgba(255,255,255,.28)" stroke-width="1"></polygon>
+<image sc-camel-href="{{ c.icon }}" x="{{ c.ix }}" y="{{ c.iy }}" width="{{ c.isz }}" height="{{ c.isz }}" opacity="{{ c.iconOpacity }}" sc-camel-preserve-aspect-ratio="xMidYMid meet" style="pointer-events:none"></image>
+</g>
+</sc-for>
+<sc-for list="{{ ttPyrLabels }}" as="l" hint-placeholder-count="12">
+<foreignObject x="{{ l.x }}" y="{{ l.y }}" width="{{ l.w }}" height="{{ l.h }}" style="overflow:visible;pointer-events:none">
+<div style="{{ l.style }}">{{ l.text }}</div>
+</foreignObject>
+</sc-for>
+<sc-if value="{{ ttPyrHasSel }}" hint-placeholder-val="{{ false }}">
+<polygon points="{{ ttPyrSel }}" fill="none" stroke="#FADA01" stroke-width="2.5" stroke-linejoin="round" style="pointer-events:none"></polygon>
+</sc-if>
+</svg>
+<div style="text-align:center;font-size:10.5px;color:#A9BDD6;letter-spacing:.04em;margin-top:6px">{{ ttPyrCaption }}</div>
+<sc-if value="{{ ttPyrHasNote }}" hint-placeholder-val="{{ false }}">
+<p data-tt-pyr-note="1" style="margin:10px auto 0;max-width:360px;text-align:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.45;color:#FFFFFF">{{ ttPyrNote }}</p>
+</sc-if>
+</section>
+<div style="height:8px;background:#EAF1F8;border-radius:999px;margin-top:14px;overflow:hidden"><div style="{{ ttBarStyle }}"></div></div>
 <sc-if value="{{ ttHasNext }}" hint-placeholder-val="{{ true }}">
 <button sc-camel-on-click="{{ onTTContinue }}" style="width:100%;display:flex;align-items:center;gap:14px;text-align:left;margin-top:12px;background:linear-gradient(150deg,#123663,#0C2647 62%,#0A1F3A);border:1px solid #1E4C7D;border-radius:14px;padding:16px;cursor:pointer;font-family:inherit">
 <span style="flex:none;width:44px;height:44px;border-radius:50%;background:#FADA01;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M8 5v14l11-7z" fill="#0C2647"></path></svg></span>
@@ -5398,20 +5425,9 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ ttNoLessons }}" hint-placeholder-val="{{ false }}">
 <p style="margin:12px 0 0;font-size:13px;color:#7E8D9C">No lessons in this version yet.</p>
 </sc-if>
-<div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:8px 10px;margin-top:14px">
-<sc-for list="{{ ttRows }}" as="r" hint-placeholder-count="12">
-<sc-if value="{{ r.isHead }}" hint-placeholder-val="{{ false }}">
-<p style="margin:14px 6px 6px;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#7E8D9C">{{ r.text }}</p>
+<sc-if value="{{ ttPhone }}" hint-placeholder-val="{{ false }}">
+<button sc-camel-on-click="{{ onTTMenu }}" style="width:100%;margin-top:12px;background:#fff;border:1px solid #DCE6F0;border-radius:12px;padding:13px 14px;min-height:48px;cursor:pointer;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#0C2647">☰ All lessons</button>
 </sc-if>
-<sc-if value="{{ r.isRow }}" hint-placeholder-val="{{ true }}">
-<button sc-camel-on-click="{{ r.onOpen }}" style="width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:0;border-top:1px solid #EEF3F8;padding:11px 6px;cursor:pointer;font-family:inherit">
-<span style="{{ r.numStyle }}">{{ r.num }}</span>
-<span style="min-width:0;flex:1"><span style="display:block;font-weight:800;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#00A3E0">{{ r.sub }}</span><span style="display:block;font-weight:700;font-size:14px;line-height:1.3;color:#0C1B2E;margin-top:2px">{{ r.title }}</span></span>
-<span style="flex:none;color:#9DAAB8;font-size:18px">›</span>
-</button>
-</sc-if>
-</sc-for>
-</div>
 </div>
 </sc-if>
 
@@ -7968,7 +7984,8 @@ Or upload an image
 <sc-if value="{{ tb.hasTTList }}" hint-placeholder-val="{{ false }}">
 <div data-tt-list="1" data-tt-side="1" style="{{ ttSideListStyle }}">
 <sc-for list="{{ ttSide }}" as="sl" hint-placeholder-count="8">
-<div data-tt-side-row="1"><button data-tt-cur="{{ sl.cur }}" sc-camel-on-click="{{ sl.onTap }}" style="{{ sl.style }}"><span style="{{ sl.numStyle }}">{{ sl.num }}</span><span style="{{ sl.titleStyle }}">{{ sl.title }}</span><sc-if value="{{ sl.done }}" hint-placeholder-val="{{ false }}"><span style="flex:none;margin-left:auto;color:#2F7F55;font-weight:900;font-size:14px" aria-label="Completed">✓</span></sc-if></button></div>
+<sc-if value="{{ sl.isHead }}" hint-placeholder-val="{{ false }}"><div data-tt-group="{{ sl.fund }}" data-tt-focus="{{ sl.focus }}" style="{{ sl.headStyle }}"><span>{{ sl.text }}</span><span style="{{ sl.countStyle }}">{{ sl.count }}</span></div></sc-if>
+<sc-if value="{{ sl.isRow }}" hint-placeholder-val="{{ true }}"><div data-tt-side-row="1"><button data-tt-cur="{{ sl.cur }}" sc-camel-on-click="{{ sl.onTap }}" style="{{ sl.style }}"><span style="{{ sl.numStyle }}">{{ sl.num }}</span><span style="{{ sl.titleStyle }}">{{ sl.title }}</span><sc-if value="{{ sl.done }}" hint-placeholder-val="{{ false }}"><span style="flex:none;margin-left:auto;color:#2F7F55;font-weight:900;font-size:14px" aria-label="Completed">✓</span></sc-if></button></div></sc-if>
 </sc-for>
 </div>
 </sc-if>
@@ -7984,9 +8001,11 @@ Or upload an image
 <span style="font-weight:800;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:#9DAAB8">Twin Thieves · Lessons</span>
 <button sc-camel-on-click="{{ onTTMenuClose }}" aria-label="Close" style="background:none;border:0;font-size:22px;line-height:1;color:#0C2647;cursor:pointer">✕</button>
 </div>
+<button sc-camel-on-click="{{ onTTMenuPlaybook }}" style="{{ ttMenuPbStyle }}"><span style="color:#00A3E0">▲</span> Playbook</button>
 <div data-tt-list="1" data-tt-drawer="1" style="{{ ttDrawerListStyle }}">
 <sc-for list="{{ ttSide }}" as="sl" hint-placeholder-count="8">
-<div data-tt-drawer-row="1"><button data-tt-cur="{{ sl.cur }}" sc-camel-on-click="{{ sl.onTap }}" style="{{ sl.style }}"><span style="{{ sl.numStyle }}">{{ sl.num }}</span><span style="{{ sl.titleStyle }}">{{ sl.title }}</span><sc-if value="{{ sl.done }}" hint-placeholder-val="{{ false }}"><span style="flex:none;margin-left:auto;color:#2F7F55;font-weight:900;font-size:14px" aria-label="Completed">✓</span></sc-if></button></div>
+<sc-if value="{{ sl.isHead }}" hint-placeholder-val="{{ false }}"><div data-tt-group="{{ sl.fund }}" data-tt-focus="{{ sl.focus }}" style="{{ sl.headStyle }}"><span>{{ sl.text }}</span><span style="{{ sl.countStyle }}">{{ sl.count }}</span></div></sc-if>
+<sc-if value="{{ sl.isRow }}" hint-placeholder-val="{{ true }}"><div data-tt-drawer-row="1"><button data-tt-cur="{{ sl.cur }}" sc-camel-on-click="{{ sl.onTap }}" style="{{ sl.style }}"><span style="{{ sl.numStyle }}">{{ sl.num }}</span><span style="{{ sl.titleStyle }}">{{ sl.title }}</span><sc-if value="{{ sl.done }}" hint-placeholder-val="{{ false }}"><span style="flex:none;margin-left:auto;color:#2F7F55;font-weight:900;font-size:14px" aria-label="Completed">✓</span></sc-if></button></div></sc-if>
 </sc-for>
 </div>
 <button sc-camel-on-click="{{ onTTMenuProfile }}" style="margin:0 10px calc(16px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DCE6F0;border-radius:12px;padding:12px 14px;font-family:inherit;font-weight:800;font-size:14px;color:#0C1B2E;cursor:pointer"><span style="color:#7E8D9C">●</span> My Profile</button>
@@ -15762,6 +15781,65 @@ class Component extends DCLogic {
     if(by[TT_THANKS_ID]) list.push(Object.assign({},by[TT_THANKS_ID],{n:0}));
     return list;
   }
+  /* A version's lessons under their fundamentals, in program order (Overview,
+     Energy, … Starfish Moments), each group in the version's own order. A
+     fundamental with no lessons in this version has no group; the closing
+     Thank you! is in none. */
+  ttGroups(list){
+    const funds=TT_FUND_ORDER.slice();
+    list.forEach(l=>{ if(!l.closing&&funds.indexOf(l.fund)<0) funds.push(l.fund); });
+    return funds.map(f=>({fund:f,name:TT_FUND_NAMES[f]||'Other',lessons:list.filter(l=>!l.closing&&l.fund===f)}))
+      .filter(g=>g.lessons.length);
+  }
+  /* The Twin Thieves pyramid page: the Playbook home pyramid's blocks, labels
+     and icons (pyramidVM in its display-only form, so nothing locked and no
+     progress colors), made tappable here. count[fund] is how many lessons the
+     member's version has under each block; a block with none is dimmed. The
+     picked block (focus) gets a yellow outline, drawn on top as sel. */
+  ttPyramidVM(count,focus,pick){
+    const base=this.pyramidVM(TT_PYR,{highlight:null,readOnly:true});
+    // The blocks in the order pyramidVM draws them: apex row first, each row left to right.
+    const onPyr=t=>byRow(TT_PYR.filter(m=>(m.tier||0)===t)).filter(m=>m.pyramid!==false&&!partRoot(m));
+    const order=[3,2,1].reduce((a,t)=>a.concat(onPyr(t)),[]);
+    if(order.length!==base.cells.length) return {cells:[],cellLabels:[],sel:''};
+    let li=0, sel='';
+    const cells=base.cells.map((c,i)=>{ const m=order[i], n=count[m.id]||0, on=m.id===focus;
+      const k=pyrLines(m).length;
+      for(let j=li;j<li+k&&j<base.cellLabels.length;j++) if(!n) base.cellLabels[j].style+=';opacity:.42';
+      li+=k;
+      if(on&&n) sel=c.points;
+      return Object.assign({},c,{fund:m.id,empty:n?'0':'1',
+        gStyle:'cursor:pointer;'+(n?'':'opacity:.42;')+(on&&n?'filter:drop-shadow(0 0 8px rgba(250,218,1,.6))':''),
+        onTap:()=>pick(m,n)}); });
+    return {cells,cellLabels:base.cellLabels,sel};
+  }
+  /* The level labels in the wedge left of the pyramid, as on the Playbook
+     home, dimmed for a level with no lessons in this version. */
+  ttTierText(count){
+    const AX=150,AY=10,BR=290,BY=250;
+    const xAt=(y,side)=>{const t=(y-AY)/(BY-AY);return AX+(side*(BR-AX))*t;};
+    const marks=[{t:3,y0:AY,y1:90},{t:2,y0:90,y1:170},{t:1,y0:170,y1:BY}].map(r=>{
+      const funds=TT_PYR.filter(m=>m.tier===r.t);
+      const label=(TIER_LABEL[r.t]||'').replace(/^Level \d+: /,'');
+      const twoLine=label.length>12;
+      const NUMH=6.5, LEAD=9.6, GAP=2.4;
+      const blockH=NUMH+GAP+(twoLine?2:1)*LEAD;
+      const ymid=(r.y0+r.y1)/2;
+      const lastLineY=ymid+blockH/2-LEAD/2;
+      const edge=Math.min(xAt(lastLineY,-1)-2,296);
+      return {tx:edge.toFixed(1),dim:!funds.some(m=>count[m.id]),num:'LEVEL '+r.t,
+        numY:(ymid-blockH/2+NUMH).toFixed(1),
+        lineList:(twoLine?[label.split(' ').slice(0,-1).join(' '),label.split(' ').slice(-1)[0]]:[label])
+          .map((t,i)=>({t:t.toUpperCase(),y:(ymid-blockH/2+NUMH+GAP+LEAD*(i+1)-1.8).toFixed(1)}))};
+    });
+    return React.createElement('g',{style:{pointerEvents:'none'}},
+      marks.map((tm,i)=>React.createElement('g',{key:i,opacity:tm.dim?0.45:1},
+        React.createElement('text',{x:tm.tx,y:tm.numY,style:{textAnchor:'end',fill:'#6FC0EA',
+          fontFamily:'Montserrat,sans-serif',fontSize:'6.5px',fontWeight:800,letterSpacing:'1.1px'}},tm.num),
+        tm.lineList.map((ln,j)=>React.createElement('text',{key:j,x:tm.tx,y:ln.y,
+          style:{textAnchor:'end',fill:'#FFFFFF',fontFamily:'Montserrat,sans-serif',
+            fontSize:'8.6px',fontWeight:900,letterSpacing:'.1px'}},ln.t)))));
+  }
   ttDone(id){ const p=this.state.ttProg||{}; return !!(p[id]&&p[id].doneAt); }
   /* A Twin Thieves invite is waiting (from ?tti): open the code form with
      the code filled in and say so. */
@@ -15800,11 +15878,14 @@ class Component extends DCLogic {
     window.scrollTo(0,0);
     return true;
   }
-  ttOpen(id){ this.setState({view:'ttlesson',tab:'lessons',ttLessonId:id,ttTab:'overview',ttPlay:false,ttSeek:0,ttMenu:false},()=>this.ttScrollSide()); window.scrollTo(0,0); }
+  ttOpen(id){ this.setState({view:'ttlesson',tab:'lessons',ttLessonId:id,ttTab:'overview',ttPlay:false,ttSeek:0,ttMenu:false,ttFocus:null},()=>this.ttScrollSide()); window.scrollTo(0,0); }
   /* The lesson list scrolls inside itself (sidebar or phone menu) to the
-     current lesson, without moving the page. */
+     current lesson, or to the heading of the fundamental picked on the
+     pyramid, without moving the page. */
   ttScrollSide(){
     setTimeout(()=>{ try{ document.querySelectorAll('[data-tt-list]').forEach(box=>{
+      const head=box.querySelector('[data-tt-focus="1"]');
+      if(head){ box.scrollTo({top:Math.max(0,head.offsetTop-6),behavior:'smooth'}); return; }
       const el=box.querySelector('[data-tt-cur="1"]'); if(!el) return;
       box.scrollTop=Math.max(0,el.offsetTop-box.clientHeight/2+el.clientHeight/2); }); }catch(e){} },60);
   }
@@ -16270,40 +16351,64 @@ class Component extends DCLogic {
     if(next){ v.ttNextTitle='Lesson '+next.n+' · '+next.title; v.ttNextFund=TT_FUND_NAMES[next.fund]||'';
       v.onTTContinue=()=>this.ttOpen(next.id); }
     v.onTTThanks=()=>this.ttOpen(TT_THANKS_ID);
-    const rows=[]; let last='';
-    list.forEach(l=>{
-      const fund=l.closing?'thanks':l.fund;
-      if(fund!==last){ rows.push({isHead:true,isRow:false,text:l.closing?'Closing':(TT_FUND_NAMES[fund]||'')}); last=fund; }
-      const done=this.ttDone(l.id);
-      rows.push({isHead:false,isRow:true,num:l.closing?'★':(done?'✓':String(l.n)),
-        title:l.closing?'Thank you!':l.title, sub:l.closing?'Closing':'Lesson '+l.n,
-        numStyle:'flex:none;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;'
-          +(done?'background:#2F7F55;color:#fff':(l.closing?'background:#FADA01;color:#0C2647':'background:#EAF1F8;color:#0C2647')),
-        onOpen:()=>this.ttOpen(l.id)});
-    });
-    v.ttRows=rows;
-    // The lesson list for the sidebar (desktop) and the menu (phones).
+    /* The lesson list for the sidebar (desktop) and the menu (phones): this
+       version's lessons under their fundamental, in program order, each with
+       its progress; Thank you! last, on its own. On the pyramid page a block
+       picks a fundamental (ttFocus), and its heading and lessons light up. */
+    const groups=this.ttGroups(list);
+    const focus=s.view==='tthome'?(s.ttFocus||''):'';
     const curId=s.view==='ttlesson'?s.ttLessonId:'';
-    v.ttSide=list.map(l=>{ const d=this.ttDone(l.id), me=l.id===curId;
-      return {cur:me?'1':'0',num:l.closing?'★':String(l.n),title:l.closing?'Thank you!':l.title,done:d,
-        style:'width:100%;display:flex;align-items:center;gap:10px;text-align:left;font-family:inherit;cursor:pointer;border:0;border-radius:10px;padding:8px 10px;margin-bottom:2px;'
-          +(me?'background:#FFF7CC;box-shadow:inset 3px 0 0 #FADA01':'background:transparent'),
+    const row=l=>{ const d=this.ttDone(l.id), me=l.id===curId, inF=!!focus&&!l.closing&&l.fund===focus;
+      return {isHead:false,isRow:true,cur:me?'1':'0',num:l.closing?'★':String(l.n),title:l.closing?'Thank you!':l.title,done:d,
+        style:'width:100%;display:flex;align-items:center;gap:10px;text-align:left;font-family:inherit;cursor:pointer;border:0;border-radius:10px;padding:6px 10px;margin-bottom:2px;'
+          +(me?'background:#FFF7CC;box-shadow:inset 3px 0 0 #FADA01':(inF?'background:#E4F3FB;box-shadow:inset 3px 0 0 #00A3E0':'background:transparent')),
         numStyle:'flex:none;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10.5px;'
           +(d?'background:#2F7F55;color:#fff':(l.closing?'background:#FADA01;color:#0C2647':'background:#EAF1F8;color:#0C2647')),
-        titleStyle:'font-size:12.5px;line-height:1.3;color:#0C1B2E;font-weight:'+(me?'800':'600'),
-        onTap:()=>this.ttOpen(l.id)}; });
+        titleStyle:'font-size:12.5px;line-height:1.3;color:#0C1B2E;font-weight:'+(me||inF?'800':'600'),
+        onTap:()=>this.ttOpen(l.id)}; };
+    const side=[];
+    groups.forEach(g=>{ const dn=g.lessons.filter(l=>this.ttDone(l.id)).length, on=g.fund===focus, all=dn===g.lessons.length;
+      side.push({isHead:true,isRow:false,fund:g.fund,focus:on?'1':'0',text:g.name,count:(all?'✓ ':'')+dn+'/'+g.lessons.length,
+        headStyle:'box-sizing:border-box;height:22px;margin-top:2px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px;border-radius:8px;font-weight:800;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;'
+          +(on?'background:#00A3E0;color:#FFFFFF':'color:#7E8D9C'),
+        countStyle:'flex:none;font-size:10px;letter-spacing:.04em;font-weight:800;color:'+(on?'#FFFFFF':(all?'#2F7F55':'#9DAAB8'))});
+      g.lessons.forEach(l=>side.push(row(l))); });
+    const thanks=list.find(l=>l.closing); if(thanks) side.push(row(thanks));
+    v.ttSide=side;
     /* The desktop/iPad sidebar list fills the height down to My Profile, which
-       sits just under it near the bottom of the window (rows spread by CSS;
+       sits just under it near the bottom of the window. Headings keep their
+       24px (--tt-hh in all); lesson rows share the rest (rows spread by CSS;
        a long list scrolls inside). */
+    const nRows=Math.max(1,side.filter(r=>r.isRow).length), hh=groups.length*24;
     v.ttSideListStyle='position:relative;height:calc(100vh - 256px);min-height:120px;overflow-y:auto;margin:2px 0 10px;padding:4px 4px 4px 6px;border-left:2px solid #DCE6F0;'
-      +'--tt-h:calc(100vh - 280px);--tt-n:'+Math.max(1,list.length);
+      +'--tt-h:calc(100vh - 280px);--tt-n:'+nRows+';--tt-hh:'+hh+'px';
     // The phone menu's list; --tt-n spreads its rows over the height (CSS above).
-    v.ttDrawerListStyle='flex:1;min-height:0;overflow-y:auto;position:relative;padding:0 10px 10px calc(10px + env(safe-area-inset-left));--tt-n:'+Math.max(1,list.length);
+    v.ttDrawerListStyle='flex:1;min-height:0;overflow-y:auto;position:relative;padding:0 10px 10px calc(10px + env(safe-area-inset-left));--tt-n:'+nRows+';--tt-hh:'+hh+'px';
     v.ttPhone=!W; v.ttWide=!!W;
     v.ttMenuOpen=!!s.ttMenu&&!W;
     v.onTTMenu=()=>{ this.setState({ttMenu:true},()=>this.ttScrollSide()); };
     v.onTTMenuClose=()=>this.setState({ttMenu:false});
     v.onTTMenuProfile=()=>{ this.setState({ttMenu:false,view:'ttme',tab:'me'}); window.scrollTo(0,0); };
+    // The menu's first item: back to the pyramid page.
+    v.onTTMenuPlaybook=()=>{ this.setState({ttMenu:false,view:'tthome',tab:'lessons'}); window.scrollTo(0,0); };
+    v.ttMenuPbStyle='box-sizing:border-box;height:44px;margin:0 10px 8px calc(10px + env(safe-area-inset-left));display:flex;align-items:center;gap:10px;border-radius:12px;padding:0 14px;font-family:inherit;font-weight:800;font-size:14px;cursor:pointer;'
+      +(s.view==='tthome'?'background:linear-gradient(100deg,#123663,#0C2647);color:#FFFFFF;border:1px solid #0C2647':'background:#fff;color:#0C1B2E;border:1px solid #DCE6F0');
+    /* The pyramid page. A block picks its fundamental: on a wide screen the
+       sidebar highlights that group and scrolls to it; on a phone the menu
+       opens on it. A block with no lessons in this version is dimmed. */
+    if(s.view==='tthome'){
+      const count={}; groups.forEach(g=>{ count[g.fund]=g.lessons.length; });
+      const pick=(m,n)=>{ if(!n) return this.setState({ttFocus:m.id,ttMenu:false});
+        this.setState(W?{ttFocus:m.id}:{ttFocus:m.id,ttMenu:true},()=>this.ttScrollSide()); };
+      const pyr=this.ttPyramidVM(count,focus,pick);
+      v.ttPyrCells=pyr.cells; v.ttPyrLabels=pyr.cellLabels; v.ttPyrTiers=this.ttTierText(count);
+      v.ttPyrSel=pyr.sel; v.ttPyrHasSel=!!pyr.sel;
+      const rgb=hexRgb('#0C2647');
+      v.ttHeroStyle='border-radius:18px;padding:20px 16px 18px;color:#FFFFFF;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,'+shade(rgb,0.42)+' 0%,'+shade(rgb,0.18)+' 50%,#0C2647 100%)';
+      v.ttPyrCaption=(W?'Click':'Tap')+' a block to see its lessons';
+      v.ttPyrNote=focus&&!count[focus]?(TT_FUND_NAMES[focus]||'')+': No lessons in this section yet.':'';
+      v.ttPyrHasNote=!!v.ttPyrNote;
+    }
     // Lesson page
     if(s.view==='ttlesson'){
       const cur=list.find(l=>l.id===s.ttLessonId)||list[0];
@@ -16352,7 +16457,8 @@ class Component extends DCLogic {
       v.ttThanksCardStyle=card+'justify-content:center;background:#fff;border:1px solid #DCE6F0;padding:18px 16px;text-align:center';
       const pm=TT_PYR.find(p=>p.id===hl);
       v.ttFitText=pm?(pm.name+' · '+TIER_LABEL[pm.tier]):'All nine fundamentals of the pyramid';
-      v.onTTHome=()=>{ this.setState({view:'tthome',tab:'lessons'}); window.scrollTo(0,0); };
+      // "← All lessons": back to the pyramid page.
+      v.onTTHome=()=>{ this.setState({view:'tthome',tab:'lessons',ttFocus:null}); window.scrollTo(0,0); };
       v.ttDiscussion=(cur.discussion||[]).map(q=>({text:q})); v.ttHasDiscussion=v.ttDiscussion.length>0;
       v.ttAdditional=(cur.additional||[]).map(q=>({text:q})); v.ttHasAdditional=v.ttAdditional.length>0;
       v.ttHasQuestions=v.ttHasDiscussion||v.ttHasAdditional; v.ttNoQuestions=!v.ttHasQuestions&&!isThanks;
@@ -25082,9 +25188,10 @@ class Component extends DCLogic {
     this.ttRender(v,W);
     const navDef=isAdminOnly
       ? [{k:'studio',g:'⚙',l:'Studio',v:'admin',n:0}]
-      /* A Twin Thieves program has only its lessons and the profile. */
+      /* A Twin Thieves program has its pyramid page (Playbook, with the
+         lessons listed under it in the sidebar) and the profile. */
       : this.isTT()
-      ? [{k:'lessons',g:'▲',l:'Lessons',v:'tthome',n:0,gc:W?'#00A3E0':'#FFFFFF'},
+      ? [{k:'lessons',g:'▲',l:'Playbook',v:'tthome',n:0,gc:W?'#00A3E0':'#FFFFFF'},
          {k:'me',g:'●',l:'My Profile',v:'ttme',n:0}]
       : [{k:'playbook',g:'▲',l:this.wordFor('tabPlaybook','Playbook'),v:'home',n:0,gc:W?'#00A3E0':'#FFFFFF'},
          {k:'toolkit',g:'🧰',l:this.wordFor('tabToolkit','Toolkit'),v:'toolkit',n:0},
@@ -25099,8 +25206,11 @@ class Component extends DCLogic {
       : 'width:100%;max-width:460px;display:grid;grid-template-columns:repeat('+navDef.length+',1fr);gap:2px;background:#0C1B2F;border-top:2px solid #00A3E0;padding:8px 6px calc(8px + env(safe-area-inset-bottom));pointer-events:auto';
     // The profile tab wears their own photo once they've uploaded one.
     const navAv=(s.resp&&s.resp.avatar)||'';
+    const ttSideNav=!!W&&this.isTT();
     v.tabs=navDef.map(t=>{
-      const active=isAdminOnly?true:(s.tab===t.k);
+      /* Twin Thieves sidebar: Playbook is lit on the pyramid page only; in a
+         lesson the lesson itself is lit in the list under it. */
+      const active=isAdminOnly?true:((ttSideNav&&t.k==='lessons')?s.view==='tthome':(s.tab===t.k));
       const tabKey=t.k;
       const photo=(t.k==='me'&&navAv)?navAv:'';
       return {key:tabKey, glyph:t.g,label:t.l,badge:t.n>9?'9+':String(t.n),

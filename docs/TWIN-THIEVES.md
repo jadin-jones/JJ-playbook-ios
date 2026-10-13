@@ -73,11 +73,31 @@ A lesson's video URL may be YouTube, Vimeo, Google Drive or a direct MP4
 - **Transcripts** are no longer shown or edited. Saved transcripts stay in
   the library.
 - **"← All lessons"** sits at the top and the bottom of every lesson and
-  returns to the overview (Your lessons).
-- **Phone menu.** The lesson drawer respects the phone's safe areas. On
-  phones (under 600 px) its rows share the height between the heading and My
-  Profile; a long list keeps its spacing and scrolls. iPad and desktop are
-  unchanged.
+  returns to the pyramid page.
+- **Phone menu.** The lesson drawer respects the phone's safe areas. Under
+  900 px (phones and iPad in portrait) its rows share the height between the
+  Playbook item and My Profile; a long list keeps its spacing and scrolls.
+
+## Pyramid page and lessons by fundamental (October 2026)
+
+- **Home is the pyramid.** After sign-in a member lands on Playbook Overview:
+  the Playbook home pyramid's blocks, icons and level labels (`ttPyramidVM`
+  wraps `pyramidVM` in its display-only form, which is unchanged), all open,
+  with no assessment ring. "Playbook" is the first item in the sidebar and
+  the phone menu.
+- **Lessons by fundamental.** The sidebar and the phone menu list the
+  version's lessons under fundamental headings in program order (Overview,
+  Energy, … Starfish Moments), each heading with its done/total count, and
+  Thank you! last on its own (`ttGroups`). A fundamental with no lessons in
+  the version has no heading. The list still fills the height down to My
+  Profile; a long one scrolls.
+- **A block picks its fundamental** (`ttFocus`). Desktop and iPad in
+  landscape: the page stays, and that group lights up in the sidebar and
+  scrolls into view. Phones: the menu opens on that group. A block with no
+  lessons in the version is dimmed and says "No lessons in this section yet."
+- **Playbook programs are untouched.** Everything is behind `isTT()`; the
+  checks in `test/isolation/run.js` compare the Playbook's own pieces with
+  `d5c35ad`.
 
 ## Notifications: none for Twin Thieves
 

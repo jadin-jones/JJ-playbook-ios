@@ -443,6 +443,41 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('lessons menu: the sidebar list fills the height only for Twin Thieves; the drawer rule covers phones and iPad portrait',
       (html.match(/data-tt-side="1" style=/g) || []).length === 1 && /<sc-if value="\{\{ tb\.hasTTList \}\}"[^>]*>\n<div data-tt-list="1" data-tt-side="1"/.test(html)
       && /hasTTList:W&&this\.isTT\(\)&&t\.k==='lessons'/.test(html) && /@media \(max-width:899px\)\{\n\[data-tt-drawer="1"\]/.test(html));
+    // Pyramid home page and lessons grouped by fundamental (Twin Thieves only).
+    // d5c35ad is main before this change: the Playbook's own pieces are compared with it.
+    let before = '';
+    try { before = execSync('git show d5c35ad:public/index.html', { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }).toString(); } catch (e) {}
+    const method = (src, name) => { const a = src.indexOf('\n  ' + name + '('); if (a < 0) return ''; const b = src.slice(a + 1).search(/\n  (?:async )?[A-Za-z_$][\w$]*\([^)]*\)\{/); return src.slice(a, b < 0 ? undefined : a + 1 + b); };
+    ok('pyramid page: the Playbook home pyramid (pyramidVM) is unchanged', !!before && !!method(html, 'pyramidVM') && method(html, 'pyramidVM') === method(before, 'pyramidVM'));
+    const pbNav = src => { const m = src.match(/: \[\{k:'playbook'[\s\S]*?\.concat\(\[\{k:'me'[^\n]*\n/); return m ? m[0] : ''; };
+    ok('pyramid page: the Playbook menu items are unchanged', !!before && !!pbNav(html) && pbNav(html) === pbNav(before));
+    const views = []; let at = -1;
+    while ((at = html.indexOf("'tthome'", at + 1)) >= 0) {
+      const back = html.slice(0, at), lineStart = back.lastIndexOf('\n') + 1, line = html.slice(lineStart, html.indexOf('\n', at));
+      const ms = [...back.matchAll(/\n  (?:async )?([A-Za-z_$][\w$]*)\([^)]*\)\{/g)], owner = ms.length ? ms[ms.length - 1][1] : '';
+      const safe = /^(tt|loadTT|startTT)/.test(owner) || /this\.isTT\(\)\?'tthome'/.test(line) || /v\.showTTHome=V\('tthome'\)/.test(line)
+        || /\(ttSideNav&&t\.k==='lessons'\)\?s\.view==='tthome'/.test(line)
+        || /: this\.isTT\(\)\n$/.test(html.slice(lineStart - 30, lineStart)) && /^      \? \[\{k:'lessons'/.test(line);
+      views.push({ owner, safe, line: line.trim().slice(0, 80) });
+    }
+    ok('pyramid page: every way into it is Twin Thieves-only (its own code, or behind isTT())', views.length >= 10 && views.every(v => v.safe), JSON.stringify(views.filter(v => !v.safe)));
+    ok('pyramid page: drawn only in the Twin Thieves home view', (html.match(/data-tt-pyr="1"/g) || []).length === 1
+      && /<sc-if value="\{\{ showTTHome \}\}" hint-placeholder-val="\{\{ false \}\}">\n<div data-tt-pyr="1"/.test(html));
+    const rnd = method(html, 'ttRender');
+    ok('pyramid page: its view model and the grouped list are built only after "if(!tt) return"',
+      !!rnd && rnd.indexOf('if(!tt) return;') > 0 && rnd.indexOf('ttGroups(') > rnd.indexOf('if(!tt) return;') && rnd.indexOf('ttPyramidVM(') > rnd.indexOf('if(!tt) return;')
+      && (html.match(/this\.ttGroups\(|this\.ttPyramidVM\(|this\.ttTierText\(/g) || []).length === 3);
+    ok('grouped list: fundamental headings only in the Twin Thieves sidebar and phone menu',
+      (html.match(/data-tt-group="\{\{ sl\.fund \}\}"/g) || []).length === 2
+      && /<div data-tt-list="1" data-tt-side="1"[^\n]*\n<sc-for list="\{\{ ttSide \}\}"[^\n]*\n<sc-if value="\{\{ sl\.isHead \}\}"/.test(html)
+      && /<div data-tt-list="1" data-tt-drawer="1"[^\n]*\n<sc-for list="\{\{ ttSide \}\}"[^\n]*\n<sc-if value="\{\{ sl\.isHead \}\}"/.test(html));
+    ok('menu: "Playbook" lights on the pyramid page only in the Twin Thieves sidebar; every other menu unchanged',
+      /const ttSideNav=!!W&&this\.isTT\(\);/.test(html)
+      && /const active=isAdminOnly\?true:\(\(ttSideNav&&t\.k==='lessons'\)\?s\.view==='tthome':\(s\.tab===t\.k\)\);/.test(html)
+      && /const active=isAdminOnly\?true:\(s\.tab===t\.k\);/.test(before));
+    ok('lessons: "← All lessons" goes back to the pyramid page', /v\.onTTHome=\(\)=>\{ this\.setState\(\{view:'tthome',tab:'lessons',ttFocus:null\}\);/.test(html));
+    const css = html.slice(html.indexOf('/* Twin Thieves lesson menu'), html.indexOf('@keyframes jjFall'));
+    ok('pyramid page: the new styles reach only Twin Thieves elements', !!css && css.split('\n').filter(l => /\{/.test(l) && !/^@media/.test(l)).every(l => /^\[data-tt-(drawer|side)="1"\]/.test(l)));
     const j1 = fs.readFileSync(path.join(ROOT, 'netlify/functions/join.js'), 'utf8'), j2 = fs.readFileSync(path.join(ROOT, 'netlify/functions/tt-join.js'), 'utf8');
     ok('logging: the temporary sign-in error logs are gone', !/verify', e && e\.code, e && e\.message/.test(j1 + j2));
   }
