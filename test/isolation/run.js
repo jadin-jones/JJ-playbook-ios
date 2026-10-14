@@ -100,7 +100,10 @@ function loadFn(file, store, users) {
   require.cache[lib] = { id: lib, filename: lib, loaded: true, exports: {
     admin: { firestore: { FieldPath: { documentId: () => '__id' }, Timestamp: { fromMillis: x => x },
       FieldValue: { arrayUnion: (...x) => ({ union: x }), serverTimestamp: () => 0 } } },
-    db: store.db, auth: () => ({ verifyIdToken: async t => { if (!users[t]) throw new Error('bad'); return users[t]; } }),
+    db: store.db, auth: () => ({ verifyIdToken: async t => { if (!users[t]) throw new Error('bad'); return users[t]; },
+      // Auth accounts by email (store.accounts[email] = [UserRecord-like]); each call's size is kept.
+      getUsers: async ids => { (store.authCalls = store.authCalls || []).push(ids.length);
+        return { users: [].concat(...ids.map(i => (store.accounts || {})[i.email] || [])) }; } }),
     missingEnv: () => [] } };
   require.cache[ms] = { id: ms, filename: ms, loaded: true, exports: { isMicrosoft: t => t.firebase.sign_in_provider === 'microsoft.com', isConfirmed: async () => false } };
   return require(path.join(ROOT, 'netlify/functions', file)).handler;
@@ -395,6 +398,32 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('app: Remove keeps the progress record and stores the name on the marker', !!rm && !/sdel\('ttm:/.test(rm) && /name:String\(m\.name\|\|''\)\}/.test(rm));
     ok('app: saving the approved list restores the removed people on it',
       /\.filter\(e=>e&&emails\.indexOf\(e\)>=0\);[\s\S]{0,40}const n=back\.length\?await this\.ttRestore\(id,back,true\):0;/.test(html));
+    // Last opened: Auth's own times, for current Twin Thieves members only; nothing written.
+    {
+      const lo = makeStore(), D = 86400000, now = Date.now(), iso = t => new Date(t).toUTCString();
+      lo.docs['ttmembers/ann@s.org'] = { email: 'ann@s.org', orgs: ['TT36'] };
+      lo.docs['ttmembers/bo@s.org'] = { email: 'bo@s.org', orgs: ['TT10'] };
+      lo.docs['ttmembers/gone@s.org'] = { email: 'gone@s.org', orgs: [] };
+      lo.docs['members/pb@s.org'] = { email: 'pb@s.org', orgs: ['PLAYBOOK26'] };
+      lo.accounts = {
+        'ann@s.org': [{ email: 'ann@s.org', metadata: { lastSignInTime: iso(now - 9 * D), lastRefreshTime: iso(now - 2 * D) } },
+          { email: 'ann@s.org', metadata: { lastSignInTime: iso(now - 30 * D), lastRefreshTime: null } }],
+        'gone@s.org': [{ email: 'gone@s.org', metadata: { lastRefreshTime: iso(now) } }],
+        'pb@s.org': [{ email: 'pb@s.org', metadata: { lastRefreshTime: iso(now) } }] };
+      const lusers = { ADM: U('charlie@jadin-jones.com'), MSA: U('lucas@jadin-jones.com', 'microsoft.com'), T: U('ann@s.org') };
+      const last = (tok, body) => call(loadFn('tt-invite.js', lo, lusers), tok, body).then(r => ({ code: r.statusCode, body: JSON.parse(r.body) }));
+      const r1 = await last('ADM', { action: 'lastopened', emails: ['Ann@s.org', 'bo@s.org', 'gone@s.org', 'pb@s.org', 'nobody@s.org', 'not an email'] });
+      const t = r1.body.times || {};
+      ok('last opened: an admin gets Auth\'s latest time for each current Twin Thieves member (the later of refresh and sign-in, any of their accounts)',
+        r1.code === 200 && Math.abs(t['ann@s.org'] - (now - 2 * D)) < 1000 && t['bo@s.org'] === null, JSON.stringify(r1.body));
+      ok('last opened: nobody outside Twin Thieves is answered (a removed member, a Playbook-only member, an unknown address)',
+        Object.keys(t).sort().join() === 'ann@s.org,bo@s.org' && JSON.stringify(lo.authCalls) === '[2]', JSON.stringify(Object.keys(t)) + ' ' + JSON.stringify(lo.authCalls));
+      ok('last opened: nothing is written (only the rate limit\'s own count)', lo.writes.every(w => /^rateLimits\//.test(w)), lo.writes.join());
+      const refused = [await last('T', { action: 'lastopened', emails: ['ann@s.org'] }), await last('MSA', { action: 'lastopened', emails: ['ann@s.org'] }),
+        await last('NOPE', { action: 'lastopened', emails: ['ann@s.org'] }), await last('ADM', { action: 'lastopened', emails: Array.from({ length: 201 }, (_, i) => 'x' + i + '@s.org') })];
+      ok('last opened: a member, a Microsoft admin sign-in and a bad token are refused; over 200 addresses is refused; Auth is never asked',
+        refused.map(r => r.code).join() === '403,403,401,400' && JSON.stringify(lo.authCalls) === '[2]', refused.map(r => r.code).join());
+    }
     ok('app: Studio marks removed members and offers Restore access',
       /st==='removed'\?'Removed'/.test(html) && /canRestore:!!m\.removed,onRestore:\(\)=>this\.ttRestore\(/.test(html) && />Restore access<\/button>/.test(html));
   }
@@ -490,7 +519,24 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('pyramid page: the new styles reach only Twin Thieves elements', !!css && css.split('\n').filter(l => /\{/.test(l) && !/^@media/.test(l)).every(l => /^\[data-tt-(drawer|side)="1"\]/.test(l)));
     // Studio → Twin Thieves: names keep their spaces; Import lesson content.
     const tt = new Function(line(/const TT_FUND_NAMES=[\s\S]*?;\n/) + html.slice(html.indexOf('const ttNameInput='), html.indexOf('/* A thumbnail link as a CSS url()'))
-      + '\nreturn {ttNameInput,ttCleanNames,ttNamesRelated,ttImportPlan,ttImportApply,ttImportRevert};')();
+      + '\nreturn {ttNameInput,ttCleanNames,ttNamesRelated,ttImportPlan,ttImportApply,ttImportRevert,ttLastOpenedText};')();
+    {
+      const f = tt.ttLastOpenedText, now = new Date(2026, 9, 14, 15, 0).getTime(), at = (m, d, h) => new Date(2026, m, d, h || 10).getTime();
+      const got = [f(at(9, 14, 1), 0, now), f(at(9, 13, 23), 0, now), f(at(9, 11), 0, now), f(at(9, 7), 0, now), f(at(9, 6), 0, now),
+        f(new Date(2025, 11, 30).getTime(), 0, now), f(null, at(9, 1), now), f(at(9, 1, 10) + 1800000, at(9, 1, 10), now), f(at(9, 2), at(9, 1), now), f(now + 60000, 0, now)];
+      ok('last opened: Today, Yesterday, "3 days ago" up to a week, then the date (with the year if not this one); Never without a time or with none after the joining session',
+        got.join('|') === 'Today|Yesterday|3 days ago|7 days ago|Oct 6|Dec 30, 2025|Never|Never|Oct 2|Today', got.join('|'));
+    }
+    {
+      const lo = html.slice(html.indexOf('  async ttLoadLastOpened('), html.indexOf('  /* Remove: a rev: marker'));
+      ok('last opened (app): asked only from Studio\'s member list, through /api/tt-invite; nothing saved; never the Playbook\'s lastSeenAt',
+        !!lo && (html.match(/action:'lastopened'/g) || []).length === 1 && /this\.ttInviteApi\(\{action:'lastopened'/.test(lo)
+        && !/sset\(|lastSeenAt|localStorage/.test(lo) && (html.match(/this\.ttLoadLastOpened\(/g) || []).length === 1
+        && /this\.ttLoadLastOpened\(rows\.map\(r=>r\.email\),force\)/.test(html.slice(html.indexOf('  async ttLoadMembers(force){'), html.indexOf('  async ttLoadLastOpened('))));
+      ok('last opened (app): shown only on a current member\'s row (not a removed one or an invite)',
+        /hasLast:!!m\.isMember&&!m\.removed&&!m\.noRecord&&!!lastFor\(m\),last:lastFor\(m\),/.test(html)
+        && (html.match(/data-tt-last="1"/g) || []).length === 1 && !/lastSeenAt/.test(html.slice(html.indexOf('const lastMap=s.ttLast'), html.indexOf('const chip='))));
+    }
     {
       const want = 'Week 4: Be the Buffalo';
       let box = ''; for (const ch of want) box = tt.ttNameInput(box + ch);   // typed one key at a time
