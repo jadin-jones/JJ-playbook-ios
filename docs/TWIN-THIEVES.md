@@ -177,6 +177,22 @@ save.
   landscape: the page stays, and that group lights up in the sidebar and
   scrolls into view. Phones: the menu opens on that group. A block with no
   lessons in the version is dimmed and says "No lessons in this section yet."
+- **A lesson sits under its fundamental's heading, so its number can be out
+  of order there.** Numbers are places in the version's order; headings come
+  from each lesson's Fundamental (Studio → Twin Thieves → Lessons). A lesson
+  filed under a later fundamental shows up further down, so the list seems
+  to skip its number.
+- **Navy sidebar** (desktop and iPad in landscape, members only; `ttNavy`).
+  The sidebar is #13213B. Its label is #8FB8EA. Playbook is a #22375C button
+  with a light border and the yellow (#F5C518) triangle. Headings are
+  #9EC5F0, semi-bold, with #CFE0F5 counts and a thin white-12% line between
+  groups. Each lesson is a rounded tab (white 8% outline, 3% fill, #E8EEF7
+  text, #2F4A78 number circle); hover raises it to a 10% fill and 20% outline.
+  The current lesson is yellow (outline, tinted fill, yellow circle with a
+  navy number). My Profile is light text. Every text colour passes WCAG AA
+  (lowest 4.9:1, white on a done lesson's green circle). The phone menu,
+  Studio and the Playbook's sidebar are unchanged (`ttSide` stays the phone
+  menu's list; `ttSideDark` is the sidebar's).
 - **Playbook programs are untouched.** Everything is behind `isTT()`; the
   checks in `test/isolation/run.js` compare the Playbook's own pieces with
   `d5c35ad`.
