@@ -134,9 +134,19 @@ A lesson's video URL may be YouTube, Vimeo, Google Drive or a direct MP4
   existing videos** is ticked (and still claims its file, so the file never
   goes to a similarly named lesson).
 - Every lesson that gets a video also gets the challenge thumbnail, unless it
-  has its own and **Replace existing thumbnails** is not ticked. On the first
-  Confirm the image is downloaded once from HubSpot, redrawn as a JPEG (at most
-  1920 px) and uploaded to `session-thumbnails/`; later runs reuse that copy.
+  has its own and **Replace existing thumbnails** is not ticked. Storage rules
+  do not let the browser upload it, so Confirm asks `/api/tt-videos`
+  (`{ action:'thumb' }`, admins only).
+  - On its first call the function downloads the image once from HubSpot,
+    redraws it with `jimp` as a JPEG (at most 1920 px, about 300 KB) and saves
+    it as `session-thumbnails/twin-thieves-challenge.jpg`, with a download
+    token.
+  - Later calls return that copy. That file is the only one it writes, and it
+    never replaces it.
+  - Every linked lesson gets that copy's link.
+- **Skip thumbnails** links the videos and leaves every thumbnail as it is, so
+  a thumbnail problem never blocks the videos. If the thumbnail can't be got,
+  Confirm stops, changes nothing, and says to tick it.
 - **Confirm** reads the library as saved, stops if anything in the preview
   changed, keeps the replaced videos and thumbnails in `ttlib:video-undo`
   (admins only), then saves `ttlib:master`. Only `videoUrl` and `thumbUrl`

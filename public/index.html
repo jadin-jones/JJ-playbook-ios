@@ -5719,10 +5719,11 @@ sc-if,sc-for{display:none!important}
 <sc-for list="{{ ttVidFolderRows }}" as="vf" hint-placeholder-count="2"><p data-tt-videos-folder="1" style="margin:2px 0 0;font-size:12px;color:#7E8D9C">{{ vf.text }}</p></sc-for>
 <p style="margin:4px 0 8px;font-size:12.5px;color:#37475C">{{ ttVidHead }}</p>
 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 10px">
-<img data-tt-videos-thumb="1" src="{{ ttVidThumb }}" alt="Thumbnail for the linked lessons" style="width:160px;max-width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid #DCE6F0;background:#0C2647">
+<sc-if value="{{ ttVidThumbOn }}" hint-placeholder-val="{{ true }}"><img data-tt-videos-thumb="1" src="{{ ttVidThumb }}" alt="Thumbnail for the linked lessons" style="width:160px;max-width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid #DCE6F0;background:#0C2647"></sc-if>
 <div style="display:flex;flex-direction:column;gap:6px">
 <button role="checkbox" sc-camel-on-click="{{ onTTVidRepVid }}" style="{{ ttVidRepVidStyle }}">{{ ttVidRepVid }}</button>
-<button role="checkbox" sc-camel-on-click="{{ onTTVidRepTh }}" style="{{ ttVidRepThStyle }}">{{ ttVidRepTh }}</button>
+<sc-if value="{{ ttVidThumbOn }}" hint-placeholder-val="{{ true }}"><button role="checkbox" sc-camel-on-click="{{ onTTVidRepTh }}" style="{{ ttVidRepThStyle }}">{{ ttVidRepTh }}</button></sc-if>
+<button data-tt-videos-skipthumbs="1" role="checkbox" sc-camel-on-click="{{ onTTVidSkipTh }}" style="{{ ttVidSkipThStyle }}">{{ ttVidSkipTh }}</button>
 </div>
 </div>
 <sc-for list="{{ ttVidBlockers }}" as="vb" hint-placeholder-count="0"><p style="margin:0 0 6px;font-size:12.5px;font-weight:700;color:#8F2D13">✕ {{ vb.text }}</p></sc-for>
@@ -5749,7 +5750,7 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 <div style="{{ ttVidBarStyle }}">
-<span style="flex:1 1 100%;font-size:12px;color:#37475C">Only videos and thumbnails change; everything else stays.</span>
+<span style="flex:1 1 100%;font-size:12px;color:#37475C">{{ ttVidBarNote }}</span>
 <button sc-camel-on-click="{{ onTTVidCancel }}" style="{{ ttBtnLine }}">Cancel</button>
 <sc-if value="{{ ttVidReady }}" hint-placeholder-val="{{ true }}"><button data-tt-videos-confirm="1" sc-camel-on-click="{{ onTTVidConfirm }}" style="{{ ttBtnNavy }}">{{ ttVidConfirmLabel }}</button></sc-if>
 </div>
@@ -8748,7 +8749,7 @@ function ttVideoPlan(files,lib,opts){
     return {id:l.id,pos,name:nameOf(l),closing:!!l.closing,path,file:f,picked:l.id in picks,
       alts:alt?alt.map(p=>fileBy[p]):null,
       status:link?'link':(can?'nourl':(same?'same':(has&&!opts.replaceVideos?'skip':(alt?'choose':(has?'skip':'none'))))),
-      thumb:link?((!hasThumb||opts.replaceThumbs)?'set':'keep'):'',
+      thumb:link&&!opts.skipThumbs?((!hasThumb||opts.replaceThumbs)?'set':'keep'):'',
       heavy:rate>TT_MB_PER_MIN*1024*1024,mov:!!(f&&/\.mov$/i.test(f.path))};
   });
   const unmatched=vids.filter(f=>!used[f.path]&&!linkedTo[f.path]);
@@ -8776,18 +8777,6 @@ function ttVideoRevert(lib,prev){
     if(p.setThumb!=null&&String(l.thumbUrl||'')===String(p.setThumb)) back('thumbUrl',p.thumbUrl);
     return out; });
   return Object.assign({},lib,{lessons});
-}
-/* An image link as a JPEG File (at most 1920 px, on navy), for keeping our
-   own copy of an outside image. The link must allow cross-origin reading. */
-async function ttImageCopy(url,name){
-  const img=await new Promise((res,rej)=>{ const i=new Image(); i.crossOrigin='anonymous';
-    i.onload=()=>res(i); i.onerror=()=>rej(new Error('the thumbnail image could not be downloaded')); i.src=url; });
-  const w=img.naturalWidth||1, h=img.naturalHeight||1, sc=Math.min(1,1920/Math.max(w,h));
-  const cv=document.createElement('canvas'); cv.width=Math.max(1,Math.round(w*sc)); cv.height=Math.max(1,Math.round(h*sc));
-  const g=cv.getContext('2d'); g.fillStyle='#0C2647'; g.fillRect(0,0,cv.width,cv.height); g.drawImage(img,0,0,cv.width,cv.height);
-  const blob=await new Promise(res=>{ try{ cv.toBlob(res,'image/jpeg',0.85); }catch(e){ res(null); } });
-  if(!blob) throw new Error('the thumbnail image could not be copied');
-  return new File([blob],name,{type:'image/jpeg'});
 }
 /* A thumbnail link as a CSS url(): only http(s), quotes and brackets escaped. */
 const ttCssUrl=u=>/^https?:\/\//i.test(String(u||''))?'url("'+String(u).replace(/["\\()\s]/g,c=>encodeURIComponent(c))+'")':'';
@@ -16347,6 +16336,16 @@ class Component extends DCLogic {
      each file's size, type and download link; here each video's length is
      read and the preview shown. Storage rules do not let the browser list
      folders, and nothing is changed here. */
+  /* POST /api/tt-videos (admins): the reply, or { ok:false, error }. */
+  async ttVidApi(body){
+    try{
+      await authReady();
+      if(!firebase.auth().currentUser) return {ok:false,error:'Sign in first'};
+      const r=await authFetch('/api/tt-videos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)},60000);
+      let j={}; try{ j=await r.json(); }catch(e){}
+      return (r.ok&&j.ok)?j:{ok:false,error:j.error||'Could not reach the videos service'};
+    }catch(e){ return {ok:false,error:'Could not reach the videos service'}; }
+  }
   ttVidFolderList(){
     const t=this.state.ttVidFoldersText;
     const list=t==null?this.ttVidFoldersSaved():String(t).split('\n');
@@ -16371,15 +16370,8 @@ class Component extends DCLogic {
       return this.setState({ttVid:{folders:folders.map(f=>({folder:f,count:files.filter(x=>x.folder===f).length})),files},ttVidOpts:{picks:{}}});
     }
     this.setState({ttVid:{busy:true,msg:'Looking in '+folders.join(', ')+'…'},ttVidOpts:{picks:{}}});
-    let j={};
-    try{
-      await authReady();
-      if(!firebase.auth().currentUser) return note('Sign in first.');
-      const r=await authFetch('/api/tt-videos',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({folders})},60000);
-      try{ j=await r.json(); }catch(e){}
-      if(!r.ok||!j.ok) return note(String(j.error||'Could not reach the videos service').replace(/([^.!?])$/,'$1.')+' Nothing was changed.');
-    }catch(e){ return note('Could not reach the videos service. Check the connection and try again. Nothing was changed.'); }
+    const j=await this.ttVidApi({folders});
+    if(!j.ok) return note(String(j.error).replace(/([^.!?])$/,'$1.')+' Nothing was changed.');
     const items=(j.files||[]).filter(f=>f&&TT_VID_EXT_RE.test(String(f.name||'')));
     if(!items.length) return note('No videos were found in '+folders.map(f=>'"'+f+'"').join(' or ')+'. Check the folder names (exact, with spaces).');
     this.setState({ttVid:{busy:true,msg:'Reading '+items.length+' videos…'}});
@@ -16415,14 +16407,16 @@ class Component extends DCLogic {
       if(!fresh||!Array.isArray(fresh.lessons)) return stop('The lesson library is not saved yet. Nothing was changed.');
       const plan=ttVideoPlan(vid.files,fresh,opts);
       if(plan.blockers.length||sig(plan)!==sig(before)) return stop('The lessons changed since the preview. Open the tool again. Nothing was changed.');
-      let thumb=(rec&&rec.thumbCopy)||'';
-      if(plan.thumbs&&!thumb){
-        try{ const file=await ttImageCopy(TT_THUMB_SRC,'twin-thieves-challenge.jpg');
-          thumb=await this.uploadMedia(file,'session-thumbnails'); }
-        catch(e){ return stop('Could not store the thumbnail in Storage ('+((e&&(e.code||e.message))||'error')+'). Nothing was changed.'); }
+      // The thumbnail: the server's own copy of the challenge image (made once, then reused).
+      let thumb='';
+      if(plan.thumbs){
+        const t=await this.ttVidApi({action:'thumb'});
+        if(!t.ok||!/^https:\/\/firebasestorage\.googleapis\.com\//.test(String(t.url||'')))
+          return stop('Could not get the thumbnail ('+String(t.error||'error').replace(/[.!?]$/,'')+'). Tick "Skip thumbnails" to link the videos without it. Nothing was changed.');
+        thumb=String(t.url);
       }
       const r=ttVideoApply(fresh,plan,urls,thumb);
-      const undo={at:Date.now(),folders:(vid.folders||[]).map(f=>f.folder),items:r.prev,thumbCopy:thumb||null};
+      const undo={at:Date.now(),folders:(vid.folders||[]).map(f=>f.folder),items:r.prev,thumbCopy:thumb||(rec&&rec.thumbCopy)||null};
       if(!(await sset('ttlib:video-undo',undo))) return stop('Could not keep the current videos for Undo. Nothing was changed.');
       const out=Object.assign({},r.lib,{updatedAt:Date.now()});
       if(!(await sset('ttlib:master',out))) return stop('Could not save the lessons. Nothing was changed.');
@@ -16671,9 +16665,14 @@ class Component extends DCLogic {
       v.ttVidRepTh=(vopts.replaceThumbs?'☑':'☐')+' Replace existing thumbnails'; v.ttVidRepThStyle=box(!!vopts.replaceThumbs);
       v.onTTVidRepVid=()=>setOpt({replaceVideos:!vopts.replaceVideos});
       v.onTTVidRepTh=()=>setOpt({replaceThumbs:!vopts.replaceThumbs});
+      // Skip thumbnails: link the videos and leave every thumbnail as it is.
+      v.ttVidSkipTh=(vopts.skipThumbs?'☑':'☐')+' Skip thumbnails'; v.ttVidSkipThStyle=box(!!vopts.skipThumbs);
+      v.onTTVidSkipTh=()=>setOpt({skipThumbs:!vopts.skipThumbs});
+      v.ttVidThumbOn=!vopts.skipThumbs;
+      v.ttVidBarNote=vopts.skipThumbs?'Only videos change; thumbnails and everything else stay.':'Only videos and thumbnails change; everything else stays.';
       v.ttVidThumb=(vundo&&vundo.thumbCopy)||TT_THUMB_SRC;
       const heavy=vplan.rows.filter(r=>r.status==='link'&&r.heavy).length;
-      v.ttVidHead=vplan.linking+' lesson'+(vplan.linking===1?'':'s')+' will get a video · '+vplan.thumbs+' the thumbnail'
+      v.ttVidHead=vplan.linking+' lesson'+(vplan.linking===1?'':'s')+' will get a video · '+(vopts.skipThumbs?'thumbnails skipped':vplan.thumbs+' the thumbnail')
         +(heavy?' · '+heavy+' video'+(heavy===1?'':'s')+' over '+TT_MB_PER_MIN+' MB per minute':'')
         +' · '+vplan.rows.filter(r=>r.status==='none').length+' with no video found yet'
         +(vplan.choosing?' · '+vplan.choosing+' found in two folders: choose one':'')
