@@ -3,24 +3,26 @@
  * from the browser).
  *
  * POST /api/tt-videos   Authorization: Bearer <Firebase ID token of an admin>
- *   { }                 find the Twin Thieves videos folder and list it
- *   { folder:'x/' }     list that folder; it must be one this finds
- *   { prefer:'x/' }     list that folder if it is one this finds, else the default
- * → { ok, folder, folders:[...], files:[{ name, path, size, contentType, url }] }
+ *   { folders:['36 Lesson Video Folder', '10 Lessons Video'] }
+ *       up to 4 top-level folders, by their exact names (spaces and all);
+ *       none given lists DEFAULT_FOLDERS
+ * → { ok, folders:[{ folder, count }], files:[{ folder, name, path, size, contentType, url }] }
  *
- * Only a top-level folder named like Twin Thieves (or TT…), or a videos
- * folder inside one, is ever listed; any other folder is refused. Listing is
- * read-only: nothing in Storage or Firestore changes (apart from the rate
- * limit's own count). `url` is the file's download link in the same form the
- * app's own uploads get from getDownloadURL(), built from the download token
- * Storage already keeps on the file; a file without one has url null and is
- * never given one here.
+ * The bucket is always this project's own (<project>.firebasestorage.app,
+ * test-6b2ab.firebasestorage.app on live); a caller never chooses it. A
+ * folder is allowed only when it is a top-level folder whose name is a
+ * Twin Thieves one (Twin Thieves, TT…, or Lesson(s) Video), and never one
+ * of the Playbook's own folders, whatever its name. Anything else refuses
+ * the whole call. Listing is read-only: nothing in Storage or Firestore
+ * changes (apart from the rate limit's own count). `url` is the file's
+ * download link in the same form the app's own uploads get from
+ * getDownloadURL(), built from the download token Storage already keeps on
+ * the file; a file without one has url null and is never given one here.
  *
  * Only admins (not through Microsoft) may call it. 60 calls an hour per
  * connection.
  *
- * Env: FIREBASE_*, and FIREBASE_STORAGE_BUCKET when the bucket is not
- * <project>.firebasestorage.app.
+ * Env: FIREBASE_*.
  */
 const { admin, auth, missingEnv } = require('../lib/firebase-admin');
 const { isMicrosoft } = require('../lib/ms-verify');
@@ -31,37 +33,25 @@ const { allow, clientIp, HOUR } = require('../lib/rate-limit');
 const HDR = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
 const reply = (statusCode, body) => ({ statusCode, headers: HDR, body: JSON.stringify(body) });
 
-// The same tests as the app (TT_VID_FOLDER_RE, TT_VID_EXT_RE).
-const TT_FOLDER = /twin|thie|(^|[^a-z])tt([^a-z]|$)/i;
-const SUB_FOLDER = /video|vid|mp4/i;
+const DEFAULT_FOLDERS = ['36 Lesson Video Folder', '10 Lessons Video'];
+// The same test as the app (TT_VID_FOLDER_RE).
+const TT_FOLDER = /twin|thie|(^|[^a-z])tt([^a-z]|$)|lessons?[\s_-]*video/i;
+// Every folder the Playbook (and the rest of the app) uploads to.
+const APP_FOLDERS = ['session-videos', 'session-thumbnails', 'challenge-videos', 'welcome-videos', 'learn-more', 'knowledge'];
 const VIDEO = /\.(mp4|m4v|mov|webm)$/i;
-const MAX_FILES = 500;
+const MAX_FOLDERS = 4, MAX_FILES = 500;
 
-const bucketName = () => String(process.env.FIREBASE_STORAGE_BUCKET || '').trim()
-  || String(process.env.FIREBASE_PROJECT_ID || '') + '.firebasestorage.app';
+const bucketName = () => String(process.env.FIREBASE_PROJECT_ID || '') + '.firebasestorage.app';
 
-/* One level of a folder: its files and its subfolders (prefixes). */
-async function level(bucket, prefix) {
-  const [files, , res] = await bucket.getFiles({ prefix, delimiter: '/', autoPaginate: false, maxResults: 1000 });
-  return { files: (files || []).filter(f => f.name !== prefix), prefixes: (res && res.prefixes) || [] };
-}
-
-/* The Twin Thieves folders that hold videos: a top-level folder named like
-   Twin Thieves, and the videos folders directly inside one. */
-async function ttFolders(bucket) {
-  const out = [];
-  for (const top of (await level(bucket, '')).prefixes) {
-    if (!TT_FOLDER.test(top.replace(/\/$/, ''))) continue;
-    const t = await level(bucket, top);
-    if (t.files.some(f => VIDEO.test(f.name))) out.push({ folder: top, n: t.files.filter(f => VIDEO.test(f.name)).length });
-    for (const sub of t.prefixes) {
-      if (!SUB_FOLDER.test(sub.slice(top.length).replace(/\/$/, ''))) continue;
-      const s = await level(bucket, sub);
-      const n = s.files.filter(f => VIDEO.test(f.name)).length;
-      if (n) out.push({ folder: sub, n });
-    }
-  }
-  return out;
+/* A folder name as given, or '' when it is not an allowed Twin Thieves
+   folder. Only the trailing slash is dropped; spaces stay as they are. */
+function cleanFolder(f) {
+  if (typeof f !== 'string') return '';
+  const s = f.replace(/\/+$/, '');
+  if (!s || s.length > 100 || s !== s.trim()) return '';
+  if (/[\/\\\u0000-\u001f\u007f]/.test(s) || s === '.' || s === '..') return '';
+  if (APP_FOLDERS.indexOf(s.toLowerCase()) >= 0) return '';
+  return TT_FOLDER.test(s) ? s : '';
 }
 
 /* The link getDownloadURL() gives, from the token already on the file. */
@@ -89,27 +79,31 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
 
   let body;
   try { body = JSON.parse(event.body || '{}') || {}; } catch (e) { return reply(400, { error: 'Bad JSON' }); }
-  const want = body.folder == null ? '' : String(body.folder);
-  const prefer = body.prefer == null ? '' : String(body.prefer);
+  const asked = body.folders == null ? DEFAULT_FOLDERS : body.folders;
+  if (!Array.isArray(asked) || !asked.length) return reply(400, { error: 'Give at least one Storage folder.' });
+  if (asked.length > MAX_FOLDERS) return reply(400, { error: 'Up to ' + MAX_FOLDERS + ' Storage folders at a time.' });
+  const folders = [];
+  for (const f of asked) {
+    const c = cleanFolder(f);
+    if (!c) return reply(400, { error: 'Not a Twin Thieves videos folder: "' + String(f).slice(0, 100) + '". Only top-level folders named like Twin Thieves or Lesson Video can be listed.' });
+    if (folders.indexOf(c) < 0) folders.push(c);
+  }
 
   const name = bucketName();
   const bucket = admin.storage().bucket(name);
-  let found;
-  try { found = await ttFolders(bucket); }
-  catch (e) { console.error('tt-videos list', e && (e.code || e.name)); return reply(502, { error: 'Could not list Storage. Try again in a moment.' }); }
-  const folders = found.map(f => f.folder);
-  if (want && folders.indexOf(want) < 0) return reply(400, { error: 'That is not a Twin Thieves videos folder.' });
-  if (!found.length) return reply(200, { ok: true, folder: null, folders: [], files: [] });
-  const folder = want || (folders.indexOf(prefer) >= 0 ? prefer : found.slice().sort((a, b) => b.n - a.n)[0].folder);
-
-  let files;
+  const out = [], files = [];
   try {
-    const lv = await level(bucket, folder);
-    files = lv.files.slice(0, MAX_FILES).map(f => {
-      const md = f.metadata || {};
-      return { name: f.name.slice(folder.length), path: f.name, size: Number(md.size) || 0,
-        contentType: String(md.contentType || ''), url: downloadUrl(name, f.name, md) };
-    });
-  } catch (e) { console.error('tt-videos files', e && (e.code || e.name)); return reply(502, { error: 'Could not read that folder. Try again in a moment.' }); }
-  return reply(200, { ok: true, folder, folders, files });
+    for (const folder of folders) {
+      const prefix = folder + '/';
+      const [list] = await bucket.getFiles({ prefix, delimiter: '/', autoPaginate: false, maxResults: MAX_FILES });
+      const here = (list || []).filter(f => f.name !== prefix && f.name.indexOf('/', prefix.length) < 0);
+      out.push({ folder, count: here.filter(f => VIDEO.test(f.name)).length });
+      here.forEach(f => {
+        const md = f.metadata || {};
+        files.push({ folder, name: f.name.slice(prefix.length), path: f.name, size: Number(md.size) || 0,
+          contentType: String(md.contentType || ''), url: downloadUrl(name, f.name, md) });
+      });
+    }
+  } catch (e) { console.error('tt-videos list', e && (e.code || e.name)); return reply(502, { error: 'Could not list Storage. Try again in a moment.' }); }
+  return reply(200, { ok: true, folders: out, files });
 });

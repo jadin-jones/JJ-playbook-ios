@@ -5701,6 +5701,8 @@ sc-if,sc-for{display:none!important}
 </div>
 <button data-tt-videos-open="1" sc-camel-on-click="{{ onTTVidOpen }}" style="{{ ttBtnNavy }};flex:none">Link videos from Storage</button>
 </div>
+<label style="display:block;margin-top:10px"><span style="{{ ttK }}">Storage folders · one per line, exact names</span>
+<textarea data-tt-videos-folders="1" value="{{ ttVidFoldersText }}" sc-camel-on-change="{{ onTTVidFolders }}" rows="2" spellcheck="false" style="{{ ttInp }};margin-top:6px;min-height:58px;resize:vertical;line-height:1.5;font-size:13px"></textarea></label>
 <sc-if value="{{ ttVidBusy }}" hint-placeholder-val="{{ false }}"><p style="margin:10px 0 0;font-size:12.5px;color:#37475C">{{ ttVidMsg }}</p></sc-if>
 <sc-if value="{{ ttVidHasErr }}" hint-placeholder-val="{{ false }}">
 <p style="margin:10px 0 0;font-size:12.5px;color:#8F2D13">{{ ttVidErr }}</p>
@@ -5713,8 +5715,8 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 <sc-if value="{{ ttVidOpenNow }}" hint-placeholder-val="{{ false }}">
 <div style="margin-top:12px;padding-top:12px;border-top:2px solid #DCE6F0">
-<p style="margin:0;font-weight:900;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#0C1B2E">Preview · {{ ttVidFolder }} · {{ ttVidFileCount }}</p>
-<sc-if value="{{ ttVidHasOther }}" hint-placeholder-val="{{ false }}"><p style="margin:4px 0 0;font-size:12px;color:#7E8D9C">{{ ttVidOtherFolders }}</p></sc-if>
+<p style="margin:0;font-weight:900;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#0C1B2E">Preview · {{ ttVidFileCount }}</p>
+<sc-for list="{{ ttVidFolderRows }}" as="vf" hint-placeholder-count="2"><p data-tt-videos-folder="1" style="margin:2px 0 0;font-size:12px;color:#7E8D9C">{{ vf.text }}</p></sc-for>
 <p style="margin:4px 0 8px;font-size:12.5px;color:#37475C">{{ ttVidHead }}</p>
 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 10px">
 <img data-tt-videos-thumb="1" src="{{ ttVidThumb }}" alt="Thumbnail for the linked lessons" style="width:160px;max-width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid #DCE6F0;background:#0C2647">
@@ -5730,6 +5732,7 @@ sc-if,sc-for{display:none!important}
 <p style="margin:2px 0 4px;font-weight:800;font-size:13.5px;color:#0C1B2E">{{ vr.name }}</p>
 <p style="margin:0;font-size:12.5px;color:#37475C"><span style="font-weight:800">{{ vr.file }}</span><sc-if value="{{ vr.hasMeta }}" hint-placeholder-val="{{ true }}"> · {{ vr.meta }}</sc-if></p>
 <p style="margin:2px 0 0;font-size:12px;color:#7E8D9C">{{ vr.status }}</p>
+<sc-if value="{{ vr.hasAlts }}" hint-placeholder-val="{{ false }}"><sc-for list="{{ vr.alts }}" as="va" hint-placeholder-count="2"><p style="margin:2px 0 0;font-size:12.5px;color:#37475C">• {{ va.text }}</p></sc-for></sc-if>
 <sc-if value="{{ vr.hasThumb }}" hint-placeholder-val="{{ true }}"><p style="margin:2px 0 0;font-size:12px;color:#7E8D9C">{{ vr.thumb }}</p></sc-if>
 <sc-for list="{{ vr.flags }}" as="fl" hint-placeholder-count="0"><p style="margin:4px 0 0;font-size:12px;font-weight:800;color:#7A5A00">⚠ {{ fl.text }}</p></sc-for>
 <sc-if value="{{ vr.canPick }}" hint-placeholder-val="{{ true }}">
@@ -8664,7 +8667,9 @@ function ttImportRevert(lib,prev){
    Twin Thieves videos folder are matched to lessons by file name vs. lesson
    name (the library title and both versions' names): "Be_the_Buffalo.mp4" →
    "Be the Buffalo". Only each lesson's videoUrl and thumbUrl are ever set. */
-const TT_VID_FOLDER_RE=/twin|thie|(^|[^a-z])tt([^a-z]|$)/i;
+const TT_VID_FOLDER_RE=/twin|thie|(^|[^a-z])tt([^a-z]|$)|lessons?[\s_-]*video/i;
+// The Storage folders the videos are in (the field at the top of the tool starts with these).
+const TT_VID_FOLDERS=['36 Lesson Video Folder','10 Lessons Video'];
 const TT_VID_EXT_RE=/\.(mp4|m4v|mov|webm)$/i;
 const TT_VID_NOISE=new Set(['week','wk','lesson','final','export','edit','edited','video','hd','sd','720p','1080p','4k','tt','copy','new','v1','v2','v3','v4','v5']);
 const TT_THUMB_SRC='https://48441925.fs1.hubspotusercontent-na1.net/hubfs/48441925/Challenge.png';
@@ -8693,7 +8698,9 @@ function ttStoragePath(u){
    {replaceVideos, replaceThumbs, picks:{lessonId: path or '' for none}}.
    Lessons are the 36-lesson order plus the Thank you lesson. A lesson with
    a video is skipped unless replaceVideos; it still claims its best file so
-   that file never goes to a neighbour ("Trust Bank" vs "Trust Triangle"). */
+   that file never goes to a neighbour ("Trust Bank" vs "Trust Triangle").
+   When a lesson matches a file in two folders, neither is chosen: the row
+   is 'choose' (alts: both files) until one is picked from the dropdown. */
 function ttVideoPlan(files,lib,opts){
   opts=opts||{}; const picks=opts.picks||{};
   const by={}; ((lib&&lib.lessons)||[]).forEach(l=>{ if(l&&l.id) by[l.id]=l; });
@@ -8720,20 +8727,32 @@ function ttVideoPlan(files,lib,opts){
       if(sc>0) pairs.push({id:l.id,path:f.path,sc}); }); });
   pairs.sort((a,b)=>b.sc-a.sc||(a.id<b.id?-1:1));
   pairs.forEach(p=>{ if(chosen[p.id]||used[p.path]) return; chosen[p.id]=p.path; used[p.path]=p.id; });
+  // A lesson whose file is in one folder and that also matches a free file in another: don't guess.
+  const folderOf=f=>f.folder||String(f.path).slice(0,String(f.path).lastIndexOf('/'));
+  const alts={};
+  Object.keys(chosen).forEach(id=>{ if(id in picks) return;
+    const mine=folderOf(fileBy[chosen[id]]), best={};
+    pairs.forEach(p=>{ if(p.id!==id||used[p.path]) return; const fo=folderOf(fileBy[p.path]);
+      if(fo!==mine&&!best[fo]) best[fo]=p.path; });
+    const more=Object.keys(best).map(k=>best[k]);
+    if(!more.length) return;
+    alts[id]=[chosen[id]].concat(more); more.forEach(p=>{ used[p]=id; }); delete chosen[id]; });
   const rows=lessons.map(({l,pos})=>{
     const path=chosen[l.id]||'', f=path?fileBy[path]:null, has=!!String(l.videoUrl||'').trim();
-    const same=!!(has&&path&&ttStoragePath(l.videoUrl)===path);
+    const alt=alts[l.id]||null, cur=has?ttStoragePath(l.videoUrl):'';
+    const same=!!(has&&(path?cur===path:!!(alt&&alt.indexOf(cur)>=0)));
     // A file with no download link (url null) is shown but never linked.
     const can=!!(f&&!same&&(!has||opts.replaceVideos)), link=can&&!!f.url;
     const hasThumb=!!String(l.thumbUrl||'').trim();
     const rate=f&&f.dur>0?f.size/(f.dur/60):0;
     return {id:l.id,pos,name:nameOf(l),closing:!!l.closing,path,file:f,picked:l.id in picks,
-      status:link?'link':(can?'nourl':(same?'same':(has?'skip':'none'))),
+      alts:alt?alt.map(p=>fileBy[p]):null,
+      status:link?'link':(can?'nourl':(same?'same':(has&&!opts.replaceVideos?'skip':(alt?'choose':(has?'skip':'none'))))),
       thumb:link?((!hasThumb||opts.replaceThumbs)?'set':'keep'):'',
       heavy:rate>TT_MB_PER_MIN*1024*1024,mov:!!(f&&/\.mov$/i.test(f.path))};
   });
   const unmatched=vids.filter(f=>!used[f.path]&&!linkedTo[f.path]);
-  return {rows,blockers,unmatched,files:vids,
+  return {rows,blockers,unmatched,files:vids,choosing:rows.filter(r=>r.status==='choose').length,
     linking:rows.filter(r=>r.status==='link').length,thumbs:rows.filter(r=>r.thumb==='set').length};
 }
 /* The library with each linked lesson's video (and thumbnail, when set), and
@@ -16323,35 +16342,47 @@ class Component extends DCLogic {
       this.toast('Import undone for '+Object.keys(rec.items).length+' lessons');
     })();
   }
-  /* Link videos from Storage: /api/tt-videos (admins only) finds the Twin
-     Thieves videos folder (a top-level folder named like Twin Thieves, or
-     its videos subfolder) and lists its files with size, type and download
-     link; here each video's length is read and the preview shown. Storage
-     rules do not let the browser list folders, and nothing is changed here. */
+  /* Link videos from Storage: /api/tt-videos (admins only) lists the
+     folders in the "Storage folders" field (Twin Thieves folders only) with
+     each file's size, type and download link; here each video's length is
+     read and the preview shown. Storage rules do not let the browser list
+     folders, and nothing is changed here. */
+  ttVidFolderList(){
+    const t=this.state.ttVidFoldersText;
+    const list=t==null?this.ttVidFoldersSaved():String(t).split('\n');
+    return list.map(x=>String(x).trim()).filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i);
+  }
+  // The folders of the last Confirm, else the default two.
+  ttVidFoldersSaved(){ const u=this.state.ttVidUndo; return (u&&Array.isArray(u.folders)&&u.folders.length)?u.folders.slice():TT_VID_FOLDERS.slice(); }
   async ttVidScan(){
     const s=this.state; if(s.role!=='admin') return;
     const note=(msg,extra)=>this.setState({ttVid:Object.assign({},this.state.ttVid||{},{busy:false,err:msg},extra||{})});
+    const folders=this.ttVidFolderList();
+    if(!folders.length) return note('Enter at least one Storage folder.');
+    if(folders.length>4) return note('Up to 4 Storage folders at a time.');
+    const bad=folders.find(f=>!TT_VID_FOLDER_RE.test(f)||/[\/\\]/.test(f.replace(/\/+$/,'')));
+    if(bad) return note('Not a Twin Thieves videos folder: "'+bad+'". Only top-level folders named like Twin Thieves or Lesson Video can be listed.');
     if(s.ttDemo){
       const lib=this.ttLib(), ord=(lib.order36||[]).map(id=>lib.lessons.find(l=>l.id===id)).filter(Boolean);
-      const files=ord.slice(0,9).map((l,i)=>({path:'twin-thieves-videos/'+String(i+1).padStart(2,'0')+'_'+String(l.title).replace(/[^\w]+/g,'_')+'.mp4',
-        size:(i===2?210:38+i*3)*1024*1024,dur:i===2?300:240+i*20,url:''}))
-        .concat([{path:'twin-thieves-videos/Outtakes_Blooper_Reel.mp4',size:52*1024*1024,dur:180,url:''}]);
-      files.forEach((f,i)=>{ f.name=f.path.split('/').pop(); f.url=i===8?null:'https://example.invalid/'+encodeURIComponent(f.name); });
-      return this.setState({ttVid:{folder:'twin-thieves-videos/',folders:['twin-thieves-videos/'],files},ttVidOpts:{picks:{}}});
+      const F1=folders[0], F2=folders[1]||folders[0];
+      const mk=(fo,name,mb,dur,url)=>({folder:fo,path:fo+'/'+name,name,size:mb*1024*1024,dur,url:url===undefined?'https://example.invalid/'+encodeURIComponent(fo+'/'+name):url});
+      const files=ord.slice(0,9).map((l,i)=>mk(i<6?F1:F2,String(i+1).padStart(2,'0')+'_'+String(l.title).replace(/[^\w]+/g,'_')+'.mp4',i===2?210:38+i*3,i===2?300:240+i*20,i===8?null:undefined))
+        .concat([mk(F2,String(ord[1].title).replace(/[^\w]+/g,'_')+'.mp4',35,250),mk(F2,'Outtakes_Blooper_Reel.mp4',52,180)]);
+      return this.setState({ttVid:{folders:folders.map(f=>({folder:f,count:files.filter(x=>x.folder===f).length})),files},ttVidOpts:{picks:{}}});
     }
-    this.setState({ttVid:{busy:true,msg:'Looking in Storage…'},ttVidOpts:{picks:{}}});
+    this.setState({ttVid:{busy:true,msg:'Looking in '+folders.join(', ')+'…'},ttVidOpts:{picks:{}}});
     let j={};
     try{
       await authReady();
       if(!firebase.auth().currentUser) return note('Sign in first.');
       const r=await authFetch('/api/tt-videos',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({prefer:(s.ttVidUndo&&s.ttVidUndo.folder)||''})},60000);
+        body:JSON.stringify({folders})},60000);
       try{ j=await r.json(); }catch(e){}
-      if(!r.ok||!j.ok) return note((j.error||'Could not reach the videos service')+'. Nothing was changed.');
+      if(!r.ok||!j.ok) return note(String(j.error||'Could not reach the videos service').replace(/([^.!?])$/,'$1.')+' Nothing was changed.');
     }catch(e){ return note('Could not reach the videos service. Check the connection and try again. Nothing was changed.'); }
-    if(!j.folder) return note('No Twin Thieves videos folder was found in Storage (a top-level folder named like Twin Thieves, with video files in it, or in its videos folder).');
     const items=(j.files||[]).filter(f=>f&&TT_VID_EXT_RE.test(String(f.name||'')));
-    this.setState({ttVid:{busy:true,msg:'Reading '+items.length+' videos in '+j.folder+'…'}});
+    if(!items.length) return note('No videos were found in '+folders.map(f=>'"'+f+'"').join(' or ')+'. Check the folder names (exact, with spaces).');
+    this.setState({ttVid:{busy:true,msg:'Reading '+items.length+' videos…'}});
     const dur=url=>!url?Promise.resolve(0):new Promise(res=>{ const v=document.createElement('video'); let done=false;
       const fin=d=>{ if(done) return; done=true; try{ v.removeAttribute('src'); v.load(); }catch(e){} res(d); };
       v.preload='metadata'; v.muted=true;
@@ -16360,9 +16391,9 @@ class Component extends DCLogic {
     const files=[]; let i=0;
     await Promise.all(Array.from({length:4},async()=>{ while(i<items.length){ const it=items[i++];
       const url=/^https:\/\/firebasestorage\.googleapis\.com\//.test(String(it.url||''))?String(it.url):null;
-      files.push({path:String(it.path),name:String(it.name),size:Number(it.size)||0,contentType:String(it.contentType||''),url,dur:await dur(url)}); } }));
-    files.sort((a,b)=>a.name<b.name?-1:1);
-    this.setState({ttVid:{folder:j.folder,folders:j.folders||[j.folder],files}});
+      files.push({folder:String(it.folder||''),path:String(it.path),name:String(it.name),size:Number(it.size)||0,contentType:String(it.contentType||''),url,dur:await dur(url)}); } }));
+    files.sort((a,b)=>a.path<b.path?-1:1);
+    this.setState({ttVid:{folders:(j.folders||[]).map(f=>({folder:String(f.folder),count:Number(f.count)||0})),files}});
   }
   /* Confirm: plan again against the library as saved now (stop if anything
      in the preview changed), keep our own copy of the thumbnail in Storage
@@ -16375,7 +16406,7 @@ class Component extends DCLogic {
     const before=ttVideoPlan(vid.files,this.ttLib(),opts); if(before.blockers.length||!before.linking) return;
     const urls={}; vid.files.forEach(f=>{ urls[f.path]=f.url; });
     if(this.state.ttDemo){ const r=ttVideoApply(this.ttLib(),before,urls,TT_THUMB_SRC);
-      this.setState({ttLib:r.lib,ttVid:null,ttVidUndo:{at:Date.now(),folder:vid.folder,items:r.prev}}); return this.toast('Videos linked (preview: not saved)'); }
+      this.setState({ttLib:r.lib,ttVid:null,ttVidUndo:{at:Date.now(),folders:(vid.folders||[]).map(f=>f.folder),items:r.prev}}); return this.toast('Videos linked (preview: not saved)'); }
     return this.guard('link lesson videos',async()=>{
       this.setState({ttVidBusy:true});
       const stop=msg=>{ this.setState({ttVidBusy:false}); this.toast(msg,true); };
@@ -16391,7 +16422,7 @@ class Component extends DCLogic {
         catch(e){ return stop('Could not store the thumbnail in Storage ('+((e&&(e.code||e.message))||'error')+'). Nothing was changed.'); }
       }
       const r=ttVideoApply(fresh,plan,urls,thumb);
-      const undo={at:Date.now(),folder:vid.folder,items:r.prev,thumbCopy:thumb||null};
+      const undo={at:Date.now(),folders:(vid.folders||[]).map(f=>f.folder),items:r.prev,thumbCopy:thumb||null};
       if(!(await sset('ttlib:video-undo',undo))) return stop('Could not keep the current videos for Undo. Nothing was changed.');
       const out=Object.assign({},r.lib,{updatedAt:Date.now()});
       if(!(await sset('ttlib:master',out))) return stop('Could not save the lessons. Nothing was changed.');
@@ -16618,6 +16649,9 @@ class Component extends DCLogic {
     v.onTTVidOpen=()=>{ if(!(vid&&vid.busy)) this.ttVidScan(); };
     v.ttVidBusy=!!(vid&&vid.busy); v.ttVidMsg=(vid&&vid.msg)||'';
     v.ttVidErr=(vid&&vid.err)||''; v.ttVidHasErr=!!v.ttVidErr;
+    // Storage folders: one per line, exact names (spaces and all); starts with the last Confirm's, else the default two.
+    v.ttVidFoldersText=s.ttVidFoldersText==null?this.ttVidFoldersSaved().join('\n'):s.ttVidFoldersText;
+    v.onTTVidFolders=e=>this.setState({ttVidFoldersText:e.target.value});
     const vundo=s.ttVidUndo, vplan=vid&&vid.files?ttVideoPlan(vid.files,lib,vopts):null;
     v.ttVidOpenNow=!!vplan;
     v.ttVidCanUndo=!vplan&&!!(vundo&&vundo.items&&Object.keys(vundo.items).length&&!vundo.undoneAt);
@@ -16631,9 +16665,8 @@ class Component extends DCLogic {
       // Above the phone's fixed bottom bar (64 px); 12 px on a wide screen.
       let wide=true; try{ wide=window.matchMedia(WIDE_MQ).matches; }catch(e){}
       v.ttVidBarStyle='position:sticky;bottom:'+(wide?'12px':'calc(76px + env(safe-area-inset-bottom,0px))')+';margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;background:#fff;border:1px solid #DCE6F0;border-radius:12px;padding:10px 12px;box-shadow:0 6px 20px rgba(12,38,71,.12)';
-      v.ttVidFolder=vid.folder; v.ttVidFileCount=vplan.files.length+' video'+(vplan.files.length===1?'':'s');
-      v.ttVidOtherFolders=(vid.folders||[]).length>1?'Other Twin Thieves video folders: '+vid.folders.filter(f=>f!==vid.folder).join(', '):'';
-      v.ttVidHasOther=!!v.ttVidOtherFolders;
+      v.ttVidFileCount=vplan.files.length+' video'+(vplan.files.length===1?'':'s');
+      v.ttVidFolderRows=(vid.folders||[]).map(f=>({text:'"'+f.folder+'" · '+f.count+' video'+(f.count===1?'':'s')}));
       v.ttVidRepVid=(vopts.replaceVideos?'☑':'☐')+' Replace existing videos'; v.ttVidRepVidStyle=box(!!vopts.replaceVideos);
       v.ttVidRepTh=(vopts.replaceThumbs?'☑':'☐')+' Replace existing thumbnails'; v.ttVidRepThStyle=box(!!vopts.replaceThumbs);
       v.onTTVidRepVid=()=>setOpt({replaceVideos:!vopts.replaceVideos});
@@ -16643,6 +16676,7 @@ class Component extends DCLogic {
       v.ttVidHead=vplan.linking+' lesson'+(vplan.linking===1?'':'s')+' will get a video · '+vplan.thumbs+' the thumbnail'
         +(heavy?' · '+heavy+' video'+(heavy===1?'':'s')+' over '+TT_MB_PER_MIN+' MB per minute':'')
         +' · '+vplan.rows.filter(r=>r.status==='none').length+' with no video found yet'
+        +(vplan.choosing?' · '+vplan.choosing+' found in two folders: choose one':'')
         +(vplan.rows.some(r=>r.status==='nourl')?' · '+vplan.rows.filter(r=>r.status==='nourl').length+' file(s) with no download link yet':'');
       v.ttVidBlockers=vplan.blockers.map(t=>({text:t}));
       v.ttVidReady=!vplan.blockers.length&&vplan.linking>0;
@@ -16651,7 +16685,8 @@ class Component extends DCLogic {
       v.onTTVidCancel=()=>this.setState({ttVid:null,ttVidOpts:{picks:{}}});
       v.ttVidUnmatched=vplan.unmatched.map(f=>({text:f.name+' · '+mb(f.size)+' · '+len(f.dur)}));
       v.ttVidHasUnmatched=vplan.unmatched.length>0;
-      const fileOpts=vplan.files.map(f=>({value:f.path,label:f.name+' · '+mb(f.size)}));
+      const fname=f=>f.folder||String(f.path).slice(0,String(f.path).lastIndexOf('/'));
+      const fileOpts=vplan.files.map(f=>({value:f.path,label:f.name+' · '+fname(f)+' · '+mb(f.size)}));
       v.ttVidRows=vplan.rows.map(r=>{ const cur=by[r.id]||{}, f=r.file;
         const flags=[];
         if(r.status==='link'&&r.heavy) flags.push('Over '+TT_MB_PER_MIN+' MB per minute ('+Math.round(f.size/1048576/(f.dur/60))+' MB/min): re-export before linking');
@@ -16659,16 +16694,18 @@ class Component extends DCLogic {
         if(r.status==='link'&&!r.picked&&f&&ttVidScore(f.name,r.name)<1) flags.push('Close but not exact: check the file name');
         const status={link:'Will link'+(cur.videoUrl?' (replaces the current video)':''),same:'Already linked to this file',
           skip:'Already has a video: skipped (tick "Replace existing videos" to change it)',none:'No video found yet',
-          nourl:'Not linked: this file has no download link yet. Open it once in the Firebase console (Storage), then run this again.'}[r.status];
+          nourl:'Not linked: this file has no download link yet. Open it once in the Firebase console (Storage), then run this again.',
+          choose:'Found in both folders: choose one below. Not linked until you do.'}[r.status];
         return {num:r.closing?'Thank you':'Lesson '+r.pos,name:r.name,status,
-          file:f?f.name:'—',meta:f?mb(f.size)+' · '+len(f.dur):'',hasMeta:!!f,
+          file:f?f.name:(r.alts?r.alts.length+' files':'—'),meta:f?fname(f)+' · '+mb(f.size)+' · '+len(f.dur):'',hasMeta:!!f,
+          alts:(r.alts||[]).map(a=>({text:a.name+' · '+fname(a)+' · '+mb(a.size)+' · '+len(a.dur)+(a.url?'':' · no download link yet')})),hasAlts:!!r.alts,
           thumb:r.thumb==='set'?'Thumbnail: set to the challenge image'+(cur.thumbUrl?' (replaces the current one)':''):(r.thumb==='keep'?'Thumbnail: keeps its own (tick "Replace existing thumbnails" to change it)':''),
           hasThumb:!!r.thumb,
           flags:flags.map(t=>({text:t})),
           canPick:r.status!=='skip'&&r.status!=='same',pickValue:r.path,
           pickOptions:[{value:'',label:'— No video —'}].concat(fileOpts),
           onPick:e=>{ const o=this.state.ttVidOpts||{picks:{}}; setOpt({picks:Object.assign({},o.picks,{[r.id]:e.target.value})}); },
-          cardStyle:'border-top:1px solid #EEF3F8;padding:12px 4px;'+((flags.length&&r.status==='link')||r.status==='nourl'?'background:#FFF9E0;border-left:3px solid #E0B400;padding-left:10px':(r.status==='link'?'':'opacity:.78'))};
+          cardStyle:'border-top:1px solid #EEF3F8;padding:12px 4px;'+((flags.length&&r.status==='link')||r.status==='nourl'||r.status==='choose'?'background:#FFF9E0;border-left:3px solid #E0B400;padding-left:10px':(r.status==='link'?'':'opacity:.78'))};
       });
     }
     if(editing){
