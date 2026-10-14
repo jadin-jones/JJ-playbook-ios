@@ -578,6 +578,40 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
       ok('tt-videos: members, a Microsoft sign-in, an unverified email and a bad token are refused',
         deny.map(r => r.code).join() === '403,403,403,401', deny.map(r => r.code).join());
       ok('tt-videos: writes nothing but its rate-limit count', st.writes.every(w => /^rateLimits\//.test(w)), st.writes.join(','));
+      // The thumbnail copy: one fixed file, made once from the HubSpot image, shrunk, with a download token.
+      const { Jimp } = require(require.resolve('jimp', { paths: [ROOT] }));
+      const srcPng = await new Jimp({ width: 3558, height: 1994, color: 0xFFAA0080 }).getBuffer('image/png');
+      const fetched = [], filesTouched = [], saved = {};
+      let srcOk = true;
+      const realFetch = global.fetch;
+      global.fetch = async (u) => { fetched.push(String(u)); return { ok: srcOk, headers: { get: () => srcOk ? 'image/png' : 'text/html' }, arrayBuffer: async () => srcPng.buffer.slice(srcPng.byteOffset, srcPng.byteOffset + srcPng.length) }; };
+      bucket.file = p => { filesTouched.push(p); return {
+        exists: async () => [!!saved[p]],
+        getMetadata: async () => [saved[p].md],
+        setMetadata: async m => { saved[p].md = Object.assign({}, saved[p].md, m); },
+        save: async (buf, o) => { if (saved[p] && o.preconditionOpts && o.preconditionOpts.ifGenerationMatch === 0) throw Object.assign(new Error('x'), { code: 412 });
+          saved[p] = { buf, md: Object.assign({ contentType: o.contentType }, o.metadata), opts: o }; } }; };
+      const TP = 'session-thumbnails/twin-thieves-challenge.jpg';
+      const t1 = await vids('ADM', { action: 'thumb' });
+      const out = saved[TP] ? await Jimp.read(saved[TP].buf) : null;
+      const tok1 = saved[TP] && saved[TP].md.metadata.firebaseStorageDownloadTokens;
+      ok('tt-videos thumb: an admin\'s first call downloads the HubSpot image once, shrinks it to a 1920 px JPEG and saves the one Twin Thieves thumbnail file',
+        t1.code === 200 && t1.body.created === true && fetched.join() === 'https://48441925.fs1.hubspotusercontent-na1.net/hubfs/48441925/Challenge.png'
+        && out && out.bitmap.width === 1920 && out.bitmap.height === 1076 && saved[TP].md.contentType === 'image/jpeg' && saved[TP].buf.length < 600 * 1024
+        && saved[TP].opts.preconditionOpts.ifGenerationMatch === 0 && Object.keys(saved).join() === TP, JSON.stringify(t1.body) + ' ' + fetched.join());
+      ok('tt-videos thumb: its link is the getDownloadURL() form, with the token saved on the file',
+        !!tok1 && t1.body.url === 'https://firebasestorage.googleapis.com/v0/b/test-6b2ab.firebasestorage.app/o/session-thumbnails%2Ftwin-thieves-challenge.jpg?alt=media&token=' + tok1);
+      const t2 = await vids('ADM', { action: 'thumb' });
+      ok('tt-videos thumb: later calls reuse that copy (no download, nothing written)', t2.code === 200 && t2.body.created === false && t2.body.url === t1.body.url && fetched.length === 1);
+      const before = filesTouched.length;
+      const td = [await vids('T', { action: 'thumb' }), await vids('MSA', { action: 'thumb' }), await vids('NOPE', { action: 'thumb' }), await vids('ADM', { action: 'other' })];
+      ok('tt-videos thumb: members, a Microsoft sign-in and a bad token are refused before Storage is touched; an unknown action is refused',
+        td.map(r => r.code).join() === '403,403,401,400' && filesTouched.length === before && fetched.length === 1, td.map(r => r.code).join());
+      delete saved[TP]; srcOk = false;
+      const t3 = await vids('ADM', { action: 'thumb' });
+      ok('tt-videos thumb: if HubSpot does not give an image, nothing is saved', t3.code === 502 && /HubSpot/.test(t3.body.error) && !saved[TP]);
+      ok('tt-videos thumb: only that one path is ever opened', filesTouched.every(p => p === TP), filesTouched.join());
+      global.fetch = realFetch; delete bucket.file;
       process.env.FIREBASE_PROJECT_ID = prev; if (prev === undefined) delete process.env.FIREBASE_PROJECT_ID;
     }
     {
@@ -630,6 +664,9 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
         && pk.unmatched.map(f => f.name).join() === 'Be_the_Buffalo.mp4'
         && vt.ttVideoPlan(files, lib, { picks: { tt01: F + 'Thank_You.mp4', tt02: F + 'Thank_You.mp4' } }).blockers.length === 1);
       const nl = vt.ttVideoPlan(files.map(f => f.name === 'Be_the_Buffalo.mp4' ? Object.assign({}, f, { url: null }) : f), lib, {});
+      const sk = vt.ttVideoPlan(files, lib, { skipThumbs: true, replaceThumbs: true });
+      ok('videos: "Skip thumbnails" links the videos and leaves every thumbnail as it is',
+        sk.linking === 5 && sk.thumbs === 0 && vt.ttVideoApply(lib, sk, urls, '').lib.lessons.every((l, i) => (l.thumbUrl || '') === (copy.lessons[i].thumbUrl || '')));
       ok('videos: a file with no download link is shown but never linked',
         nl.rows.find(x => x.id === idOf('Be the Buffalo')).status === 'nourl' && nl.linking === 4
         && !vt.ttVideoApply(lib, nl, urls, 't').prev[idOf('Be the Buffalo')]);
@@ -657,13 +694,13 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
       ok('videos: Undo puts the previous videos and thumbnails back exactly, and keeps a video changed since',
         JSON.stringify(vt.ttVideoRevert(r.lib, r.prev)) === JSON.stringify(copy)
         && vt.ttVideoRevert(edited, r.prev).lessons.find(l => l.id === idOf('Be the Buffalo')).videoUrl === 'https://edited/later.mp4' && vt.ttStoragePath(urls[F + 'Thank_You.mp4']) === F + 'Thank_You.mp4');
-      const scan = html.slice(html.indexOf('  async ttVidScan(){'), html.indexOf('  ttOrgRec(id){'));
-      ok('videos: admins only; listed by /api/tt-videos, not the browser; writes only ttlib:master and its Undo (Undo first) and one thumbnail copy',
+      const scan = html.slice(html.indexOf('  /* POST /api/tt-videos (admins)'), html.indexOf('  ttOrgRec(id){'));
+      ok('videos: admins only; listing and the thumbnail copy are /api/tt-videos\' (the browser writes nothing to Storage); writes only ttlib:master and its Undo (Undo first)',
         /v\.ttVidCan=s\.role==='admin'&&!editing;/.test(html) && /const s=this\.state; if\(s\.role!=='admin'\) return;/.test(scan)
-        && /authFetch\('\/api\/tt-videos'/.test(scan) && /body:JSON\.stringify\(\{folders\}\)/.test(scan) && !/listAll|\.list\(|fbStorage/.test(scan.slice(0, scan.indexOf('  ttVidConfirm(){')))
+        && /authFetch\('\/api\/tt-videos'/.test(scan) && /this\.ttVidApi\(\{folders\}\)/.test(scan) && /this\.ttVidApi\(\{action:'thumb'\}\)/.test(scan)
+        && !/listAll|\.list\(|fbStorage|uploadMedia|ttImageCopy/.test(scan) && !/ttImageCopy/.test(html)
         && (scan.match(/sset\('([^']+)'/g) || []).every(x => /ttlib:(master|video-undo)/.test(x))
-        && (scan.match(/uploadMedia\([^)]*\)/g) || []).join() === "uploadMedia(file,'session-thumbnails')"
-        && !/\.(delete|put|putString|updateMetadata)\(/.test(scan.replace(/uploadMedia/g, ''))
+        && !/\.(delete|put|putString|updateMetadata)\(/.test(scan)
         && scan.indexOf("sset('ttlib:video-undo',undo)") < scan.indexOf("if(!(await sset('ttlib:master',out))) return stop(")
         && !vt.TT_VID_FOLDER_RE.test('session-videos') && !vt.TT_VID_FOLDER_RE.test('session-thumbnails') && !vt.TT_VID_FOLDER_RE.test('challenge-videos')
         && vt.TT_VID_FOLDER_RE.test('twin-thieves-videos') && vt.TT_VID_FOLDER_RE.test('TT36'));
