@@ -478,6 +478,62 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('lessons: "← All lessons" goes back to the pyramid page', /v\.onTTHome=\(\)=>\{ this\.setState\(\{view:'tthome',tab:'lessons',ttFocus:null\}\);/.test(html));
     const css = html.slice(html.indexOf('/* Twin Thieves lesson menu'), html.indexOf('@keyframes jjFall'));
     ok('pyramid page: the new styles reach only Twin Thieves elements', !!css && css.split('\n').filter(l => /\{/.test(l) && !/^@media/.test(l)).every(l => /^\[data-tt-(drawer|side)="1"\]/.test(l)));
+    // Studio → Twin Thieves: names keep their spaces; Import lesson content.
+    const tt = new Function(line(/const TT_FUND_NAMES=[\s\S]*?;\n/) + html.slice(html.indexOf('const ttNameInput='), html.indexOf('/* A thumbnail link as a CSS url()'))
+      + '\nreturn {ttNameInput,ttCleanNames,ttNamesRelated,ttImportPlan,ttImportApply,ttImportRevert};')();
+    {
+      const want = 'Week 4: Be the Buffalo';
+      let box = ''; for (const ch of want) box = tt.ttNameInput(box + ch);   // typed one key at a time
+      const saved = tt.ttCleanNames({ '36': { tt12: '  ' + box + '  ', tt13: '   ', tt14: 'Lib Title' } }, { tt12: { title: 'Be the Buffalo' }, tt14: { title: 'Lib Title' } });
+      ok('versions: "Week 4: Be the Buffalo" can be typed with its spaces and saves with them (ends trimmed)',
+        box === want && saved['36'].tt12 === want && !('tt13' in saved['36']) && !('tt14' in saved['36']), JSON.stringify({ box, saved }));
+      ok('versions: the name box no longer trims on every key; Save versions cleans the names',
+        !/replace\(\/\\s\+\/g,' '\)\.trim\(\)\.slice\(0,120\)/.test(html) && /t=ttNameInput\(val\);/.test(html)
+        && /v\.onTTVerSave=\(\)=>\{ this\.ttSaveLib\(Object\.assign\(\{\},lib,\{names:ttCleanNames\(lib\.names,by\)\}\)/.test(html));
+      ok('lesson editor: video, thumbnail, handout and chapter boxes keep what is typed; trimmed on save',
+        /v\.onTTEdVideo=e=>set\(\{videoUrl:e\.target\.value\}\);/.test(html) && /v\.onTTEdThumb=e=>set\(\{thumbUrl:e\.target\.value\}\);/.test(html)
+        && /a\[i\]\.url=e\.target\.value; set\(\{handouts:a\}\);/.test(html) && /a\[i\]\.t=e\.target\.value; set\(\{chapters:a\}\);/.test(html)
+        && /x\.videoUrl=String\(x\.videoUrl\|\|''\)\.trim\(\);/.test(html));
+    }
+    {
+      // A library whose 36-lesson order is not id order, a Thank you lesson, and a per-version name.
+      const ids = Array.from({ length: 36 }, (_, i) => 'tt' + String(i + 1).padStart(2, '0'));
+      const lessons = ids.map((id, i) => ({ id, title: 'Lesson title ' + (i + 1), fund: i < 7 ? 'energy' : 'execute', videoUrl: 'https://v/' + id, thumbUrl: 'https://t/' + id,
+        handouts: [{ label: 'PDF', url: 'https://h/' + id }], summary: 'old ' + id, discussion: ['old d'], additional: ['old a'], bookChapter: 3 }))
+        .concat([{ id: 'ttthanks', closing: true, title: 'Thank you!', summary: 'thanks', discussion: [], additional: [] }]);
+      lessons[0].title = 'Building Your Own House';
+      const order36 = ids.slice(1).concat([ids[0]]);   // lesson 1 of the order is tt02; tt01 is last
+      const lib = { lessons, order36, order10: ids.slice(0, 10), names: { '36': { tt02: 'Thermostat vs. Thermometer' } } };
+      const libCopy = JSON.parse(JSON.stringify(lib));
+      const data = order36.map((id, i) => ({ lesson: i + 1, fundamental: i < 6 ? 'Energy' : 'Execute', title: i === 35 ? 'Build Your Own House' : (i === 0 ? 'Thermostat vs Thermometer' : (i === 4 ? 'Something Else Entirely' : 'Lesson Title ' + (ids.indexOf(id) + 1))),
+        concept: 'c', story: 's', summary: 'new summary ' + (i + 1), discussion: ['new d ' + (i + 1)], additional: ['new a ' + (i + 1), 'new b ' + (i + 1)] }));
+      delete data[10].additional;   // missing in the file: kept as it is
+      const plan = tt.ttImportPlan(data, lib);
+      ok('import: matched by position in the 36-lesson order, not by title or id',
+        !plan.err && plan.items.length === 36 && plan.items.every(it => it.id === order36[it.pos - 1]) && !plan.blockers.length && !plan.missing.length, JSON.stringify(plan.blockers));
+      const flagged = plan.items.filter(it => it.flags.some(f => /^Names look different/.test(f))).map(it => it.pos);
+      ok('import: unrelated names are flagged; small differences ("Building Your Own House" / "Build Your Own House") are not',
+        flagged.join() === '5', JSON.stringify(flagged));
+      ok('import: the per-version name is what the preview shows', plan.items[0].platform === 'Thermostat vs. Thermometer' && plan.items[35].platform === 'Building Your Own House');
+      const r = tt.ttImportApply(lib, plan);
+      const after = r.lib.lessons, keys = ['id', 'title', 'fund', 'videoUrl', 'thumbUrl', 'handouts', 'bookChapter', 'closing'];
+      ok('import: sets only the summary and questions; names, videos, thumbnails, handouts, order and the Thank you lesson stay',
+        after.every((l, i) => keys.every(k => JSON.stringify(l[k]) === JSON.stringify(libCopy.lessons[i][k])))
+        && JSON.stringify(r.lib.order36) === JSON.stringify(libCopy.order36) && JSON.stringify(r.lib.order10) === JSON.stringify(libCopy.order10)
+        && JSON.stringify(r.lib.names) === JSON.stringify(libCopy.names) && JSON.stringify(after[36]) === JSON.stringify(libCopy.lessons[36])
+        && after[1].summary === 'new summary 1' && after[0].summary === 'new summary 36' && after[0].discussion.join() === 'new d 36'
+        && JSON.stringify(lib) === JSON.stringify(libCopy));
+      const l11 = after.find(l => l.id === order36[10]);
+      ok('import: a field missing from the file is kept', l11.summary === 'new summary 11' && l11.additional.join() === 'old a');
+      ok('import: Undo puts the previous summary and questions back exactly', JSON.stringify(tt.ttImportRevert(r.lib, r.prev)) === JSON.stringify(libCopy) && Object.keys(r.prev).length === 36);
+      const dup = tt.ttImportPlan(data.concat([{ lesson: 3, title: 'x', summary: 'y' }, { lesson: 37, title: 'z', summary: 'y' }]), lib);
+      ok('import: a lesson twice, or past 36, blocks the import', dup.blockers.length === 2 && /twice/.test(dup.blockers[0]) && /37/.test(dup.blockers[1]));
+      ok('import: a file that is not a list of lessons is refused', !!tt.ttImportPlan({ x: 1 }, lib).err && !!tt.ttImportPlan([], lib).err);
+      ok('import: admins only, a preview first, Confirm re-checks the saved library and keeps Undo before saving',
+        /v\.ttImpCan=s\.role==='admin'&&!editing;/.test(html) && /if\(!f\|\|this\.state\.role!=='admin'\) return;/.test(html)
+        && /const plan=ttImportPlan\(imp\.data,fresh\);[\s\S]{0,200}ids\(plan\)!==ids\(imp\.plan\)/.test(html)
+        && html.indexOf("sset('ttlib:import-undo',undo)") > 0 && html.indexOf("sset('ttlib:import-undo',undo)") < html.indexOf("if(!(await sset('ttlib:master',out))) return stop("));
+    }
     const j1 = fs.readFileSync(path.join(ROOT, 'netlify/functions/join.js'), 'utf8'), j2 = fs.readFileSync(path.join(ROOT, 'netlify/functions/tt-join.js'), 'utf8');
     ok('logging: the temporary sign-in error logs are gone', !/verify', e && e\.code, e && e\.message/.test(j1 + j2));
   }

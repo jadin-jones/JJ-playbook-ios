@@ -78,6 +78,29 @@ A lesson's video URL may be YouTube, Vimeo, Google Drive or a direct MP4
   900 px (phones and iPad in portrait) its rows share the height between the
   Playbook item and My Profile; a long list keeps its spacing and scrolls.
 
+## Import lesson content (Studio → Twin Thieves → Lessons)
+
+- **Import lesson content** (admins only) reads a JSON list of 36 entries
+  (`lesson, fundamental, title, concept, story, summary, discussion[],
+  additional[]`) in the browser. Entry N goes to lesson N of the 36-lesson
+  order, by position, never by title.
+- A preview lists each lesson's platform name next to the file's title, with
+  the summary and questions it will set. Pairs whose names share too few
+  words, or whose fundamentals differ, are marked to check. A lesson listed
+  twice, or a number past 36, blocks the import.
+- **Confirm** reads the library as saved, stops if the order changed since
+  the preview, keeps the values it replaces in `ttlib:import-undo` (admins
+  only), then saves. Only the summary, discussion and additional questions
+  change, and only those the file has. **Undo last import** puts them back.
+- The file itself is never in the repo (`scripts/out/` is ignored).
+
+## Studio text boxes keep their spaces
+
+The per-version lesson name (Versions) used to be trimmed on every key, so
+a space vanished as it was typed. Names, video and thumbnail links, handout
+links and chapter times now keep what is typed; the ends are trimmed on
+save.
+
 ## Pyramid page and lessons by fundamental (October 2026)
 
 - **Home is the pyramid.** After sign-in a member lands on Playbook Overview:
