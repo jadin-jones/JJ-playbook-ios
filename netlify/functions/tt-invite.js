@@ -6,6 +6,16 @@
  *   { action:'cancel',  program, email }
  *   { action:'preview', program }             the email as it would look, sample values
  *   { action:'restore', program, emails:[...] } give removed members their access back
+ *   { action:'lastopened', emails:[...] }      up to 200: when each Twin Thieves
+ *       member last used the app → { ok, times:{ email: ms or null } }
+ *
+ * Last opened (Studio's member list). The time is Firebase Auth's own
+ * record of the account (lastRefreshTime: the app renews a sign-in when it
+ * is opened and about hourly while it stays open; else lastSignInTime). An
+ * address is answered only when its ttmembers/{email}.orgs holds TT36 or
+ * TT10 today; any other address is left out, so this never reports on
+ * someone outside Twin Thieves. Nothing is written or stored (apart from
+ * the rate limit's own count), and nothing is logged about the addresses.
  *
  * Removed members. Studio's Remove writes rev:<program>:<idkey> (the marker
  * /api/tt-join refuses, so the code alone can't bring them back) and takes
@@ -56,6 +66,7 @@ const { sendMail, missingMailEnv } = require('../lib/mailer');
 const COLL = 'jj_playbook';
 const PRODUCT = 'tt';
 const MAX_PER_CALL = 100;
+const MAX_LAST = 200, TT_PROGRAMS = ['TT36', 'TT10'];
 const HDR = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
 const reply = (statusCode, body) => ({ statusCode, headers: HDR, body: JSON.stringify(body) });
 
@@ -80,6 +91,25 @@ function siteUrl(event) {
   if (own) return own;
   const u = String(process.env.URL || '').replace(/\/+$/, '');
   return /^https:\/\/[a-z0-9.-]+$/i.test(u) ? u : '';
+}
+
+/* When each Twin Thieves member among emails last used the app (ms, or null
+   when Auth has no time or no account). Reads ttmembers and Auth only. */
+async function lastOpened(emails) {
+  const snaps = await Promise.all(emails.map(e => db().collection('ttmembers').doc(e).get()));
+  const tt = emails.filter((e, i) => { const o = snaps[i].exists ? snaps[i].get('orgs') : null;
+    return Array.isArray(o) && o.some(c => TT_PROGRAMS.indexOf(c) >= 0); });
+  const times = {};
+  tt.forEach(e => { times[e] = null; });
+  const ms = t => { const n = Date.parse(t || ''); return isFinite(n) ? n : 0; };
+  for (let i = 0; i < tt.length; i += 100) {
+    const res = await auth().getUsers(tt.slice(i, i + 100).map(email => ({ email })));
+    (res.users || []).forEach(u => {
+      const e = String(u.email || '').toLowerCase(); if (!(e in times)) return;
+      const md = u.metadata || {}, t = Math.max(ms(md.lastRefreshTime), ms(md.lastSignInTime));
+      if (t && t > (times[e] || 0)) times[e] = t; });
+  }
+  return times;
 }
 
 /* Record (and, if the mode allows, send) one invite. Returns { email, result }. */
@@ -151,6 +181,13 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
 
   let body;
   try { body = JSON.parse(event.body || '{}') || {}; } catch (e) { return reply(400, { error: 'Bad JSON' }); }
+  if (body.action === 'lastopened') {
+    const raw = Array.isArray(body.emails) ? body.emails : [];
+    if (raw.length > MAX_LAST) return reply(400, { error: 'Up to ' + MAX_LAST + ' addresses at a time' });
+    const emails = Array.from(new Set(raw.map(cleanEmail).filter(Boolean)));
+    try { return reply(200, { ok: true, times: await lastOpened(emails) }); }
+    catch (e) { console.error('tt-invite lastopened', e && (e.code || e.name)); return reply(502, { error: 'Could not read last opened. Try again in a moment.' }); }
+  }
   const program = String(body.program || '');
   if (!PRODUCTS[PRODUCT].programs[program]) return reply(400, { error: 'Pick the 36- or 10-lesson version' });
   const mode = sendMode(), site = siteUrl(event);

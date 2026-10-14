@@ -5856,10 +5856,11 @@ sc-if,sc-for{display:none!important}
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:12px;margin-bottom:12px">
 <p style="margin:2px 4px 6px;font-weight:900;font-size:13px;color:#0C1B2E">{{ mg.dom }} <span style="font-weight:700;font-size:11px;color:#7E8D9C">· {{ mg.count }}</span></p>
 <sc-for list="{{ mg.rows }}" as="mr" hint-placeholder-count="2">
-<div style="display:flex;align-items:center;gap:10px;border-top:1px solid #EEF3F8;padding:9px 4px">
-<span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:13.5px;color:#0C1B2E">{{ mr.name }}</span><span style="display:block;font-size:12px;color:#7E8D9C">{{ mr.email }}{{ mr.ver }}</span></span>
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;border-top:1px solid #EEF3F8;padding:9px 4px">
+<span style="flex:1 1 180px;min-width:0"><span style="display:block;font-weight:800;font-size:13.5px;color:#0C1B2E">{{ mr.name }}</span><span style="display:block;font-size:12px;color:#7E8D9C">{{ mr.email }}{{ mr.ver }}</span></span>
 <span style="{{ mr.statusStyle }}">{{ mr.status }}</span>
 <sc-if value="{{ mr.hasProg }}" hint-placeholder-val="{{ true }}"><span style="flex:none;font-weight:800;font-size:12px;color:#0C2647">{{ mr.prog }}</span></sc-if>
+<sc-if value="{{ mr.hasLast }}" hint-placeholder-val="{{ false }}"><span data-tt-last="1" style="flex:none;font-size:12px;color:#4F5F75">{{ mr.last }}</span></sc-if>
 <sc-if value="{{ mr.canResend }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mr.onResend }}" style="{{ ttBtnMini }}">Resend</button></sc-if>
 <sc-if value="{{ mr.canCancel }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mr.onCancel }}" style="{{ ttBtnMini }}">Cancel invite</button></sc-if>
 <sc-if value="{{ mr.canRestore }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ mr.onRestore }}" style="flex:none;background:#2F7F55;border:2px solid #2F7F55;color:#fff;border-radius:9px;padding:6px 10px;font-family:inherit;font-weight:900;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Restore access</button></sc-if>
@@ -8598,6 +8599,23 @@ function ttCleanNames(names,by){
       if(t&&t!==String((by[id]||{}).title||'')) m[id]=t; });
     if(Object.keys(m).length) out[ver]=m; });
   return out;
+}
+/* Studio → Twin Thieves → Members: "Last opened" from the time Firebase Auth
+   keeps (t, ms; /api/tt-invite lastopened). Today, Yesterday, "3 days ago"
+   up to a week, then the date ("Oct 12", with the year if not this one).
+   Never: no time, or none after the joining session (joinedAt plus an hour,
+   since joining itself renews the sign-in). Days are calendar days here. */
+function ttLastOpenedText(t,joinedAt,now){
+  now=now||Date.now(); t=Number(t)||0; const j=Number(joinedAt)||0;
+  if(!t||(j&&t<=j+3600000)) return 'Never';
+  const day=x=>{ const d=new Date(x); return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(); };
+  const n=Math.round((day(now)-day(t))/86400000);
+  if(n<=0) return 'Today';
+  if(n===1) return 'Yesterday';
+  if(n<=7) return n+' days ago';
+  const d=new Date(t), o={month:'short',day:'numeric'};
+  if(d.getFullYear()!==new Date(now).getFullYear()) o.year='numeric';
+  try{ return d.toLocaleDateString('en-US',o); }catch(e){ return ''; }
 }
 /* Studio → Twin Thieves → Lessons → Import lesson content. The file is a
    list of 36 entries {lesson, fundamental, title, concept, story, summary,
@@ -16538,8 +16556,8 @@ class Component extends DCLogic {
     try{ const url=URL.createObjectURL(new Blob([r.html],{type:'text/html'})); window.open(url,'_blank','noopener'); }
     catch(e){ this.toast('Could not open the preview',true); }
   }
-  async ttLoadMembers(){
-    if(this.state.ttDemo) return this.setState({ttInvites:this.state.ttInvites||[
+  async ttLoadMembers(force){
+    if(this.state.ttDemo) return this.setState({ttLast:{'ava@school.org':Date.now()-3*86400000,'ben@school.org':null,'cam@acme.com':Date.now()-20*86400000},ttLastAt:Date.now(),ttInvites:this.state.ttInvites||[
       {email:'dana@school.org',program:'TT36',status:'invited',sentAt:Date.now()-2*86400000,expiresAt:Date.now()+5*86400000,delivery:'off'},
       {email:'eli@school.org',program:'TT36',status:'invited',sentAt:Date.now()-9*86400000,expiresAt:Date.now()-2*86400000,delivery:'off'},
       {email:'ava@school.org',program:'TT36',status:'joined',sentAt:Date.now()-6*86400000,expiresAt:Date.now()+86400000,joinedAt:Date.now()-5*86400000,delivery:'off'}],
@@ -16558,6 +16576,23 @@ class Component extends DCLogic {
         if(e) removed.push({code,email:e,idkey:slug(e),name:String(r.name||''),at:r.at||0}); }); }catch(e){}
     }
     this.setState({ttMembers:rows,ttInvites:invs,ttRemoved:removed,ttMemBusy:false});
+    this.ttLoadLastOpened(rows.map(r=>r.email),force).catch(()=>{});
+  }
+  /* Last opened for the members listed (admins only, from Auth through
+     /api/tt-invite; nothing is stored). Asked again only for new addresses,
+     after 10 minutes, or on Reload. */
+  async ttLoadLastOpened(list,force){
+    const emails=Array.from(new Set((list||[]).map(e=>String(e||'').trim().toLowerCase()).filter(Boolean)));
+    const s=this.state, have=s.ttLast||{};
+    if(!force&&s.ttLastAt&&Date.now()-s.ttLastAt<600000&&emails.every(e=>e in have)) return;
+    if(!emails.length) return;
+    const times={}; let failed=false;
+    for(let i=0;i<emails.length;i+=200){
+      const r=await this.ttInviteApi({action:'lastopened',emails:emails.slice(i,i+200)});
+      if(!r.ok){ failed=true; break; }
+      Object.assign(times,r.times||{});
+    }
+    this.setState(failed?{ttLastFailed:true}:{ttLast:times,ttLastAt:Date.now(),ttLastFailed:false});
   }
   /* Remove: a rev: marker (the code alone can't bring them back), then the
      code out of ttmembers/{email}.orgs. Their ttm: record and its progress
@@ -16841,6 +16876,10 @@ class Component extends DCLogic {
     const groups={};
     mem.forEach(m=>{ const dom=String(m.email||'').split('@')[1]||'(no email)'; (groups[dom]=groups[dom]||[]).push(m); });
     const day=t=>{ try{ return new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return ''; } };
+    const lastMap=s.ttLast||{};
+    const lastFor=m=>{ const e=String(m.email||'').toLowerCase();
+      if(!(e in lastMap)) return s.ttLastFailed?'Last opened: unavailable':'';
+      return 'Last opened '+ttLastOpenedText(lastMap[e],m.joinedAt); };
     const chip=(bg,fg)=>'display:inline-block;font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 8px;background:'+bg+';color:'+fg;
     // Invite panel
     v.ttInvOpen=!!s.ttInvOpen;
@@ -16874,13 +16913,15 @@ class Component extends DCLogic {
           :(inv&&inv.status==='cancelled'?'cancelled':(inv&&inv.expiresAt>Date.now()?'invited':'expired'));
         return {name:m.name||m.email,email:m.isMember?m.email+' · ':'',ver:m.code==='TT10'?'10 lessons':'36 lessons',
           prog:m.noRecord?'':(m.isMember?done+' of '+tot:''),hasProg:!!m.isMember&&!m.noRecord,
+          // Last opened: current Twin Thieves members only (never a removed one or an invite).
+          hasLast:!!m.isMember&&!m.removed&&!m.noRecord&&!!lastFor(m),last:lastFor(m),
           status:st==='removed'?'Removed':st==='joined'?'Joined':(st==='invited'?'Invited '+day(inv.sentAt):(st==='expired'?'Expired':'Cancelled')),
           statusStyle:st==='removed'?chip('#FDECE6','#8F2D13'):st==='joined'?chip('#E3F3EA','#2F7F55'):(st==='invited'?chip('#EAF6FC','#0A6C96'):(st==='expired'?chip('#FFF7CC','#5C4B00'):chip('#EEF1F5','#7E8D9C'))),
           canResend:!m.isMember&&(st==='invited'||st==='expired'||st==='cancelled'),canCancel:!m.isMember&&st==='invited',canRemove:!!m.isMember&&!m.removed,
           canRestore:!!m.removed,onRestore:()=>this.ttRestore(m.code,[String(m.email||'').toLowerCase()]),
           onResend:()=>this.ttInviteAction('resend',inv),onCancel:()=>this.ttInviteAction('cancel',inv),
           onRemove:()=>this.ttRemoveMember(m)}; })}));
-    v.onTTMemReload=()=>this.ttLoadMembers();
+    v.onTTMemReload=()=>this.ttLoadMembers(true);
   }
   /* Preview a lesson exactly as a member sees it, from Studio (drafts included). */
   ttPreviewAsMember(lib,id){

@@ -270,6 +270,27 @@ first, otherwise Gmail rewrites the address.
    record, add that TXT record at GoDaddy, then Start authentication. SPF
    already allows Google (`_spf.google.com`), and DMARC is `p=none`.
 
+## Last opened (Studio → Twin Thieves → Members)
+
+- Each current Twin Thieves member's row shows "Last opened Today",
+  "Yesterday", "3 days ago" (up to a week), or a date ("Oct 12"). It shows
+  "Never" when there's no time after the joining session. Removed members
+  and invites show nothing.
+- The time is Firebase Auth's own record of the account, read by
+  `/api/tt-invite` `{action:'lastopened', emails}` (admins only, not through
+  Microsoft, up to 200 addresses a call). That is the later of
+  `lastRefreshTime` and `lastSignInTime`. The app renews a sign-in when it is
+  opened and about hourly while it stays open. So someone who stays signed in
+  is still counted when they open the app, within about an hour.
+- Only addresses whose `ttmembers/{email}.orgs` holds TT36 or TT10 are
+  answered. Nothing is stored or logged; Studio asks again only for new
+  addresses, after 10 minutes, or on Refresh. Members never see it, and the
+  Playbook's `lastSeenAt` is never used.
+- **Limits:**
+  - A tab left open keeps renewing, so it counts as opened.
+  - Someone who is also in a Playbook program shows their latest use of either.
+  - "Never" is inferred: no renewal more than an hour after `joinedAt`.
+
 ## Design preview
 
 `?ttpreview=home`, `?ttpreview=lesson` and `?ttpreview=studio` show sample
