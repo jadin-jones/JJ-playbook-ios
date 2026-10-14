@@ -19,6 +19,8 @@
  *             every ttm:TTxx:idkey: a top-level ownerEmail that is the email
  *             inside, in lower case, with slug(ownerEmail) == idkey, and
  *             ttmembers/{ownerEmail}.orgs listing TTxx
+ *   notify    counts push: records under TT36/TT10, and those of people who
+ *             are in Twin Thieves only (left in place; senders skip them)
  *   isolation no members/{email}.orgs lists TT36 or TT10, and no resp:TT36: /
  *             resp:TT10: records exist (Twin Thieves never uses either)
  */
@@ -118,6 +120,22 @@ async function main() {
   mem.docs.forEach(d => { const o = d.get('orgs');
     if (Array.isArray(o) && o.some(c => PROGRAMS[c])) problem('members/' + slug(d.id), 'a Playbook members document lists a Twin Thieves program'); });
   for (const id of Object.keys(PROGRAMS)) (await range('resp:' + id + ':')).forEach(d => problem(d.id, 'a Playbook resp: record for a Twin Thieves program'));
+
+  // ---- notifications (Twin Thieves sends none) ----
+  // push: records under TT36/TT10, and any push: record of a person who is in
+  // Twin Thieves only (no members/ document with a Playbook program). Counts
+  // only; nothing is changed. The senders skip TT36/TT10 records anyway.
+  const push = await range('push:');
+  const pbMember = new Set(mem.docs.filter(d => { const o = d.get('orgs'); return Array.isArray(o) && o.some(c => !PROGRAMS[c]); })
+    .map(d => slug(d.id)));
+  const ttOnly = new Set(Object.keys(orgsOf).map(e => slug(e)).filter(k => !pbMember.has(k)));
+  const underTT = push.filter(d => PROGRAMS[d.id.split(':')[1]]);
+  const ofTTOnly = push.filter(d => { const p = d.id.split(':'); return ttOnly.has(p[p.length - 1]); });
+  const active = list => list.filter(d => { const v = parseVal(d); return v && v.token && v.active !== false; }).length;
+  console.log('\nNotifications');
+  console.log('  push: records under TT36/TT10: ' + underTT.length + ' (' + active(underTT) + ' with an active token)');
+  console.log('  Twin Thieves-only members: ' + ttOnly.size + '; push: records belonging to them: ' + ofTTOnly.length
+    + ' (' + active(ofTTOnly) + ' with an active token)');
 
   console.log('\n' + (problems.length ? 'Needs attention (' + problems.length + '):\n  ' + problems.join('\n  ') : 'Needs attention: nothing') + '\n');
 }

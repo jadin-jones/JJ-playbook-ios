@@ -55,6 +55,161 @@ A lesson's video URL may be YouTube, Vimeo, Google Drive or a direct MP4
 - A direct file plays in a `<video>`, and chapters jump too.
 - Google Drive shows in its preview frame, and chapters cannot jump.
 
+## Lessons (October 2026 updates)
+
+- **One library, two versions.** `ttlib:master` holds every lesson once
+  (video, thumbnail, questions, handouts), plus `order36` and `order10`. A
+  version can show its own name for a lesson: Studio → Twin Thieves →
+  Versions, saved as `names['36'|'10'][lessonId]`. Empty means the library
+  name. Progress is kept by lesson id, so a name never resets it.
+- **Thumbnails.** Studio → a lesson → Video thumbnail: a link, or Upload a
+  thumbnail (JPG or PNG; anything over 1920 px or 600 KB is redrawn as a
+  1920 px JPEG first). The upload uses the Playbook's `uploadMedia()` and its
+  Storage folder `session-thumbnails/`. Saved as the lesson's `thumbUrl` and
+  shown as the video's cover; with none, the usual navy cover stays.
+- **Thank you lesson.** It can have a video and thumbnail like any lesson. It
+  shows no "In the book" or "Where this fits" row and is never flagged for a
+  book chapter.
+- **Transcripts** are no longer shown or edited. Saved transcripts stay in
+  the library.
+- **"← All lessons"** sits at the top and the bottom of every lesson and
+  returns to the pyramid page.
+- **Phone menu.** The lesson drawer respects the phone's safe areas. Under
+  900 px (phones and iPad in portrait) its rows share the height between the
+  Playbook item and My Profile; a long list keeps its spacing and scrolls.
+
+## Import lesson content (Studio → Twin Thieves → Lessons)
+
+- **Import lesson content** (admins only) reads a JSON list of 36 entries
+  (`lesson, fundamental, title, concept, story, summary, discussion[],
+  additional[]`) in the browser. Entry N goes to lesson N of the 36-lesson
+  order, by position, never by title.
+- A preview lists each lesson's platform name next to the file's title, with
+  the summary and questions it will set. Pairs whose names share too few
+  words, or whose fundamentals differ, are marked to check. A lesson listed
+  twice, or a number past 36, blocks the import.
+- **Confirm** reads the library as saved, stops if the order changed since
+  the preview, keeps the values it replaces in `ttlib:import-undo` (admins
+  only), then saves. Only the summary, discussion and additional questions
+  change, and only those the file has. **Undo last import** puts them back.
+- The file itself is never in the repo (`scripts/out/` is ignored).
+
+## Link videos from Storage (Studio → Twin Thieves → Lessons)
+
+- The videos are in two top-level folders of the live bucket
+  (`test-6b2ab.firebasestorage.app`): **36 Lesson Video Folder** and **10
+  Lessons Video**. Together they hold the 36 lessons. The **Storage folders**
+  field at the top of the tool (one per line, exact names with spaces) starts
+  with the folders of the last Confirm, or those two. Change it there to use
+  other folders; no deploy is needed.
+- **Link videos from Storage** (admins only) sends those folders to
+  `/api/tt-videos` (`netlify/functions/tt-videos.js`), because Storage rules
+  do not let the browser list folders.
+  - The function checks the caller's ID token and requires an admin (never
+    through Microsoft).
+  - It lists only this project's own bucket.
+  - It allows up to 4 top-level folders whose names are Twin Thieves ones
+    (Twin Thieves, `TT…`, or Lesson(s) Video).
+  - It always refuses the folders the Playbook uploads to (`session-videos`,
+    `session-thumbnails`, `challenge-videos`, `welcome-videos`, `learn-more`,
+    `knowledge`), nested or odd paths, and any other bucket.
+  - It returns each file's folder, name, path, size, content type and
+    download link, read-only. The link is built from the download token
+    Storage already keeps on the file, in the same form `getDownloadURL()`
+    gives the app's own uploads. A file with no token gets no link: it is
+    shown but not linked, and nothing in Storage is changed.
+- The 36- and 10-lesson versions share one library, so each lesson gets one
+  video from either folder. If a lesson matches a file in both folders,
+  neither is chosen: the row lists both and says "choose one", and the lesson
+  is not linked until one is picked from the dropdown.
+- Each video (MP4, M4V, MOV, WebM) shows its size and length and is matched to
+  a lesson by file name vs. lesson name (library title or either version's
+  name), one file per lesson, over the 36-lesson order plus the Thank you
+  lesson: `Be_the_Buffalo.mp4` → Be the Buffalo. Leading numbering and a
+  "Twin Thieves" prefix are ignored. Any match can be changed from a dropdown.
+- Marked to check: over 20 MB per minute ("re-export before linking"), `.mov`
+  files, and near (not exact) name matches. Lessons with no file say "No video
+  found yet"; files that matched nothing are listed.
+- Safe to run again: a lesson that has a video is skipped unless **Replace
+  existing videos** is ticked (and still claims its file, so the file never
+  goes to a similarly named lesson).
+- Every lesson that gets a video also gets the challenge thumbnail, unless it
+  has its own and **Replace existing thumbnails** is not ticked. Storage rules
+  do not let the browser upload it, so Confirm asks `/api/tt-videos`
+  (`{ action:'thumb' }`, admins only).
+  - On its first call the function downloads the image once from HubSpot,
+    redraws it with `jimp` as a JPEG (at most 1920 px, about 300 KB) and saves
+    it as `session-thumbnails/twin-thieves-challenge.jpg`, with a download
+    token.
+  - Later calls return that copy. That file is the only one it writes, and it
+    never replaces it.
+  - Every linked lesson gets that copy's link.
+- **Skip thumbnails** links the videos and leaves every thumbnail as it is, so
+  a thumbnail problem never blocks the videos. If the thumbnail can't be got,
+  Confirm stops, changes nothing, and says to tick it.
+- **Confirm** reads the library as saved, stops if anything in the preview
+  changed, keeps the replaced videos and thumbnails in `ttlib:video-undo`
+  (admins only), then saves `ttlib:master`. Only `videoUrl` and `thumbUrl`
+  change. **Undo last video link** puts them back where they are still what
+  the link set.
+
+## Studio text boxes keep their spaces
+
+The per-version lesson name (Versions) used to be trimmed on every key, so
+a space vanished as it was typed. Names, video and thumbnail links, handout
+links and chapter times now keep what is typed; the ends are trimmed on
+save.
+
+## Pyramid page and lessons by fundamental (October 2026)
+
+- **Home is the pyramid.** After sign-in a member lands on Playbook Overview:
+  the Playbook home pyramid's blocks, icons and level labels (`ttPyramidVM`
+  wraps `pyramidVM` in its display-only form, which is unchanged), all open,
+  with no assessment ring. "Playbook" is the first item in the sidebar and
+  the phone menu.
+- **Lessons by fundamental.** The sidebar and the phone menu list the
+  version's lessons under fundamental headings in program order (Overview,
+  Energy, … Starfish Moments), each heading with its done/total count, and
+  Thank you! last on its own (`ttGroups`). A fundamental with no lessons in
+  the version has no heading. The list still fills the height down to My
+  Profile; a long one scrolls.
+- **A block picks its fundamental** (`ttFocus`). Desktop and iPad in
+  landscape: the page stays, and that group lights up in the sidebar and
+  scrolls into view. Phones: the menu opens on that group. A block with no
+  lessons in the version is dimmed and says "No lessons in this section yet."
+- **A lesson sits under its fundamental's heading, so its number can be out
+  of order there.** Numbers are places in the version's order; headings come
+  from each lesson's Fundamental (Studio → Twin Thieves → Lessons). A lesson
+  filed under a later fundamental shows up further down, so the list seems
+  to skip its number.
+- **Navy sidebar** (desktop and iPad in landscape, members only; `ttNavy`).
+  The sidebar is #13213B. Its label is #8FB8EA. Playbook is a #22375C button
+  with a light border and the yellow (#F5C518) triangle. Headings are
+  #9EC5F0, semi-bold, with #CFE0F5 counts and a thin white-12% line between
+  groups. Each lesson is a rounded tab (white 8% outline, 3% fill, #E8EEF7
+  text, #2F4A78 number circle); hover raises it to a 10% fill and 20% outline.
+  The current lesson is yellow (outline, tinted fill, yellow circle with a
+  navy number). My Profile is light text. Every text colour passes WCAG AA
+  (lowest 4.9:1, white on a done lesson's green circle). The phone menu,
+  Studio and the Playbook's sidebar are unchanged (`ttSide` stays the phone
+  menu's list; `ttSideDark` is the sidebar's).
+- **Playbook programs are untouched.** Everything is behind `isTT()`; the
+  checks in `test/isolation/run.js` compare the Playbook's own pieces with
+  `d5c35ad`.
+
+## Notifications: none for Twin Thieves
+
+- Someone in Twin Thieves only never gets the "Turn on notifications"
+  prompt. Twin Thieves' My profile has no notification switch. Someone also
+  in a Playbook program keeps the prompt as before.
+- The app never writes a `push:` record for TT36/TT10. The iOS app's token
+  save is skipped in a Twin Thieves program.
+- Every Firebase Functions sender skips `push:` records under TT36/TT10, by
+  key or by the program code stored in them (`isTTPush` in
+  `functions/index.js`). This needs a Functions deploy.
+- `scripts/tt-inventory.js` counts any such records, and those of Twin
+  Thieves-only members (read-only; nothing is deleted).
+
 ## Privacy (members may be under 18)
 
 Kept: name, email and which lessons are complete, with the time. Nothing

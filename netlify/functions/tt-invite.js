@@ -5,6 +5,18 @@
  *   { action:'resend',  program, email }      a fresh link; the old one stops working
  *   { action:'cancel',  program, email }
  *   { action:'preview', program }             the email as it would look, sample values
+ *   { action:'restore', program, emails:[...] } give removed members their access back
+ *
+ * Removed members. Studio's Remove writes rev:<program>:<idkey> (the marker
+ * /api/tt-join refuses, so the code alone can't bring them back) and takes
+ * the program out of ttmembers/{email}.orgs. Any one admin action restores
+ * them: send or resend an invite to that address, save the program's
+ * approved list with that address on it (Studio then calls restore), or
+ * Studio's Restore access. Restoring re-adds the program to their
+ * ttmembers (arrayUnion: their other programs and the Playbook are not
+ * touched), keeps their ttm: record and its progress (or makes an empty one
+ * if a Remove from before 12 Oct 2026 deleted it), and only then deletes
+ * the marker.
  *
  * Only admins (not through Microsoft) may call it. 30 calls an hour per
  * connection, and 200 invite emails an hour per admin.
@@ -33,7 +45,7 @@
  * SMTP_PASS, MAIL_FROM, URL.
  */
 const crypto = require('crypto');
-const { db, auth, missingEnv } = require('../lib/firebase-admin');
+const { admin, db, auth, missingEnv } = require('../lib/firebase-admin');
 const { isMicrosoft } = require('../lib/ms-verify');
 const { withCors, ownOrigin } = require('../lib/http');
 const { ADMINS } = require('../lib/admins');
@@ -50,6 +62,8 @@ const reply = (statusCode, body) => ({ statusCode, headers: HDR, body: JSON.stri
 const sha = s => crypto.createHash('sha256').update(String(s)).digest('hex');
 const cleanEmail = e => { const s = String(e || '').trim().toLowerCase(); return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(s) ? s : ''; };
 const inviteId = (program, email) => 'ttinv:' + program + ':' + sha(email).slice(0, 32);
+// Same as the app and /api/tt-join, character for character.
+const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
 function parseVal(snap) {
   if (!snap || !snap.exists) return null;
   const raw = snap.get('value');
@@ -96,6 +110,29 @@ async function inviteOne(program, email, site, uid, mode) {
   return { email, result: delivery === 'sent' ? 'sent' : 'recorded-not-sent', expiresAt };
 }
 
+/* Give a removed member their access to one program back. Returns
+   'restored', or 'not-removed' when there is no marker. The marker goes
+   last, so a failure part-way leaves them still removed (safe to retry). */
+async function restoreMember(col, program, email) {
+  const idkey = slug(email);
+  const rref = col.doc('rev:' + program + ':' + idkey);
+  const rsnap = await rref.get();
+  if (!rsnap.exists) return 'not-removed';
+  const rv = parseVal(rsnap) || {};
+  const tref = col.doc('ttm:' + program + ':' + idkey);
+  await db().runTransaction(async tx => {
+    const t = await tx.get(tref);
+    if (!t.exists) tx.set(tref, { value: JSON.stringify({ name: String(rv.name || ''), email, idkey, code: program,
+      joinedAt: Date.now(), progress: {} }), ownerEmail: email });
+    else if (t.get('ownerEmail') !== email) tx.set(tref, { ownerEmail: email }, { merge: true });
+  });
+  await db().collection('ttmembers').doc(email).set({
+    email, orgs: admin.firestore.FieldValue.arrayUnion(program),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  await rref.delete();
+  return 'restored';
+}
+
 exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async function (event) {
   if (event.httpMethod !== 'POST') return reply(405, { error: 'POST only' });
   const missing = missingEnv();
@@ -138,6 +175,14 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
         if (!email) { if (String(r || '').trim()) results.push({ email: String(r).trim().slice(0, 120), result: 'not-an-email' }); continue; }
         if (seen.has(email)) { results.push({ email, result: 'duplicate' }); continue; }
         seen.add(email);
+        // A removed member is restored by the invite itself, then emailed it.
+        if ((await restoreMember(col, program, email)) === 'restored') {
+          const cur0 = parseVal(await col.doc(inviteId(program, email)).get());
+          if (cur0 && cur0.status === 'invited' && cur0.expiresAt > Date.now()) { results.push({ email, result: 'restored' }); continue; }
+          const r = await inviteOne(program, email, site, tok.uid, mode);
+          results.push(Object.assign({}, r, { result: r.result === 'sent' || r.result === 'recorded-not-sent' ? 'restored-' + r.result : 'restored' }));
+          continue;
+        }
         const mem = await db().collection('ttmembers').doc(email).get();
         const orgs = mem.exists ? mem.get('orgs') : null;
         if (Array.isArray(orgs) && orgs.indexOf(program) >= 0) { results.push({ email, result: 'already-a-member' }); continue; }
@@ -148,16 +193,31 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
       return reply(200, { ok: true, mode, results });
     }
 
+    if (body.action === 'restore') {
+      const raw = Array.isArray(body.emails) ? body.emails : [];
+      if (!raw.length) return reply(400, { error: 'No email' });
+      if (raw.length > MAX_PER_CALL) return reply(400, { error: 'Up to ' + MAX_PER_CALL + ' addresses at a time' });
+      const results = [];
+      for (const r of raw) {
+        const email = cleanEmail(r);
+        if (!email) { results.push({ email: String(r || '').trim().slice(0, 120), result: 'not-an-email' }); continue; }
+        results.push({ email, result: await restoreMember(col, program, email) });
+      }
+      return reply(200, { ok: true, results });
+    }
+
     const email = cleanEmail(body.email);
     if (!email) return reply(400, { error: 'No email' });
     const ref = col.doc(inviteId(program, email));
     const cur = parseVal(await ref.get());
-    if (!cur) return reply(404, { error: 'No invite for ' + email });
+    // Resending to a removed member restores them first, even if the old invite was used.
+    const restored = body.action === 'resend' ? (await restoreMember(col, program, email)) === 'restored' : false;
+    if (!cur && !restored) return reply(404, { error: 'No invite for ' + email });
 
     if (body.action === 'resend') {
-      if (cur.status === 'joined') return reply(409, { error: email + ' has already joined' });
+      if (!restored && cur.status === 'joined') return reply(409, { error: email + ' has already joined' });
       const r = await inviteOne(program, email, site, tok.uid, mode);
-      return reply(200, { ok: true, mode, results: [r] });
+      return reply(200, { ok: true, mode, results: [restored ? Object.assign({}, r, { result: 'restored-' + r.result }) : r] });
     }
     if (body.action === 'cancel') {
       if (cur.status === 'joined') return reply(409, { error: email + ' has already joined' });
@@ -172,3 +232,4 @@ exports.handler = withCors('POST, OPTIONS', 'Content-Type, Authorization', async
 });
 
 module.exports._inviteId = inviteId;
+module.exports._restoreMember = restoreMember;

@@ -68,8 +68,14 @@ const ok = (name, cond, detail) => { n++; if (cond) console.log('PASS', name); e
 function makeStore() {
   const docs = {}, writes = [];
   const snap = (id, d) => ({ id, exists: !!d, get: k => (d ? d[k] : undefined), data: () => d });
+  // arrayUnion is applied as Firestore does: added to the list, once.
+  const put = (key, v, o) => { const cur = o && o.merge ? (docs[key] || {}) : {}, out = Object.assign({}, cur);
+    Object.keys(v).forEach(k => { const x = v[k];
+      out[k] = x && x.union ? Array.from(new Set((Array.isArray(cur[k]) ? cur[k] : []).concat(x.union))) : x; });
+    docs[key] = out; };
   const ref = (c, id) => ({ c, id, get: async () => snap(id, docs[c + '/' + id]),
-    set: async (v, o) => { writes.push(c + '/' + id); docs[c + '/' + id] = Object.assign(o && o.merge ? (docs[c + '/' + id] || {}) : {}, v); } });
+    set: async (v, o) => { writes.push(c + '/' + id); put(c + '/' + id, v, o); },
+    delete: async () => { writes.push('delete ' + c + '/' + id); delete docs[c + '/' + id]; } });
   const coll = c => ({ doc: id => ref(c, id),
     where: (f, op, lo) => op === '=='
       ? { limit: () => ({ get: async () => ({ docs: Object.keys(docs).filter(k => k.startsWith(c + '/') && docs[k][f] === lo)
@@ -78,7 +84,8 @@ function makeStore() {
       .map(k => k.slice(c.length + 1)).filter(id => id >= lo && id < hi).map(id => snap(id, docs[c + '/' + id])) }) }) }) });
   const db = () => ({ collection: coll, runTransaction: async fn => fn({
     get: r => r.get(),
-    set: (r, v) => { writes.push(r.c + '/' + r.id); docs[r.c + '/' + r.id] = Object.assign({}, v); },
+    set: (r, v, o) => { writes.push(r.c + '/' + r.id); put(r.c + '/' + r.id, v, o); },
+    delete: r => { writes.push('delete ' + r.c + '/' + r.id); delete docs[r.c + '/' + r.id]; },
     update: (r, v) => { writes.push(r.c + '/' + r.id); Object.assign(docs[r.c + '/' + r.id], v); } }) });
   return { docs, writes, db };
 }
@@ -92,7 +99,7 @@ function loadFn(file, store, users) {
   Object.keys(require.cache).forEach(k => { if (k.indexOf(path.join(ROOT, 'netlify')) === 0) delete require.cache[k]; });
   require.cache[lib] = { id: lib, filename: lib, loaded: true, exports: {
     admin: { firestore: { FieldPath: { documentId: () => '__id' }, Timestamp: { fromMillis: x => x },
-      FieldValue: { arrayUnion: x => ({ union: x }), serverTimestamp: () => 0 } } },
+      FieldValue: { arrayUnion: (...x) => ({ union: x }), serverTimestamp: () => 0 } } },
     db: store.db, auth: () => ({ verifyIdToken: async t => { if (!users[t]) throw new Error('bad'); return users[t]; } }),
     missingEnv: () => [] } };
   require.cache[ms] = { id: ms, filename: ms, loaded: true, exports: { isMicrosoft: t => t.firebase.sign_in_provider === 'microsoft.com', isConfirmed: async () => false } };
@@ -162,6 +169,20 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('functions: never read ttm: records or ttmembers', !/ttm:|ttmembers|ttlib/.test(fx));
     const pushPrefixes = (fx.match(/'push:'|"push:"/g) || []).length;
     ok('functions: senders find people through push: and resp: records, which Twin Thieves never writes', pushPrefixes > 0);
+    // Twin Thieves sends no notifications: every sender skips TT36/TT10 push: records.
+    const loops = (fx.match(/if \(doc\.id\.indexOf\('push:'\) !== 0\) continue;\n    if \(isTTPush\(doc\)\) continue;/g) || []).length;
+    const allLoops = (fx.match(/if \(doc\.id\.indexOf\('push:'\) !== 0\) continue;/g) || []).length;
+    ok('functions: every scheduled sender skips Twin Thieves push: records', allLoops > 0 && loops === allLoops, loops + ' of ' + allLoops);
+    ok('functions: tokensFor, the admin list and the fundamental-done push skip them too',
+      (fx.match(/\.filter\(\(d\) => d\.id\.indexOf\('push:'\) === 0 && !isTTPush\(d\)\)/g) || []).length === 2
+      && !/\.filter\(\(d\) => d\.id\.indexOf\('push:'\) === 0\)/.test(fx) && /if \(isTTPush\(pushDoc\)\) return;/.test(fx));
+    const pv = fx.slice(fx.indexOf('function parseValue'), fx.indexOf('\n}\n', fx.indexOf('function parseValue')) + 3);
+    const hp = fx.slice(fx.indexOf('const TT_PROGRAMS'), fx.indexOf('\n}\n', fx.indexOf('function isTTPush')) + 3);
+    const isTTPush = new Function(pv + hp + 'return isTTPush;')();
+    const D = (id, v) => ({ id, exists: true, data: () => (v ? { value: JSON.stringify(v) } : {}) });
+    ok('functions: isTTPush knows a Twin Thieves record by key or stored code, and never a Playbook one',
+      isTTPush(D('push:TT36:a', {})) && isTTPush(D('push:TT10:a')) && isTTPush(D('push:a', { code: 'TT36' }))
+      && !isTTPush(D('push:PLAYBOOK26:a', { code: 'PLAYBOOK26' })) && !isTTPush(D('push:a', { code: 'T1' })) && !isTTPush(D('resp:TT36:a', {})));
   }
 
   // ---- 5. The app: Twin Thieves code never writes Playbook records. ----
@@ -299,6 +320,84 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('allow list: the Playbook join is untouched by it', r.statusCode === 200 && JSON.parse(r.body).code === 'PLAYBOOK26', r.body);
   }
 
+  // ---- 7b. Removed members: the code can't bring them back; an invite, the approved list or Restore access does. ----
+  {
+    const st = makeStore();
+    st.docs['jj_playbook/org:TT36'] = V({ name: 'Twin Thieves Leadership · 36 lessons', product: 'tt', ttVersion: 36, joinCode: 'TWIN36' });
+    st.docs['jj_playbook/org:TT10'] = V({ name: 'Twin Thieves Leadership · 10 lessons', product: 'tt', ttVersion: 10, joinCode: 'TWIN10' });
+    st.docs['jj_playbook/ttallow:TT10'] = V({ emails: ['rem@s.org', 'old@s.org'] });
+    // rem@s.org: in TT10 and TT36, and in a Playbook program, with progress in TT10.
+    st.docs['members/rem@s.org'] = { orgs: ['PB1'] };
+    st.docs['jj_playbook/resp:PB1:rem-s-org'] = Object.assign(V({ email: 'rem@s.org' }), { ownerEmail: 'rem@s.org' });
+    st.docs['jj_playbook/ttm:TT36:rem-s-org'] = Object.assign(V({ name: 'Rem', email: 'rem@s.org', progress: { tt05: { doneAt: 5 } } }), { ownerEmail: 'rem@s.org' });
+    const PROG = { tt01: { doneAt: 1 }, tt02: { doneAt: 2 } };
+    st.docs['jj_playbook/ttm:TT10:rem-s-org'] = Object.assign(V({ name: 'Rem', email: 'rem@s.org', idkey: 'rem-s-org', code: 'TT10', progress: PROG }), { ownerEmail: 'rem@s.org' });
+    // Studio's Remove (as the app does it): the marker, the code out of ttmembers; the record and progress stay.
+    const remove = () => { st.docs['jj_playbook/rev:TT10:rem-s-org'] = V({ at: 1, email: 'rem@s.org', emails: ['rem@s.org'], name: 'Rem' });
+      st.docs['ttmembers/rem@s.org'] = { email: 'rem@s.org', orgs: ['TT36'] }; };
+    remove();
+    const users = { ADM: U('charlie@jadin-jones.com'), R: U('rem@s.org'), T: U('tia@s.org') };
+    const ttJoin = () => call(loadFn('tt-join.js', st, users), 'R', { code: 'TWIN10', first: 'Rem', last: 'R' });
+    const inv = body => call(loadFn('tt-invite.js', st, users), 'ADM', Object.assign({ program: 'TT10' }, body)).then(r => ({ code: r.statusCode, body: JSON.parse(r.body) }));
+    const restoredOK = () => !st.docs['jj_playbook/rev:TT10:rem-s-org']
+      && JSON.stringify((st.docs['ttmembers/rem@s.org'] || {}).orgs) === JSON.stringify(['TT36', 'TT10'])
+      && JSON.stringify(JSON.parse(st.docs['jj_playbook/ttm:TT10:rem-s-org'].value).progress) === JSON.stringify(PROG)
+      && st.docs['jj_playbook/ttm:TT10:rem-s-org'].ownerEmail === 'rem@s.org'
+      && JSON.stringify(JSON.parse(st.docs['jj_playbook/ttm:TT36:rem-s-org'].value).progress) === JSON.stringify({ tt05: { doneAt: 5 } })
+      && JSON.stringify(st.docs['members/rem@s.org']) === JSON.stringify({ orgs: ['PB1'] }) && !!st.docs['jj_playbook/resp:PB1:rem-s-org'];
+    let r = await ttJoin();
+    ok('removed: the code alone is refused, even on the approved list', r.statusCode === 403 && JSON.parse(r.body).code === 'revoked', r.body);
+    // 1. A new invite from Studio.
+    process.env.INVITE_SEND_MODE = 'test'; process.env.INVITE_TEST_RECIPIENTS = 'rem@s.org';
+    process.env.SMTP_USER = 'noreply@jadin-jones.com'; process.env.SMTP_PASS = 'x'; process.env.URL = 'https://dev.playbook.jadin-jones.com';
+    SENT.length = 0;
+    let x = await inv({ action: 'send', emails: ['rem@s.org'] });
+    ok('restore by invite: sending an invite restores access and emails it', x.code === 200 && x.body.results[0].result === 'restored-sent' && SENT.length === 1, JSON.stringify(x.body));
+    ok('restore by invite: progress kept; other program, members/ and resp: untouched', restoredOK());
+    r = await ttJoin();
+    ok('restore by invite: the code works again', r.statusCode === 200 && JSON.parse(r.body).code === 'TT10', r.body);
+    ok('restore by invite: joining again keeps the progress', JSON.stringify(JSON.parse(st.docs['jj_playbook/ttm:TT10:rem-s-org'].value).progress) === JSON.stringify(PROG));
+    // 2. The approved list saved with them on it (Studio calls restore for the removed people on the list).
+    remove();
+    x = await inv({ action: 'restore', emails: ['rem@s.org', 'old@s.org'] });
+    ok('restore by approved list: restored; a listed address that was never removed is left alone',
+      x.code === 200 && x.body.results[0].result === 'restored' && x.body.results[1].result === 'not-removed' && !st.docs['ttmembers/old@s.org'], JSON.stringify(x.body));
+    ok('restore by approved list: progress kept; other program, members/ and resp: untouched', restoredOK());
+    // 3. Restore access in Studio.
+    remove();
+    x = await inv({ action: 'restore', emails: ['rem@s.org'] });
+    ok('restore button: restored, progress kept, nothing else touched', x.code === 200 && x.body.results[0].result === 'restored' && restoredOK(), JSON.stringify(x.body));
+    x = await inv({ action: 'restore', emails: ['rem@s.org'] });
+    ok('restore button: a second press does nothing', x.body.results[0].result === 'not-removed');
+    // 4. Resend, even when their old invite was used.
+    remove();
+    const iid = require(path.join(ROOT, 'netlify/functions/tt-invite.js'))._inviteId('TT10', 'rem@s.org');
+    st.docs['jj_playbook/' + iid] = V({ email: 'rem@s.org', program: 'TT10', status: 'joined', sentAt: 1, expiresAt: 2 });
+    SENT.length = 0;
+    x = await inv({ action: 'resend', email: 'rem@s.org' });
+    ok('restore by resend: restores and sends a new link, though the old invite was used',
+      x.code === 200 && x.body.results[0].result === 'restored-sent' && SENT.length === 1 && restoredOK(), JSON.stringify(x.body));
+    // 5. Removed before this change: the record (and progress) was deleted; restoring gives an empty one they own.
+    st.docs['jj_playbook/rev:TT10:old-s-org'] = V({ at: 1, email: 'old@s.org', emails: ['old@s.org'], name: 'Old One' });
+    x = await inv({ action: 'restore', emails: ['old@s.org'] });
+    const oldRec = st.docs['jj_playbook/ttm:TT10:old-s-org'];
+    ok('restore after an older Remove: a fresh record they own, with their name',
+      x.body.results[0].result === 'restored' && !!oldRec && oldRec.ownerEmail === 'old@s.org' && JSON.parse(oldRec.value).name === 'Old One'
+      && JSON.stringify(st.docs['ttmembers/old@s.org'].orgs) === JSON.stringify(['TT10']) && !st.docs['jj_playbook/rev:TT10:old-s-org']);
+    // Only admins restore.
+    remove();
+    const nope = await call(loadFn('tt-invite.js', st, users), 'T', { action: 'restore', program: 'TT10', emails: ['rem@s.org'] });
+    ok('restore: a member cannot restore anyone', nope.statusCode === 403 && !!st.docs['jj_playbook/rev:TT10:rem-s-org'], nope.body);
+    delete process.env.INVITE_SEND_MODE; delete process.env.INVITE_TEST_RECIPIENTS; delete process.env.SMTP_USER; delete process.env.SMTP_PASS;
+    // The app: Remove keeps the record; saving the approved list restores; Studio marks the removed.
+    const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
+    const rm = html.slice(html.indexOf('  ttRemoveMember(m){'), html.indexOf('  ttStudioVM(v){'));
+    ok('app: Remove keeps the progress record and stores the name on the marker', !!rm && !/sdel\('ttm:/.test(rm) && /name:String\(m\.name\|\|''\)\}/.test(rm));
+    ok('app: saving the approved list restores the removed people on it',
+      /\.filter\(e=>e&&emails\.indexOf\(e\)>=0\);[\s\S]{0,40}const n=back\.length\?await this\.ttRestore\(id,back,true\):0;/.test(html));
+    ok('app: Studio marks removed members and offers Restore access',
+      /st==='removed'\?'Removed'/.test(html) && /canRestore:!!m\.removed,onRestore:\(\)=>this\.ttRestore\(/.test(html) && />Restore access<\/button>/.test(html));
+  }
   // ---- 8. Hosts, sign-in wording, My groups, and no leftover debug logging. ----
   {
     const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
@@ -327,6 +426,295 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('my groups: "you are here" and Back return a Twin Thieves member to Twin Thieves',
       /g\.code===s\.code\) return this\.setState\(\{view:this\.isTT\(\)\?'tthome':'home'/.test(html)
       && /onGateBackToApp=\(\)=>this\.setState\(\{view:this\.isTT\(\)\?'tthome':'home'/.test(html));
+    // Notifications: Twin Thieves-only members are never asked, and the iOS app writes no push: record under a Twin Thieves program.
+    ok('push: no prompt in a Twin Thieves program unless they are also in a Playbook program',
+      /pushAskDue\(\)\{\n    if\(this\.state\.role!=='leader'\|\|this\.state\.previewMode\) return false;\n    \/\/ [^\n]*\n    if\(this\.isTT\(\)&&this\.state\.ttHasPlaybook!==true\) return false;/.test(html)
+      && /const hasPB=out\?out\.some\(g=>g&&g\.product!=='tt'\):null;/.test(html));
+    ok('push: the iOS app saves no token record in a Twin Thieves program', /async saveNativeToken\(token\)\{\n    \/\/ [^\n]*\n    if\(this\.isTT\(\)\) return;/.test(html));
+    // Lessons: transcripts hidden (kept in the data), the Thank you lesson, per-version names.
+    ok('lessons: no transcript is shown to members or edited in Studio',
+      !/ttTranscript|ttIsTranscript|ttEdTranscript|>Transcript</.test(html) && /transcript:''/.test(html));
+    ok('lessons: the Thank you lesson has no book or "Where this fits" row, and Studio can give it a video',
+      /<sc-if value="\{\{ ttNotThanks \}\}" hint-placeholder-val="\{\{ true \}\}">\n<div style="\{\{ ttFitRowStyle \}\}">/.test(html)
+      && /<\/sc-raw-select>\n<\/sc-if>\n<div style="\{\{ ttK \}\}">Video URL<\/div>/.test(html));
+    ok('lessons: a version\'s own name only renames; progress stays keyed by lesson id',
+      /title:String\(nm\[l\.id\]\|\|''\)\.trim\(\)\|\|l\.title/.test(html) && /ttDone\(id\)\{ const p=this\.state\.ttProg\|\|\{\}; return !!\(p\[id\]&&p\[id\]\.doneAt\); \}/.test(html));
+    ok('lessons: "← All lessons" at the top and the bottom of every lesson', (html.match(/aria-label="Back to all lessons"/g) || []).length === 2);
+    ok('lessons menu: the sidebar list fills the height only for Twin Thieves; the drawer rule covers phones and iPad portrait',
+      (html.match(/data-tt-side="1" style=/g) || []).length === 1 && /<sc-if value="\{\{ tb\.hasTTList \}\}"[^>]*>\n<div data-tt-list="1" data-tt-side="1"/.test(html)
+      && /hasTTList:W&&this\.isTT\(\)&&t\.k==='lessons'/.test(html) && /@media \(max-width:899px\)\{\n\[data-tt-drawer="1"\]/.test(html));
+    // Pyramid home page and lessons grouped by fundamental (Twin Thieves only).
+    // d5c35ad is main before this change: the Playbook's own pieces are compared with it.
+    let before = '';
+    try { before = execSync('git show d5c35ad:public/index.html', { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }).toString(); } catch (e) {}
+    const method = (src, name) => { const a = src.indexOf('\n  ' + name + '('); if (a < 0) return ''; const b = src.slice(a + 1).search(/\n  (?:async )?[A-Za-z_$][\w$]*\([^)]*\)\{/); return src.slice(a, b < 0 ? undefined : a + 1 + b); };
+    ok('pyramid page: the Playbook home pyramid (pyramidVM) is unchanged', !!before && !!method(html, 'pyramidVM') && method(html, 'pyramidVM') === method(before, 'pyramidVM'));
+    const pbNav = src => { const m = src.match(/: \[\{k:'playbook'[\s\S]*?\.concat\(\[\{k:'me'[^\n]*\n/); return m ? m[0] : ''; };
+    ok('pyramid page: the Playbook menu items are unchanged', !!before && !!pbNav(html) && pbNav(html) === pbNav(before));
+    const views = []; let at = -1;
+    while ((at = html.indexOf("'tthome'", at + 1)) >= 0) {
+      const back = html.slice(0, at), lineStart = back.lastIndexOf('\n') + 1, line = html.slice(lineStart, html.indexOf('\n', at));
+      const ms = [...back.matchAll(/\n  (?:async )?([A-Za-z_$][\w$]*)\([^)]*\)\{/g)], owner = ms.length ? ms[ms.length - 1][1] : '';
+      const safe = /^(tt|loadTT|startTT)/.test(owner) || /this\.isTT\(\)\?'tthome'/.test(line) || /v\.showTTHome=V\('tthome'\)/.test(line)
+        || /\(ttSideNav&&t\.k==='lessons'\)\?s\.view==='tthome'/.test(line)
+        || /: this\.isTT\(\)\n$/.test(html.slice(lineStart - 30, lineStart)) && /^      \? \[\{k:'lessons'/.test(line);
+      views.push({ owner, safe, line: line.trim().slice(0, 80) });
+    }
+    ok('pyramid page: every way into it is Twin Thieves-only (its own code, or behind isTT())', views.length >= 10 && views.every(v => v.safe), JSON.stringify(views.filter(v => !v.safe)));
+    ok('pyramid page: drawn only in the Twin Thieves home view', (html.match(/data-tt-pyr="1"/g) || []).length === 1
+      && /<sc-if value="\{\{ showTTHome \}\}" hint-placeholder-val="\{\{ false \}\}">\n<div data-tt-pyr="1"/.test(html));
+    const rnd = method(html, 'ttRender');
+    ok('pyramid page: its view model and the grouped list are built only after "if(!tt) return"',
+      !!rnd && rnd.indexOf('if(!tt) return;') > 0 && rnd.indexOf('ttGroups(') > rnd.indexOf('if(!tt) return;') && rnd.indexOf('ttPyramidVM(') > rnd.indexOf('if(!tt) return;')
+      && (html.match(/this\.ttGroups\(|this\.ttPyramidVM\(|this\.ttTierText\(/g) || []).length === 3);
+    ok('grouped list: fundamental headings only in the Twin Thieves sidebar and phone menu',
+      (html.match(/data-tt-group="\{\{ sl\.fund \}\}"/g) || []).length === 2
+      && /<div data-tt-list="1" data-tt-side="1"[^\n]*\n<sc-for list="\{\{ ttSideDark \}\}"[^\n]*\n<sc-if value="\{\{ sl\.isHead \}\}"/.test(html)
+      && /<div data-tt-list="1" data-tt-drawer="1"[^\n]*\n<sc-for list="\{\{ ttSide \}\}"[^\n]*\n<sc-if value="\{\{ sl\.isHead \}\}"/.test(html));
+    ok('menu: "Playbook" lights on the pyramid page only in the Twin Thieves sidebar; every other menu unchanged',
+      /const ttSideNav=!!W&&this\.isTT\(\);/.test(html)
+      && /const active=isAdminOnly\?true:\(\(ttSideNav&&t\.k==='lessons'\)\?s\.view==='tthome':\(s\.tab===t\.k\)\);/.test(html)
+      && /const active=isAdminOnly\?true:\(s\.tab===t\.k\);/.test(before));
+    // The navy sidebar: Twin Thieves members on a wide screen only; the Playbook's (and Studio's) stays as main has it.
+    ok('navy sidebar: only for a Twin Thieves member on a wide screen; the Playbook sidebar, label and tabs are unchanged otherwise',
+      /const ttNavy=sidebar&&this\.isTT\(\)&&!isAdminOnly;/.test(html)
+      && /'grid-column:1;grid-row:2;border-right:1px solid #DCE6F0;padding:26px 18px 40px'/.test(before)
+      && /\? \(ttNavy\?'grid-column:1;grid-row:2;background:#13213B;padding:26px 18px 40px':'grid-column:1;grid-row:2;border-right:1px solid #DCE6F0;padding:26px 18px 40px'\)/.test(html)
+      && /<div style="font-weight:800;font-size:9\.5px;letter-spacing:\.2em;text-transform:uppercase;color:#9DAAB8;padding:0 16px 12px">\{\{ navProductLabel \}\}<\/div>/.test(before)
+      && /v\.navProductLabelStyle='font-weight:800;font-size:9\.5px;letter-spacing:\.2em;text-transform:uppercase;color:'\+\(ttNavy\?'#8FB8EA':'#9DAAB8'\)\+';padding:0 16px 12px';/.test(html)
+      && /hoverStyle:ttNavy\?navyHover:\(W\?\(active\?\{\}:\{background:'#EAF1F8',color:'#0C1B2E'\}\):\{background:'rgba\(255,255,255,\.1\)'\}\),\n        style:ttNavy\?navyStyle:W\n/.test(html)
+      && /\? \(ttNavy\?navyGlyph:\(active\?'#FADA01':\(t\.gc\|\|'#7E8D9C'\)\)\)/.test(html)
+      && (html.match(/ttSideDark/g) || []).length === 2 && /<div data-tt-list="1" data-tt-drawer="1"[^\n]*\n<sc-for list="\{\{ ttSide \}\}"/.test(html));
+    ok('lessons: "← All lessons" goes back to the pyramid page', /v\.onTTHome=\(\)=>\{ this\.setState\(\{view:'tthome',tab:'lessons',ttFocus:null\}\);/.test(html));
+    const css = html.slice(html.indexOf('/* Twin Thieves lesson menu'), html.indexOf('@keyframes jjFall'));
+    ok('pyramid page: the new styles reach only Twin Thieves elements', !!css && css.split('\n').filter(l => /\{/.test(l) && !/^@media/.test(l)).every(l => /^\[data-tt-(drawer|side)="1"\]/.test(l)));
+    // Studio → Twin Thieves: names keep their spaces; Import lesson content.
+    const tt = new Function(line(/const TT_FUND_NAMES=[\s\S]*?;\n/) + html.slice(html.indexOf('const ttNameInput='), html.indexOf('/* A thumbnail link as a CSS url()'))
+      + '\nreturn {ttNameInput,ttCleanNames,ttNamesRelated,ttImportPlan,ttImportApply,ttImportRevert};')();
+    {
+      const want = 'Week 4: Be the Buffalo';
+      let box = ''; for (const ch of want) box = tt.ttNameInput(box + ch);   // typed one key at a time
+      const saved = tt.ttCleanNames({ '36': { tt12: '  ' + box + '  ', tt13: '   ', tt14: 'Lib Title' } }, { tt12: { title: 'Be the Buffalo' }, tt14: { title: 'Lib Title' } });
+      ok('versions: "Week 4: Be the Buffalo" can be typed with its spaces and saves with them (ends trimmed)',
+        box === want && saved['36'].tt12 === want && !('tt13' in saved['36']) && !('tt14' in saved['36']), JSON.stringify({ box, saved }));
+      ok('versions: the name box no longer trims on every key; Save versions cleans the names',
+        !/replace\(\/\\s\+\/g,' '\)\.trim\(\)\.slice\(0,120\)/.test(html) && /t=ttNameInput\(val\);/.test(html)
+        && /v\.onTTVerSave=\(\)=>\{ this\.ttSaveLib\(Object\.assign\(\{\},lib,\{names:ttCleanNames\(lib\.names,by\)\}\)/.test(html));
+      ok('lesson editor: video, thumbnail, handout and chapter boxes keep what is typed; trimmed on save',
+        /v\.onTTEdVideo=e=>set\(\{videoUrl:e\.target\.value\}\);/.test(html) && /v\.onTTEdThumb=e=>set\(\{thumbUrl:e\.target\.value\}\);/.test(html)
+        && /a\[i\]\.url=e\.target\.value; set\(\{handouts:a\}\);/.test(html) && /a\[i\]\.t=e\.target\.value; set\(\{chapters:a\}\);/.test(html)
+        && /x\.videoUrl=String\(x\.videoUrl\|\|''\)\.trim\(\);/.test(html));
+    }
+    {
+      // A library whose 36-lesson order is not id order, a Thank you lesson, and a per-version name.
+      const ids = Array.from({ length: 36 }, (_, i) => 'tt' + String(i + 1).padStart(2, '0'));
+      const lessons = ids.map((id, i) => ({ id, title: 'Lesson title ' + (i + 1), fund: i < 7 ? 'energy' : 'execute', videoUrl: 'https://v/' + id, thumbUrl: 'https://t/' + id,
+        handouts: [{ label: 'PDF', url: 'https://h/' + id }], summary: 'old ' + id, discussion: ['old d'], additional: ['old a'], bookChapter: 3 }))
+        .concat([{ id: 'ttthanks', closing: true, title: 'Thank you!', summary: 'thanks', discussion: [], additional: [] }]);
+      lessons[0].title = 'Building Your Own House';
+      const order36 = ids.slice(1).concat([ids[0]]);   // lesson 1 of the order is tt02; tt01 is last
+      const lib = { lessons, order36, order10: ids.slice(0, 10), names: { '36': { tt02: 'Thermostat vs. Thermometer' } } };
+      const libCopy = JSON.parse(JSON.stringify(lib));
+      const data = order36.map((id, i) => ({ lesson: i + 1, fundamental: i < 6 ? 'Energy' : 'Execute', title: i === 35 ? 'Build Your Own House' : (i === 0 ? 'Thermostat vs Thermometer' : (i === 4 ? 'Something Else Entirely' : 'Lesson Title ' + (ids.indexOf(id) + 1))),
+        concept: 'c', story: 's', summary: 'new summary ' + (i + 1), discussion: ['new d ' + (i + 1)], additional: ['new a ' + (i + 1), 'new b ' + (i + 1)] }));
+      delete data[10].additional;   // missing in the file: kept as it is
+      const plan = tt.ttImportPlan(data, lib);
+      ok('import: matched by position in the 36-lesson order, not by title or id',
+        !plan.err && plan.items.length === 36 && plan.items.every(it => it.id === order36[it.pos - 1]) && !plan.blockers.length && !plan.missing.length, JSON.stringify(plan.blockers));
+      const flagged = plan.items.filter(it => it.flags.some(f => /^Names look different/.test(f))).map(it => it.pos);
+      ok('import: unrelated names are flagged; small differences ("Building Your Own House" / "Build Your Own House") are not',
+        flagged.join() === '5', JSON.stringify(flagged));
+      ok('import: the per-version name is what the preview shows', plan.items[0].platform === 'Thermostat vs. Thermometer' && plan.items[35].platform === 'Building Your Own House');
+      const r = tt.ttImportApply(lib, plan);
+      const after = r.lib.lessons, keys = ['id', 'title', 'fund', 'videoUrl', 'thumbUrl', 'handouts', 'bookChapter', 'closing'];
+      ok('import: sets only the summary and questions; names, videos, thumbnails, handouts, order and the Thank you lesson stay',
+        after.every((l, i) => keys.every(k => JSON.stringify(l[k]) === JSON.stringify(libCopy.lessons[i][k])))
+        && JSON.stringify(r.lib.order36) === JSON.stringify(libCopy.order36) && JSON.stringify(r.lib.order10) === JSON.stringify(libCopy.order10)
+        && JSON.stringify(r.lib.names) === JSON.stringify(libCopy.names) && JSON.stringify(after[36]) === JSON.stringify(libCopy.lessons[36])
+        && after[1].summary === 'new summary 1' && after[0].summary === 'new summary 36' && after[0].discussion.join() === 'new d 36'
+        && JSON.stringify(lib) === JSON.stringify(libCopy));
+      const l11 = after.find(l => l.id === order36[10]);
+      ok('import: a field missing from the file is kept', l11.summary === 'new summary 11' && l11.additional.join() === 'old a');
+      ok('import: Undo puts the previous summary and questions back exactly', JSON.stringify(tt.ttImportRevert(r.lib, r.prev)) === JSON.stringify(libCopy) && Object.keys(r.prev).length === 36);
+      const dup = tt.ttImportPlan(data.concat([{ lesson: 3, title: 'x', summary: 'y' }, { lesson: 37, title: 'z', summary: 'y' }]), lib);
+      ok('import: a lesson twice, or past 36, blocks the import', dup.blockers.length === 2 && /twice/.test(dup.blockers[0]) && /37/.test(dup.blockers[1]));
+      ok('import: a file that is not a list of lessons is refused', !!tt.ttImportPlan({ x: 1 }, lib).err && !!tt.ttImportPlan([], lib).err);
+      ok('import: admins only, a preview first, Confirm re-checks the saved library and keeps Undo before saving',
+        /v\.ttImpCan=s\.role==='admin'&&!editing;/.test(html) && /if\(!f\|\|this\.state\.role!=='admin'\) return;/.test(html)
+        && /const plan=ttImportPlan\(imp\.data,fresh\);[\s\S]{0,200}ids\(plan\)!==ids\(imp\.plan\)/.test(html)
+        && html.indexOf("sset('ttlib:import-undo',undo)") > 0 && html.indexOf("sset('ttlib:import-undo',undo)") < html.indexOf("if(!(await sset('ttlib:master',out))) return stop("));
+    }
+    {
+      // /api/tt-videos: lists only the named Twin Thieves folders (spaces and all), for admins only.
+      const st = makeStore();
+      const users = { ADM: U('charlie@jadin-jones.com'), MSA: U('charlie@jadin-jones.com', 'microsoft.com'), T: U('tia@s.org'),
+        UNV: Object.assign(U('lucas@jadin-jones.com'), { email_verified: false }) };
+      const tokOf = t => ({ metadata: { firebaseStorageDownloadTokens: t } });
+      const A36 = '36 Lesson Video Folder/', A10 = '10 Lessons Video/';
+      const objs = { 'session-videos/a.mp4': tokOf('p'), 'session-thumbnails/x.jpg': {}, 'challenge-videos/c.mp4': {}, 'knowledge/k.mp4': {},
+        [A36]: {}, [A36 + 'Be the Buffalo.mp4']: tokOf('tok1,tok2'), [A36 + 'Eat_the_Frog.mp4']: {}, [A36 + 'notes.txt']: {}, [A36 + 'sub/deep.mp4']: {},
+        [A10 + 'Water the Bamboo.mp4']: tokOf('w1') };
+      const listed = [], buckets = [];
+      const bucket = { getFiles: async q => { const pre = q.prefix || ''; listed.push(pre);
+        if (q.delimiter !== '/') throw new Error('must list one level');
+        const files = Object.keys(objs).filter(k => k.indexOf(pre) === 0 && (k === pre || k.indexOf('/', pre.length) < 0))
+          .map(k => ({ name: k, metadata: Object.assign({ size: String(k.length * 1000), contentType: /\.mp4$/.test(k) ? 'video/mp4' : 'text/plain' }, objs[k]) }));
+        return [files, null, { prefixes: [] }]; } };
+      const vids = async (tok, body) => { const h = loadFn('tt-videos.js', st, users);
+        require.cache[path.join(ROOT, 'netlify/lib/firebase-admin.js')].exports.admin.storage = () => ({ bucket: n => { buckets.push(n); return bucket; } });
+        const r = await call(h, tok, body || {}); return { code: r.statusCode, body: JSON.parse(r.body) }; };
+      const prev = process.env.FIREBASE_PROJECT_ID; process.env.FIREBASE_PROJECT_ID = 'test-6b2ab';
+      const a = await vids('ADM');
+      const be = (a.body.files || []).find(f => f.name === 'Be the Buffalo.mp4') || {};
+      ok('tt-videos: by default an admin gets both folders, "36 Lesson Video Folder" and "10 Lessons Video", with name, path, size, type and link',
+        a.code === 200 && JSON.stringify(a.body.folders) === JSON.stringify([{ folder: '36 Lesson Video Folder', count: 2 }, { folder: '10 Lessons Video', count: 1 }])
+        && a.body.files.map(f => f.folder + '|' + f.name).join() === '36 Lesson Video Folder|Be the Buffalo.mp4,36 Lesson Video Folder|Eat_the_Frog.mp4,36 Lesson Video Folder|notes.txt,10 Lessons Video|Water the Bamboo.mp4'
+        && be.path === A36 + 'Be the Buffalo.mp4' && be.size === (A36 + 'Be the Buffalo.mp4').length * 1000 && be.contentType === 'video/mp4', JSON.stringify(a.body));
+      ok('tt-videos: spaces are kept in the folder and encoded in the link, the getDownloadURL() form from the file\'s own token; no token, no link',
+        be.url === 'https://firebasestorage.googleapis.com/v0/b/test-6b2ab.firebasestorage.app/o/36%20Lesson%20Video%20Folder%2FBe%20the%20Buffalo.mp4?alt=media&token=tok1'
+        && a.body.files.find(f => f.name === 'Eat_the_Frog.mp4').url === null && listed.slice(0, 2).join('|') === A36 + '|' + A10, listed.join('|'));
+      const one = await vids('ADM', { folders: ['10 Lessons Video/'], bucket: 'other-bucket' });
+      ok('tt-videos: the folders field is used as given (trailing slash fine); the bucket is always this project\'s own',
+        one.code === 200 && one.body.files.length === 1 && buckets.every(n => n === 'test-6b2ab.firebasestorage.app'), JSON.stringify(one.body) + buckets.join());
+      listed.length = 0;
+      const refused = ['session-videos', 'Session-Videos', 'knowledge', 'challenge-videos', 'random-folder', '..', '/36 Lesson Video Folder',
+        '36 Lesson Video Folder/sub', 'TT/../session-videos', 'gs://other/36 Lesson Video Folder', ' 36 Lesson Video Folder', ''];
+      const res = [];
+      for (const f of refused) res.push((await vids('ADM', { folders: ['36 Lesson Video Folder', f] })).code);
+      res.push((await vids('ADM', { folders: ['TT1', 'TT2', 'TT3', 'TT4', 'TT5'] })).code, (await vids('ADM', { folders: 'TT36' })).code, (await vids('ADM', { folders: [] })).code);
+      ok('tt-videos: Playbook and other folders, nested or odd paths, too many folders are refused, and nothing is listed',
+        res.every(c => c === 400) && listed.length === 0, res.join() + ' | ' + listed.join('|'));
+      const deny = [await vids('T'), await vids('MSA'), await vids('UNV'), await vids('NOPE')];
+      ok('tt-videos: members, a Microsoft sign-in, an unverified email and a bad token are refused',
+        deny.map(r => r.code).join() === '403,403,403,401', deny.map(r => r.code).join());
+      ok('tt-videos: writes nothing but its rate-limit count', st.writes.every(w => /^rateLimits\//.test(w)), st.writes.join(','));
+      // The thumbnail copy: one fixed file, made once from the HubSpot image, shrunk, with a download token.
+      const { Jimp } = require(require.resolve('jimp', { paths: [ROOT] }));
+      const srcPng = await new Jimp({ width: 3558, height: 1994, color: 0xFFAA0080 }).getBuffer('image/png');
+      const fetched = [], filesTouched = [], saved = {};
+      let srcOk = true;
+      const realFetch = global.fetch;
+      global.fetch = async (u) => { fetched.push(String(u)); return { ok: srcOk, headers: { get: () => srcOk ? 'image/png' : 'text/html' }, arrayBuffer: async () => srcPng.buffer.slice(srcPng.byteOffset, srcPng.byteOffset + srcPng.length) }; };
+      bucket.file = p => { filesTouched.push(p); return {
+        exists: async () => [!!saved[p]],
+        getMetadata: async () => [saved[p].md],
+        setMetadata: async m => { saved[p].md = Object.assign({}, saved[p].md, m); },
+        save: async (buf, o) => { if (saved[p] && o.preconditionOpts && o.preconditionOpts.ifGenerationMatch === 0) throw Object.assign(new Error('x'), { code: 412 });
+          saved[p] = { buf, md: Object.assign({ contentType: o.contentType }, o.metadata), opts: o }; } }; };
+      const TP = 'session-thumbnails/twin-thieves-challenge.jpg';
+      const t1 = await vids('ADM', { action: 'thumb' });
+      const out = saved[TP] ? await Jimp.read(saved[TP].buf) : null;
+      const tok1 = saved[TP] && saved[TP].md.metadata.firebaseStorageDownloadTokens;
+      ok('tt-videos thumb: an admin\'s first call downloads the HubSpot image once, shrinks it to a 1920 px JPEG and saves the one Twin Thieves thumbnail file',
+        t1.code === 200 && t1.body.created === true && fetched.join() === 'https://48441925.fs1.hubspotusercontent-na1.net/hubfs/48441925/Challenge.png'
+        && out && out.bitmap.width === 1920 && out.bitmap.height === 1076 && saved[TP].md.contentType === 'image/jpeg' && saved[TP].buf.length < 600 * 1024
+        && saved[TP].opts.preconditionOpts.ifGenerationMatch === 0 && Object.keys(saved).join() === TP, JSON.stringify(t1.body) + ' ' + fetched.join());
+      ok('tt-videos thumb: its link is the getDownloadURL() form, with the token saved on the file',
+        !!tok1 && t1.body.url === 'https://firebasestorage.googleapis.com/v0/b/test-6b2ab.firebasestorage.app/o/session-thumbnails%2Ftwin-thieves-challenge.jpg?alt=media&token=' + tok1);
+      const t2 = await vids('ADM', { action: 'thumb' });
+      ok('tt-videos thumb: later calls reuse that copy (no download, nothing written)', t2.code === 200 && t2.body.created === false && t2.body.url === t1.body.url && fetched.length === 1);
+      const before = filesTouched.length;
+      const td = [await vids('T', { action: 'thumb' }), await vids('MSA', { action: 'thumb' }), await vids('NOPE', { action: 'thumb' }), await vids('ADM', { action: 'other' })];
+      ok('tt-videos thumb: members, a Microsoft sign-in and a bad token are refused before Storage is touched; an unknown action is refused',
+        td.map(r => r.code).join() === '403,403,401,400' && filesTouched.length === before && fetched.length === 1, td.map(r => r.code).join());
+      delete saved[TP]; srcOk = false;
+      const t3 = await vids('ADM', { action: 'thumb' });
+      ok('tt-videos thumb: if HubSpot does not give an image, nothing is saved', t3.code === 502 && /HubSpot/.test(t3.body.error) && !saved[TP]);
+      ok('tt-videos thumb: only that one path is ever opened', filesTouched.every(p => p === TP), filesTouched.join());
+      global.fetch = realFetch; delete bucket.file;
+      process.env.FIREBASE_PROJECT_ID = prev; if (prev === undefined) delete process.env.FIREBASE_PROJECT_ID;
+    }
+    {
+      // Link videos from Storage, on the real 36 lesson names.
+      const vt = new Function(line(/const TT_FUND_NAMES=[\s\S]*?;\n/) + line(/const TT_SEED=[\s\S]*?\]\];\n/)
+        + html.slice(html.indexOf('const ttNameInput='), html.indexOf('/* A thumbnail link as a CSS url()'))
+        + '\nreturn {TT_SEED,ttVideoPlan,ttVideoApply,ttVideoRevert,ttStoragePath,TT_VID_FOLDER_RE};')();
+      const ids = vt.TT_SEED.map((_, i) => 'tt' + String(i + 1).padStart(2, '0'));
+      const idOf = t => ids[vt.TT_SEED.findIndex(x => x[1] === t)];
+      const lessons = vt.TT_SEED.map(([fund, title], i) => ({ id: ids[i], fund, title, videoUrl: '', thumbUrl: '', summary: 's' + i, discussion: ['d'], additional: [], handouts: [{ label: 'PDF', url: 'h' }] }))
+        .concat([{ id: 'ttthanks', fund: 'thanks', title: 'Thank you!', closing: true, videoUrl: '', summary: 'thanks' }]);
+      lessons[ids.indexOf(idOf('Trust Bank'))].videoUrl = 'https://www.youtube.com/watch?v=abcdefgh';
+      lessons[ids.indexOf(idOf('Eat the Frog'))].thumbUrl = 'https://own/frog.jpg';
+      const lib = { lessons, order36: ids.slice(), order10: ids.slice(0, 10), names: { '36': { [idOf('Be the Buffalo')]: 'Week 4: Be the Buffalo' } } };
+      const copy = JSON.parse(JSON.stringify(lib));
+      const F = 'twin-thieves-videos/', MB = 1048576;
+      const files = [['Be_the_Buffalo.mp4', 210, 300], ['4_Steps_to_Be_the_Buffalo.mp4', 60, 300], ['08_Water_the_Bamboo.mov', 40, 240], ['Trust_Bank.mp4', 50, 300],
+        ['Eat_the_Frog.mp4', 30, 200], ['Thank_You.mp4', 10, 60], ['Random_Outtakes.mp4', 20, 100], ['notes.txt', 1, 0]]
+        .map(([name, mb, dur]) => ({ path: F + name, name, size: mb * MB, dur, url: 'https://firebasestorage.googleapis.com/v0/b/test-6b2ab.firebasestorage.app/o/' + encodeURIComponent(F + name) + '?alt=media&token=t' }));
+      const urls = {}; files.forEach(f => { urls[f.path] = f.url; });
+      const p = vt.ttVideoPlan(files, lib, {}), row = t => p.rows.find(r => r.id === (t === 'thanks' ? 'ttthanks' : idOf(t)));
+      ok('videos: matched by file name to the right lesson ("Be_the_Buffalo.mp4" → "Be the Buffalo", not "4 Steps to Be the Buffalo")',
+        row('Be the Buffalo').path === F + 'Be_the_Buffalo.mp4' && row('4 Steps to Be the Buffalo').path === F + '4_Steps_to_Be_the_Buffalo.mp4'
+        && row('Water the Bamboo').path === F + '08_Water_the_Bamboo.mov' && row('thanks').path === F + 'Thank_You.mp4' && p.rows.length === 37,
+        JSON.stringify(p.rows.filter(r => r.path).map(r => r.name + '=' + r.path)));
+      ok('videos: a lesson that has a video is skipped and its file does not go to a neighbour ("Trust Bank" / "Trust Triangle")',
+        row('Trust Bank').status === 'skip' && row('Trust Triangle').status === 'none' && !row('Trust Triangle').path);
+      ok('videos: lessons with no file show none; unmatched files are listed; non-videos are ignored',
+        p.rows.filter(r => r.status === 'none').length === 31 && p.unmatched.map(f => f.name).join() === 'Random_Outtakes.mp4' && p.files.length === 7);
+      ok('videos: over 20 MB per minute is flagged', row('Be the Buffalo').heavy && !row('4 Steps to Be the Buffalo').heavy && row('Water the Bamboo').mov);
+      ok('videos: the thumbnail goes only to linked lessons, and keeps a lesson\'s own unless replace is ticked',
+        p.linking === 5 && p.thumbs === 4 && row('Eat the Frog').thumb === 'keep' && vt.ttVideoPlan(files, lib, { replaceThumbs: true }).thumbs === 5);
+      const r = vt.ttVideoApply(lib, p, urls, 'https://copy/thumb.jpg');
+      const keys = ['id', 'title', 'fund', 'summary', 'discussion', 'additional', 'handouts', 'closing'];
+      ok('videos: Confirm sets only the video and thumbnail; text, names, handouts, order and fundamentals stay',
+        r.lib.lessons.every((l, i) => keys.every(k => JSON.stringify(l[k]) === JSON.stringify(copy.lessons[i][k])))
+        && JSON.stringify([r.lib.order36, r.lib.order10, r.lib.names]) === JSON.stringify([copy.order36, copy.order10, copy.names])
+        && r.lib.lessons.find(l => l.id === idOf('Be the Buffalo')).videoUrl === urls[F + 'Be_the_Buffalo.mp4']
+        && r.lib.lessons.find(l => l.id === idOf('Be the Buffalo')).thumbUrl === 'https://copy/thumb.jpg'
+        && r.lib.lessons.find(l => l.id === idOf('Eat the Frog')).thumbUrl === 'https://own/frog.jpg'
+        && r.lib.lessons.find(l => l.id === idOf('Trust Bank')).videoUrl === copy.lessons[ids.indexOf(idOf('Trust Bank'))].videoUrl
+        && Object.keys(r.prev).length === 5 && JSON.stringify(lib) === JSON.stringify(copy));
+      const again = vt.ttVideoPlan(files.concat([{ path: F + 'Eat_the_Frog_v2.mp4', name: 'Eat_the_Frog_v2.mp4', size: MB, dur: 60, url: 'u' }]), r.lib, {});
+      ok('videos: running it again links nothing already linked', again.linking === 0 && row('Be the Buffalo') && again.rows.find(x => x.id === idOf('Be the Buffalo')).status === 'same',
+        JSON.stringify(again.rows.filter(x => x.status === 'link').map(x => x.name)));
+      ok('videos: "Replace existing videos" links over a lesson\'s video', vt.ttVideoPlan(files, lib, { replaceVideos: true }).rows.find(x => x.id === idOf('Trust Bank')).status === 'link');
+      const pk = vt.ttVideoPlan(files, lib, { picks: { [idOf('Trust Triangle')]: F + 'Random_Outtakes.mp4', [idOf('Be the Buffalo')]: '' } });
+      ok('videos: a dropdown choice wins, "No video" leaves a lesson out, one file for two lessons blocks',
+        pk.rows.find(x => x.id === idOf('Trust Triangle')).path === F + 'Random_Outtakes.mp4' && pk.rows.find(x => x.id === idOf('Be the Buffalo')).status === 'none'
+        && pk.unmatched.map(f => f.name).join() === 'Be_the_Buffalo.mp4'
+        && vt.ttVideoPlan(files, lib, { picks: { tt01: F + 'Thank_You.mp4', tt02: F + 'Thank_You.mp4' } }).blockers.length === 1);
+      const nl = vt.ttVideoPlan(files.map(f => f.name === 'Be_the_Buffalo.mp4' ? Object.assign({}, f, { url: null }) : f), lib, {});
+      const sk = vt.ttVideoPlan(files, lib, { skipThumbs: true, replaceThumbs: true });
+      ok('videos: "Skip thumbnails" links the videos and leaves every thumbnail as it is',
+        sk.linking === 5 && sk.thumbs === 0 && vt.ttVideoApply(lib, sk, urls, '').lib.lessons.every((l, i) => (l.thumbUrl || '') === (copy.lessons[i].thumbUrl || '')));
+      ok('videos: a file with no download link is shown but never linked',
+        nl.rows.find(x => x.id === idOf('Be the Buffalo')).status === 'nourl' && nl.linking === 4
+        && !vt.ttVideoApply(lib, nl, urls, 't').prev[idOf('Be the Buffalo')]);
+      {
+        const G1 = '36 Lesson Video Folder', G2 = '10 Lessons Video';
+        const mk = (fo, name) => ({ folder: fo, path: fo + '/' + name, name, size: 30 * MB, dur: 300,
+          url: 'https://firebasestorage.googleapis.com/v0/b/test-6b2ab.firebasestorage.app/o/' + encodeURIComponent(fo + '/' + name) + '?alt=media&token=t' });
+        const two = [mk(G1, 'Be_the_Buffalo.mp4'), mk(G2, 'Be the Buffalo.mp4'), mk(G1, 'Eat_the_Frog.mp4'), mk(G2, 'Water the Bamboo.mp4')];
+        const tp = vt.ttVideoPlan(two, lib, {}), tr = id => tp.rows.find(x => x.id === idOf(id));
+        ok('videos: across both folders, each lesson gets its one file; a lesson found in both is "choose", not guessed',
+          tr('Be the Buffalo').status === 'choose' && !tr('Be the Buffalo').path && tr('Be the Buffalo').alts.map(f => f.folder).join() === G1 + ',' + G2
+          && tr('Eat the Frog').status === 'link' && tr('Water the Bamboo').status === 'link' && tp.linking === 2 && tp.choosing === 1 && !tp.unmatched.length,
+          JSON.stringify(tp.rows.filter(x => x.status !== 'none').map(x => x.name + ':' + x.status)));
+        const tk = vt.ttVideoPlan(two, lib, { picks: { [idOf('Be the Buffalo')]: G2 + '/Be the Buffalo.mp4' } });
+        ok('videos: picking one of the two links it; the other file is then listed as matching nothing',
+          tk.rows.find(x => x.id === idOf('Be the Buffalo')).status === 'link' && tk.rows.find(x => x.id === idOf('Be the Buffalo')).path === G2 + '/Be the Buffalo.mp4'
+          && tk.unmatched.map(f => f.path).join() === G1 + '/Be_the_Buffalo.mp4' && tk.linking === 3);
+        const tl = vt.ttVideoApply(lib, tk, Object.fromEntries(two.map(f => [f.path, f.url])), 't');
+        const again2 = vt.ttVideoPlan(two, tl.lib, {});
+        ok('videos: after linking one of the two, running again leaves that lesson as it is', again2.rows.find(x => x.id === idOf('Be the Buffalo')).status === 'same' && again2.linking === 0);
+        ok('videos: both Storage folder names are Twin Thieves folders; the Playbook\'s are not',
+          vt.TT_VID_FOLDER_RE.test(G1) && vt.TT_VID_FOLDER_RE.test(G2) && !['session-videos', 'session-thumbnails', 'challenge-videos', 'welcome-videos', 'learn-more', 'knowledge'].some(f => vt.TT_VID_FOLDER_RE.test(f)));
+      }
+      const edited = JSON.parse(JSON.stringify(r.lib)); edited.lessons.find(l => l.id === idOf('Be the Buffalo')).videoUrl = 'https://edited/later.mp4';
+      ok('videos: Undo puts the previous videos and thumbnails back exactly, and keeps a video changed since',
+        JSON.stringify(vt.ttVideoRevert(r.lib, r.prev)) === JSON.stringify(copy)
+        && vt.ttVideoRevert(edited, r.prev).lessons.find(l => l.id === idOf('Be the Buffalo')).videoUrl === 'https://edited/later.mp4' && vt.ttStoragePath(urls[F + 'Thank_You.mp4']) === F + 'Thank_You.mp4');
+      const scan = html.slice(html.indexOf('  /* POST /api/tt-videos (admins)'), html.indexOf('  ttOrgRec(id){'));
+      ok('videos: admins only; listing and the thumbnail copy are /api/tt-videos\' (the browser writes nothing to Storage); writes only ttlib:master and its Undo (Undo first)',
+        /v\.ttVidCan=s\.role==='admin'&&!editing;/.test(html) && /const s=this\.state; if\(s\.role!=='admin'\) return;/.test(scan)
+        && /authFetch\('\/api\/tt-videos'/.test(scan) && /this\.ttVidApi\(\{folders\}\)/.test(scan) && /this\.ttVidApi\(\{action:'thumb'\}\)/.test(scan)
+        && !/listAll|\.list\(|fbStorage|uploadMedia|ttImageCopy/.test(scan) && !/ttImageCopy/.test(html)
+        && (scan.match(/sset\('([^']+)'/g) || []).every(x => /ttlib:(master|video-undo)/.test(x))
+        && !/\.(delete|put|putString|updateMetadata)\(/.test(scan)
+        && scan.indexOf("sset('ttlib:video-undo',undo)") < scan.indexOf("if(!(await sset('ttlib:master',out))) return stop(")
+        && !vt.TT_VID_FOLDER_RE.test('session-videos') && !vt.TT_VID_FOLDER_RE.test('session-thumbnails') && !vt.TT_VID_FOLDER_RE.test('challenge-videos')
+        && vt.TT_VID_FOLDER_RE.test('twin-thieves-videos') && vt.TT_VID_FOLDER_RE.test('TT36'));
+    }
     const j1 = fs.readFileSync(path.join(ROOT, 'netlify/functions/join.js'), 'utf8'), j2 = fs.readFileSync(path.join(ROOT, 'netlify/functions/tt-join.js'), 'utf8');
     ok('logging: the temporary sign-in error logs are gone', !/verify', e && e\.code, e && e\.message/.test(j1 + j2));
   }
