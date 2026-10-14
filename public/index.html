@@ -532,12 +532,11 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:#00A3E0;box-sh
    rows share what the headings leave. Only the Twin Thieves list carries
    these attributes. */
 [data-tt-side="1"] [data-tt-side-row="1"]{display:flex;align-items:center;min-height:max(36px,calc((var(--tt-h) - var(--tt-hh,0px)) / var(--tt-n,40)))}
-[data-tt-side="1"] [data-tt-side-row="1"]{box-sizing:border-box;padding:2px 0;align-items:stretch}
+[data-tt-side="1"] [data-tt-side-row="1"]{box-sizing:border-box;padding:1px 4px;align-items:stretch}
 [data-tt-side="1"] [data-tt-side-row="1"]>button{margin-bottom:0!important;transition:background .15s,border-color .15s}
-/* Its rows are tabs on navy: hover lifts the fill and the outline (the
-   current lesson keeps its yellow). */
-[data-tt-side="1"] [data-tt-side-row="1"]>button:not([data-tt-cur="1"]):hover{background:rgba(255,255,255,.1)!important;border-color:rgba(255,255,255,.2)!important}
-[data-tt-side="1"] [data-tt-side-row="1"]>button:focus-visible{outline:2px solid #F5C518;outline-offset:1px}
+/* Its rows have no box; hover gives a light fill (the current lesson keeps its navy). */
+[data-tt-side="1"] [data-tt-side-row="1"]>button:not([data-tt-cur="1"]):hover{background:#EEF2F7!important}
+[data-tt-side="1"] [data-tt-side-row="1"]>button:focus-visible{outline:2px solid #13213B;outline-offset:1px}
 @keyframes jjFall{0%{transform:translateY(0) rotate(0deg);opacity:0}8%{opacity:.95}100%{transform:translateY(112vh) rotate(540deg);opacity:.15}}
 @keyframes jjPop{0%{opacity:0;transform:scale(.72)}60%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
 @keyframes jjSweep{from{opacity:0;transform:translateX(-70px)}to{opacity:1;transform:translateX(0)}}
@@ -8099,9 +8098,9 @@ Or upload an image
 </button>
 <sc-if value="{{ tb.hasTTList }}" hint-placeholder-val="{{ false }}">
 <div data-tt-list="1" data-tt-side="1" style="{{ ttSideListStyle }}">
-<sc-for list="{{ ttSideDark }}" as="sl" hint-placeholder-count="8">
-<sc-if value="{{ sl.isHead }}" hint-placeholder-val="{{ false }}"><div data-tt-group="{{ sl.fund }}" data-tt-focus="{{ sl.focus }}" style="{{ sl.headStyle }}"><span>{{ sl.text }}</span><span style="{{ sl.countStyle }}">{{ sl.count }}</span></div></sc-if>
-<sc-if value="{{ sl.isRow }}" hint-placeholder-val="{{ true }}"><div data-tt-side-row="1"><button data-tt-cur="{{ sl.cur }}" sc-camel-on-click="{{ sl.onTap }}" style="{{ sl.style }}"><span style="{{ sl.numStyle }}">{{ sl.num }}</span><span style="{{ sl.titleStyle }}">{{ sl.title }}</span><sc-if value="{{ sl.done }}" hint-placeholder-val="{{ false }}"><span style="flex:none;margin-left:auto;color:#7FD6A4;font-weight:900;font-size:14px" aria-label="Completed">✓</span></sc-if></button></div></sc-if>
+<sc-for list="{{ ttSideLight }}" as="sl" hint-placeholder-count="8">
+<sc-if value="{{ sl.isHead }}" hint-placeholder-val="{{ false }}"><div aria-hidden="true" style="{{ sl.ruleStyle }}"></div><div data-tt-group="{{ sl.fund }}" data-tt-focus="{{ sl.focus }}" style="{{ sl.headStyle }}"><span>{{ sl.text }}</span><span style="{{ sl.countStyle }}">{{ sl.count }}</span></div></sc-if>
+<sc-if value="{{ sl.isRow }}" hint-placeholder-val="{{ true }}"><div data-tt-side-row="1" style="{{ sl.wrapStyle }}"><button data-tt-cur="{{ sl.cur }}" sc-camel-on-click="{{ sl.onTap }}" style="{{ sl.style }}"><span aria-hidden="true" style="{{ sl.numStyle }}"><sc-if value="{{ sl.tick }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" width="13" height="13" style="display:block"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if><sc-if value="{{ sl.noTick }}" hint-placeholder-val="{{ true }}">{{ sl.num }}</sc-if></span><span style="{{ sl.titleStyle }}">{{ sl.title }}<sc-if value="{{ sl.done }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap"> (completed)</span></sc-if></span></button></div></sc-if>
 </sc-for>
 </div>
 </sc-if>
@@ -16952,37 +16951,45 @@ class Component extends DCLogic {
           +(d?'background:#2F7F55;color:#fff':(l.closing?'background:#FADA01;color:#0C2647':'background:#EAF1F8;color:#0C2647')),
         titleStyle:'font-size:12.5px;line-height:1.3;color:#0C1B2E;font-weight:'+(me||inF?'800':'600'),
         onTap:()=>this.ttOpen(l.id)}; };
-    /* The same row in the desktop sidebar, which is navy: each lesson a tab
-       with a faint outline and fill, the current one in yellow. */
-    const rowDark=l=>{ const r=row(l), me=r.cur==='1', inF=!!focus&&!l.closing&&l.fund===focus;
-      return Object.assign(r,{
-        style:'box-sizing:border-box;width:100%;display:flex;align-items:center;gap:10px;text-align:left;font-family:inherit;cursor:pointer;border-radius:10px;padding:6px 10px;margin:0;border:1px solid '
-          +(me?'#F5C518;background:rgba(245,197,24,.16)':(inF?'rgba(158,197,240,.45);background:rgba(158,197,240,.12)':'rgba(255,255,255,.08);background:rgba(255,255,255,.03)')),
-        numStyle:'flex:none;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10.5px;'
-          +(me?'background:#F5C518;color:#13213B':(r.done?'background:#2F7F55;color:#FFFFFF':(l.closing?'background:#2F4A78;color:#F5C518':'background:#2F4A78;color:#FFFFFF'))),
-        titleStyle:'font-size:12.5px;line-height:1.3;color:'+(me?'#FFFFFF':'#E8EEF7')+';font-weight:'+(me||inF?'800':'600')}); };
-    const side=[], sideDark=[];
-    groups.forEach((g,gi)=>{ const dn=g.lessons.filter(l=>this.ttDone(l.id)).length, on=g.fund===focus, all=dn===g.lessons.length;
+    /* The same row in the desktop sidebar, which is light: no box, a ringed
+       number circle (green with a tick once done), the current lesson a
+       solid navy row with a yellow circle. A picked fundamental's group sits
+       on soft yellow (its last row rounds the bottom). */
+    const rowLight=(l,last)=>{ const r=row(l), me=r.cur==='1', inF=!!focus&&!l.closing&&l.fund===focus;
+      const ring=inF?'#E0B000':(l.closing?'#E0B000':'#9AABC2');
+      // Done: a drawn tick (an icon, so AA's 3:1 for graphics applies) in place of the number.
+      return Object.assign(r,{tick:r.done&&!me,noTick:!(r.done&&!me),
+        wrapStyle:inF?('background:#FFF6D6;'+(last?'border-radius:0 0 10px 10px;padding-bottom:5px':'')):'',
+        style:'box-sizing:border-box;width:100%;display:flex;align-items:center;gap:10px;text-align:left;font-family:inherit;cursor:pointer;border:0;border-radius:8px;padding:5px 10px;margin:0;'
+          +'background:'+(me?'#13213B':'transparent'),
+        numStyle:'box-sizing:border-box;flex:none;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10.5px;'
+          +(me?'background:#F5C518;border:2px solid #F5C518;color:#13213B'
+            :(r.done?'background:#2E8B57;border:2px solid #2E8B57;color:#FFFFFF'
+              :'background:#FFFFFF;border:2px solid '+ring+';color:'+(l.closing?'#8A6A10':'#13213B'))),
+        titleStyle:'font-size:12.5px;line-height:1.3;color:'+(me?'#FFFFFF':'#1F2D45')+';font-weight:'+(me?'700':'500')}); };
+    const side=[], sideLight=[];
+    groups.forEach(g=>{ const dn=g.lessons.filter(l=>this.ttDone(l.id)).length, on=g.fund===focus, all=dn===g.lessons.length;
       const head={isHead:true,isRow:false,fund:g.fund,focus:on?'1':'0',text:g.name,count:(all?'✓ ':'')+dn+'/'+g.lessons.length};
       side.push(Object.assign({},head,{
         headStyle:'box-sizing:border-box;height:22px;margin-top:2px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px;border-radius:8px;font-weight:800;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;'
           +(on?'background:#00A3E0;color:#FFFFFF':'color:#7E8D9C'),
         countStyle:'flex:none;font-size:10px;letter-spacing:.04em;font-weight:800;color:'+(on?'#FFFFFF':(all?'#2F7F55':'#9DAAB8'))}));
-      // Navy: a thin line above every group but the first (inside the heading's 30px).
-      sideDark.push(Object.assign({},head,{
-        headStyle:'box-sizing:border-box;height:28px;margin-top:'+(gi?'2px':'0')+';padding:'+(gi?'8px':'2px')+' 10px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:600;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;'
-          +(gi?'border-top:1px solid rgba(255,255,255,.12);':'')+'color:'+(on?'#FFFFFF':'#9EC5F0'),
-        countStyle:'flex:none;font-size:10px;letter-spacing:.04em;font-weight:600;color:'+(on?'#FFFFFF':'#CFE0F5')}));
-      g.lessons.forEach(l=>{ side.push(row(l)); sideDark.push(rowDark(l)); }); });
-    const thanks=list.find(l=>l.closing); if(thanks){ side.push(row(thanks)); sideDark.push(rowDark(thanks)); }
-    v.ttSide=side; v.ttSideDark=sideDark;
+      // Light: a thin line above every heading (9px with its margins), then the 26px heading.
+      sideLight.push(Object.assign({},head,{
+        ruleStyle:'height:1px;background:#E3E8EF;margin:4px 4px',
+        headStyle:'box-sizing:border-box;height:26px;margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 14px 0;font-weight:800;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;'
+          +(on?'background:#FFF6D6;border-radius:10px 10px 0 0;color:#6B4E00':'color:#13213B'),
+        countStyle:'flex:none;font-size:10px;letter-spacing:.04em;font-weight:700;color:'+(on?'#8A6A10':'#5B6B82')}));
+      g.lessons.forEach((l,i)=>{ side.push(row(l)); sideLight.push(rowLight(l,i===g.lessons.length-1)); }); });
+    const thanks=list.find(l=>l.closing); if(thanks){ side.push(row(thanks)); sideLight.push(Object.assign(rowLight(thanks,false),{wrapStyle:'margin-top:6px'})); }
+    v.ttSide=side; v.ttSideLight=sideLight;
     /* The desktop/iPad sidebar list fills the height down to My Profile, which
        sits just under it near the bottom of the window. Headings keep their
-       30px (--tt-hh in all); lesson rows share the rest (rows spread by CSS;
+       35px with its line (--tt-hh in all); lesson rows share the rest (rows spread by CSS;
        a long list scrolls inside). */
     const nRows=Math.max(1,side.filter(r=>r.isRow).length), hh=groups.length*24;
-    v.ttSideListStyle='position:relative;height:calc(100vh - 256px);min-height:120px;overflow-y:auto;margin:6px 0 10px;padding:2px 4px 4px 2px;scrollbar-color:rgba(255,255,255,.28) transparent;'
-      +'--tt-h:calc(100vh - 280px);--tt-n:'+nRows+';--tt-hh:'+(groups.length*30)+'px';
+    v.ttSideListStyle='position:relative;height:calc(100vh - 300px);min-height:120px;overflow-y:auto;margin:4px -4px 8px;padding:0 0 4px;scrollbar-color:#C9D3E0 transparent;'
+      +'--tt-h:calc(100vh - 306px);--tt-n:'+nRows+';--tt-hh:'+(groups.length*35+6)+'px';
     // The phone menu's list; --tt-n spreads its rows over the height (CSS above).
     v.ttDrawerListStyle='flex:1;min-height:0;overflow-y:auto;position:relative;padding:0 10px 10px calc(10px + env(safe-area-inset-left));--tt-n:'+nRows+';--tt-hh:'+hh+'px';
     v.ttPhone=!W; v.ttWide=!!W;
@@ -25782,12 +25789,12 @@ class Component extends DCLogic {
     v.mainStyle=sidebar
       ? 'grid-column:2;grid-row:2;min-width:0;max-width:900px;padding:6px 30px '+(56+tourPad)+'px'
       : 'flex:1;padding:'+(W?('8px 26px '+(56+tourPad)+'px'):('0 0 '+(92+tourPad)+'px'));
-    /* A Twin Thieves member's desktop sidebar is navy (the pyramid card's
-       colour); the Playbook's stays as it is. */
-    const ttNavy=sidebar&&this.isTT()&&!isAdminOnly;
-    v.navProductLabelStyle='font-weight:800;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:'+(ttNavy?'#8FB8EA':'#9DAAB8')+';padding:0 16px 12px';
+    /* A Twin Thieves member's desktop sidebar is a white panel that stays in
+       view; the Playbook's stays as it is. */
+    const ttLight=sidebar&&this.isTT()&&!isAdminOnly;
+    v.navProductLabelStyle='font-weight:800;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:'+(ttLight?'#5B6B82':'#9DAAB8')+';padding:0 '+(ttLight?'10px 10px':'16px 12px');
     v.navOuterStyle=s.mapFull?'display:none':(sidebar
-      ? (ttNavy?'grid-column:1;grid-row:2;background:#13213B;padding:26px 18px 40px':'grid-column:1;grid-row:2;border-right:1px solid #DCE6F0;padding:26px 18px 40px')
+      ? (ttLight?'grid-column:1;grid-row:2;align-self:start;position:sticky;top:76px;margin:14px 0 14px 16px;background:#FFFFFF;border:1px solid #DFE5EE;border-radius:16px;padding:18px 12px 12px':'grid-column:1;grid-row:2;border-right:1px solid #DCE6F0;padding:26px 18px 40px')
       : 'position:fixed;bottom:0;left:0;right:0;z-index:40;justify-content:center;pointer-events:none;display:'
         +(s.chatTyping?'none':'flex'));
     this.ttRender(v,W);
@@ -25818,16 +25825,15 @@ class Component extends DCLogic {
       const active=isAdminOnly?true:((ttSideNav&&t.k==='lessons')?s.view==='tthome':(s.tab===t.k));
       const tabKey=t.k;
       const photo=(t.k==='me'&&navAv)?navAv:'';
-      // Navy: Playbook is a lighter navy button with its yellow triangle; My Profile is light text.
-      let navyStyle='', navyHover=null, navyGlyph='';
-      if(ttNavy){
-        const pb=t.k==='lessons', box=pb||active;
-        navyGlyph=pb?'#F5C518':'#CFE0F5';
-        navyStyle='position:relative;display:flex;flex-direction:row;align-items:center;gap:14px;width:100%;padding:13px 15px;border-radius:11px;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s,color .15s;'
-          +'font-weight:'+(active?'900':'700')+';color:'+(box?'#FFFFFF':'#E8EEF7')+';'
-          +(box?'background:#22375C;border:1px solid rgba(255,255,255,.16);':'background:transparent;border:1px solid transparent;')
-          +'box-shadow:'+(active?'0 6px 18px rgba(0,0,0,.28)':'none');
-        navyHover=box?{background:'#2A4470'}:{background:'rgba(255,255,255,.1)',color:'#FFFFFF'};
+      // Light: Playbook is a navy button with its yellow triangle; My Profile is dark text.
+      let lightStyle='', lightHover=null, lightGlyph='';
+      if(ttLight){
+        const pb=t.k==='lessons';
+        lightGlyph=pb?'#F5C518':'#5B6B82';
+        lightStyle='position:relative;display:flex;flex-direction:row;align-items:center;gap:14px;width:100%;padding:12px 14px;border:0;border-radius:11px;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s,color .15s;'
+          +'font-weight:'+(pb||active?'800':'600')+';color:'+(pb?'#FFFFFF':'#1F2D45')+';'
+          +'background:'+(pb?'#1B2C4A':(active?'#EEF2F7':'transparent'))+';box-shadow:'+(pb&&active?'0 6px 16px rgba(19,33,59,.22)':'none');
+        lightHover=pb?{background:'#24385C'}:{background:'#EEF2F7'};
       }
       return {key:tabKey, glyph:t.g,label:t.l,badge:t.n>9?'9+':String(t.n),
         // Twin Thieves: the lesson list sits under Lessons in the desktop sidebar.
@@ -25841,7 +25847,7 @@ class Component extends DCLogic {
         mailSvgStyle:'display:block;width:'+(W?'21px':'18px')+';height:'+(W?'21px':'18px'),
         photoStyle:'flex:none;display:block;overflow:hidden;border-radius:50%;width:'+(W?'30px':'21px')+';height:'+(W?'30px':'21px')+';background:#FADA01;border:1.5px solid '+(active?'#00A3E0':'rgba(255,255,255,.35)'),
         glyphStyle:'font-size:'+(W?'21px':'17px')+';line-height:1;flex:none;width:'+(W?'26px':'auto')+';text-align:center;color:'+(W
-          ? (ttNavy?navyGlyph:(active?'#FADA01':(t.gc||'#7E8D9C')))
+          ? (ttLight?lightGlyph:(active?'#FADA01':(t.gc||'#7E8D9C')))
           : (t.gc||'inherit')),
         labelStyle:W
           ? 'font-size:15.5px;font-weight:800;letter-spacing:.01em'
@@ -25849,8 +25855,8 @@ class Component extends DCLogic {
         badgeStyle:t.n>0
           ? (W?'position:absolute;top:50%;right:16px;transform:translateY(-50%);min-width:22px;height:22px;font-size:11.5px':'position:absolute;top:2px;right:calc(50% - 19px);min-width:16px;height:16px;font-size:9.5px')+';background:#D5502B;color:#FFFFFF;border-radius:999px;padding:0 6px;font-weight:900;display:flex;align-items:center;justify-content:center'
           : 'display:none',
-        hoverStyle:ttNavy?navyHover:(W?(active?{}:{background:'#EAF1F8',color:'#0C1B2E'}):{background:'rgba(255,255,255,.1)'}),
-        style:ttNavy?navyStyle:W
+        hoverStyle:ttLight?lightHover:(W?(active?{}:{background:'#EAF1F8',color:'#0C1B2E'}):{background:'rgba(255,255,255,.1)'}),
+        style:ttLight?lightStyle:W
           ? 'position:relative;display:flex;flex-direction:row;align-items:center;gap:14px;width:100%;padding:14px 16px;border:none;border-radius:11px;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s,color .15s;font-weight:'+(active?'900':'700')+';color:'+(active?'#FFFFFF':'#37475C')+';background:'+(active?'linear-gradient(100deg,#123663,#0C2647)':'transparent')+';box-shadow:'+(active?'0 6px 18px rgba(12,38,71,.22)':'none')
           : 'position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:7px 2px;border:none;border-radius:10px;cursor:pointer;color:'+(active?'#FFFFFF':'rgba(255,255,255,.62)')+';background:'+(active?'rgba(255,255,255,.14)':'transparent'),
         onTap:()=>{ if(isAdminOnly){ this.go('admin'); return; }
