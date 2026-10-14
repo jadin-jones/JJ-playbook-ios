@@ -535,6 +535,46 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
         && html.indexOf("sset('ttlib:import-undo',undo)") > 0 && html.indexOf("sset('ttlib:import-undo',undo)") < html.indexOf("if(!(await sset('ttlib:master',out))) return stop("));
     }
     {
+      // /api/tt-videos: lists only the Twin Thieves videos folder, for admins only.
+      const st = makeStore();
+      const users = { ADM: U('charlie@jadin-jones.com'), MSA: U('charlie@jadin-jones.com', 'microsoft.com'), T: U('tia@s.org'),
+        UNV: Object.assign(U('lucas@jadin-jones.com'), { email_verified: false }) };
+      const tokOf = t => ({ metadata: { firebaseStorageDownloadTokens: t } });
+      const objs = { 'session-videos/a.mp4': {}, 'session-thumbnails/x.jpg': {}, 'challenge-videos/c.mp4': {}, 'twin-thieves/readme.txt': {},
+        'twin-thieves/videos/Be_the_Buffalo.mp4': tokOf('tok1,tok2'), 'twin-thieves/videos/Eat_the_Frog.mp4': {}, 'twin-thieves/videos/sub/deep.mp4': {}, 'TT-extra/notes.txt': {} };
+      const listed = [], buckets = [];
+      const bucket = { getFiles: async q => { const pre = q.prefix || ''; listed.push(pre);
+        if (q.delimiter !== '/') throw new Error('must list one level');
+        const files = [], prefixes = new Set();
+        Object.keys(objs).filter(k => k.indexOf(pre) === 0).forEach(k => { const rest = k.slice(pre.length), i = rest.indexOf('/');
+          if (i >= 0) prefixes.add(pre + rest.slice(0, i + 1));
+          else files.push({ name: k, metadata: Object.assign({ size: String(k.length * 1000), contentType: /\.mp4$/.test(k) ? 'video/mp4' : 'text/plain' }, objs[k]) }); });
+        return [files, null, { prefixes: Array.from(prefixes) }]; } };
+      const vids = async (tok, body) => { const h = loadFn('tt-videos.js', st, users);
+        require.cache[path.join(ROOT, 'netlify/lib/firebase-admin.js')].exports.admin.storage = () => ({ bucket: n => { buckets.push(n); return bucket; } });
+        const r = await call(h, tok, body || {}); return { code: r.statusCode, body: JSON.parse(r.body) }; };
+      const prev = process.env.FIREBASE_PROJECT_ID; process.env.FIREBASE_PROJECT_ID = 'test-6b2ab';
+      const a = await vids('ADM');
+      ok('tt-videos: an admin gets the Twin Thieves videos folder with name, path, size, type and link',
+        a.code === 200 && a.body.folder === 'twin-thieves/videos/' && a.body.files.map(f => f.name).join() === 'Be_the_Buffalo.mp4,Eat_the_Frog.mp4'
+        && a.body.files[0].path === 'twin-thieves/videos/Be_the_Buffalo.mp4' && a.body.files[0].size === 38000 && a.body.files[0].contentType === 'video/mp4'
+        && buckets[0] === 'test-6b2ab.firebasestorage.app', JSON.stringify(a.body));
+      ok('tt-videos: the link is the getDownloadURL() form from the file\'s own token; a file without one gets none',
+        a.body.files[0].url === 'https://firebasestorage.googleapis.com/v0/b/test-6b2ab.firebasestorage.app/o/twin-thieves%2Fvideos%2FBe_the_Buffalo.mp4?alt=media&token=tok1'
+        && a.body.files[1].url === null);
+      ok('tt-videos: no Playbook folder is ever opened (only the top level\'s names)',
+        listed.every(p => p === '' || /^(twin-thieves|TT-extra)\//.test(p)) && listed.indexOf('twin-thieves/videos/sub/') < 0, listed.join(' | '));
+      const bad = [await vids('ADM', { folder: 'session-videos/' }), await vids('ADM', { folder: '' + 'twin-thieves/../session-videos/' }), await vids('ADM', { folder: 'TT-extra/' })];
+      const pref = await vids('ADM', { prefer: 'session-videos/' });
+      ok('tt-videos: any other folder is refused; an unknown "prefer" falls back to the Twin Thieves folder',
+        bad.every(r => r.code === 400) && pref.code === 200 && pref.body.folder === 'twin-thieves/videos/', JSON.stringify(bad.map(r => r.code)));
+      const deny = [await vids('T'), await vids('MSA'), await vids('UNV'), await vids('NOPE')];
+      ok('tt-videos: members, a Microsoft sign-in, an unverified email and a bad token are refused',
+        deny.map(r => r.code).join() === '403,403,403,401', deny.map(r => r.code).join());
+      ok('tt-videos: writes nothing but its rate-limit count', st.writes.every(w => /^rateLimits\//.test(w)), st.writes.join(','));
+      process.env.FIREBASE_PROJECT_ID = prev; if (prev === undefined) delete process.env.FIREBASE_PROJECT_ID;
+    }
+    {
       // Link videos from Storage, on the real 36 lesson names.
       const vt = new Function(line(/const TT_FUND_NAMES=[\s\S]*?;\n/) + line(/const TT_SEED=[\s\S]*?\]\];\n/)
         + html.slice(html.indexOf('const ttNameInput='), html.indexOf('/* A thumbnail link as a CSS url()'))
@@ -583,14 +623,18 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
         pk.rows.find(x => x.id === idOf('Trust Triangle')).path === F + 'Random_Outtakes.mp4' && pk.rows.find(x => x.id === idOf('Be the Buffalo')).status === 'none'
         && pk.unmatched.map(f => f.name).join() === 'Be_the_Buffalo.mp4'
         && vt.ttVideoPlan(files, lib, { picks: { tt01: F + 'Thank_You.mp4', tt02: F + 'Thank_You.mp4' } }).blockers.length === 1);
+      const nl = vt.ttVideoPlan(files.map(f => f.name === 'Be_the_Buffalo.mp4' ? Object.assign({}, f, { url: null }) : f), lib, {});
+      ok('videos: a file with no download link is shown but never linked',
+        nl.rows.find(x => x.id === idOf('Be the Buffalo')).status === 'nourl' && nl.linking === 4
+        && !vt.ttVideoApply(lib, nl, urls, 't').prev[idOf('Be the Buffalo')]);
       const edited = JSON.parse(JSON.stringify(r.lib)); edited.lessons.find(l => l.id === idOf('Be the Buffalo')).videoUrl = 'https://edited/later.mp4';
       ok('videos: Undo puts the previous videos and thumbnails back exactly, and keeps a video changed since',
         JSON.stringify(vt.ttVideoRevert(r.lib, r.prev)) === JSON.stringify(copy)
         && vt.ttVideoRevert(edited, r.prev).lessons.find(l => l.id === idOf('Be the Buffalo')).videoUrl === 'https://edited/later.mp4' && vt.ttStoragePath(urls[F + 'Thank_You.mp4']) === F + 'Thank_You.mp4');
-      const scan = html.slice(html.indexOf('  async ttVidScan(folder){'), html.indexOf('  ttOrgRec(id){'));
-      ok('videos: admins only; only Twin Thieves folders are opened; writes only ttlib:master and its Undo (Undo first) and one thumbnail copy',
+      const scan = html.slice(html.indexOf('  async ttVidScan(){'), html.indexOf('  ttOrgRec(id){'));
+      ok('videos: admins only; listed by /api/tt-videos, not the browser; writes only ttlib:master and its Undo (Undo first) and one thumbnail copy',
         /v\.ttVidCan=s\.role==='admin'&&!editing;/.test(html) && /const s=this\.state; if\(s\.role!=='admin'\) return;/.test(scan)
-        && /root\.prefixes\.filter\(p=>TT_VID_FOLDER_RE\.test\(p\.name\)\)/.test(scan) && /if\(!TT_VID_FOLDER_RE\.test\(folder\)\) return note/.test(scan)
+        && /authFetch\('\/api\/tt-videos'/.test(scan) && !/listAll|\.list\(|fbStorage/.test(scan.slice(0, scan.indexOf('  ttVidConfirm(){')))
         && (scan.match(/sset\('([^']+)'/g) || []).every(x => /ttlib:(master|video-undo)/.test(x))
         && (scan.match(/uploadMedia\([^)]*\)/g) || []).join() === "uploadMedia(file,'session-thumbnails')"
         && !/\.(delete|put|putString|updateMetadata)\(/.test(scan.replace(/uploadMedia/g, ''))
