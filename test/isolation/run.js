@@ -469,12 +469,22 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
       && (html.match(/this\.ttGroups\(|this\.ttPyramidVM\(|this\.ttTierText\(/g) || []).length === 3);
     ok('grouped list: fundamental headings only in the Twin Thieves sidebar and phone menu',
       (html.match(/data-tt-group="\{\{ sl\.fund \}\}"/g) || []).length === 2
-      && /<div data-tt-list="1" data-tt-side="1"[^\n]*\n<sc-for list="\{\{ ttSide \}\}"[^\n]*\n<sc-if value="\{\{ sl\.isHead \}\}"/.test(html)
+      && /<div data-tt-list="1" data-tt-side="1"[^\n]*\n<sc-for list="\{\{ ttSideDark \}\}"[^\n]*\n<sc-if value="\{\{ sl\.isHead \}\}"/.test(html)
       && /<div data-tt-list="1" data-tt-drawer="1"[^\n]*\n<sc-for list="\{\{ ttSide \}\}"[^\n]*\n<sc-if value="\{\{ sl\.isHead \}\}"/.test(html));
     ok('menu: "Playbook" lights on the pyramid page only in the Twin Thieves sidebar; every other menu unchanged',
       /const ttSideNav=!!W&&this\.isTT\(\);/.test(html)
       && /const active=isAdminOnly\?true:\(\(ttSideNav&&t\.k==='lessons'\)\?s\.view==='tthome':\(s\.tab===t\.k\)\);/.test(html)
       && /const active=isAdminOnly\?true:\(s\.tab===t\.k\);/.test(before));
+    // The navy sidebar: Twin Thieves members on a wide screen only; the Playbook's (and Studio's) stays as main has it.
+    ok('navy sidebar: only for a Twin Thieves member on a wide screen; the Playbook sidebar, label and tabs are unchanged otherwise',
+      /const ttNavy=sidebar&&this\.isTT\(\)&&!isAdminOnly;/.test(html)
+      && /'grid-column:1;grid-row:2;border-right:1px solid #DCE6F0;padding:26px 18px 40px'/.test(before)
+      && /\? \(ttNavy\?'grid-column:1;grid-row:2;background:#13213B;padding:26px 18px 40px':'grid-column:1;grid-row:2;border-right:1px solid #DCE6F0;padding:26px 18px 40px'\)/.test(html)
+      && /<div style="font-weight:800;font-size:9\.5px;letter-spacing:\.2em;text-transform:uppercase;color:#9DAAB8;padding:0 16px 12px">\{\{ navProductLabel \}\}<\/div>/.test(before)
+      && /v\.navProductLabelStyle='font-weight:800;font-size:9\.5px;letter-spacing:\.2em;text-transform:uppercase;color:'\+\(ttNavy\?'#8FB8EA':'#9DAAB8'\)\+';padding:0 16px 12px';/.test(html)
+      && /hoverStyle:ttNavy\?navyHover:\(W\?\(active\?\{\}:\{background:'#EAF1F8',color:'#0C1B2E'\}\):\{background:'rgba\(255,255,255,\.1\)'\}\),\n        style:ttNavy\?navyStyle:W\n/.test(html)
+      && /\? \(ttNavy\?navyGlyph:\(active\?'#FADA01':\(t\.gc\|\|'#7E8D9C'\)\)\)/.test(html)
+      && (html.match(/ttSideDark/g) || []).length === 2 && /<div data-tt-list="1" data-tt-drawer="1"[^\n]*\n<sc-for list="\{\{ ttSide \}\}"/.test(html));
     ok('lessons: "← All lessons" goes back to the pyramid page', /v\.onTTHome=\(\)=>\{ this\.setState\(\{view:'tthome',tab:'lessons',ttFocus:null\}\);/.test(html));
     const css = html.slice(html.indexOf('/* Twin Thieves lesson menu'), html.indexOf('@keyframes jjFall'));
     ok('pyramid page: the new styles reach only Twin Thieves elements', !!css && css.split('\n').filter(l => /\{/.test(l) && !/^@media/.test(l)).every(l => /^\[data-tt-(drawer|side)="1"\]/.test(l)));
