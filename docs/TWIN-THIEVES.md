@@ -96,19 +96,32 @@ A lesson's video URL may be YouTube, Vimeo, Google Drive or a direct MP4
 
 ## Link videos from Storage (Studio → Twin Thieves → Lessons)
 
-- **Link videos from Storage** (admins only) asks `/api/tt-videos`
-  (`netlify/functions/tt-videos.js`) for the Twin Thieves videos folder in
-  Firebase Storage, because Storage rules do not let the browser list
-  folders. The function checks the caller's ID token and requires an admin
-  (never through Microsoft). It finds a top-level folder named like Twin
-  Thieves (or `TT…`), or a videos folder inside one, and refuses any other
-  folder. Of every other folder it sees only the name. It returns each file's
-  name, path, size, content type and download link. The link is built from
-  the download token Storage already keeps on the file, in the same form
-  `getDownloadURL()` gives the app's own uploads. A file with no token gets no
-  link: it is shown but not linked, and nothing in Storage is changed. The
-  function needs `FIREBASE_STORAGE_BUCKET` only if the bucket is not
-  `<project>.firebasestorage.app`.
+- The videos are in two top-level folders of the live bucket
+  (`test-6b2ab.firebasestorage.app`): **36 Lesson Video Folder** and **10
+  Lessons Video**. Together they hold the 36 lessons. The **Storage folders**
+  field at the top of the tool (one per line, exact names with spaces) starts
+  with the folders of the last Confirm, or those two. Change it there to use
+  other folders; no deploy is needed.
+- **Link videos from Storage** (admins only) sends those folders to
+  `/api/tt-videos` (`netlify/functions/tt-videos.js`), because Storage rules
+  do not let the browser list folders.
+  - The function checks the caller's ID token and requires an admin (never
+    through Microsoft).
+  - It lists only this project's own bucket.
+  - It allows up to 4 top-level folders whose names are Twin Thieves ones
+    (Twin Thieves, `TT…`, or Lesson(s) Video).
+  - It always refuses the folders the Playbook uploads to (`session-videos`,
+    `session-thumbnails`, `challenge-videos`, `welcome-videos`, `learn-more`,
+    `knowledge`), nested or odd paths, and any other bucket.
+  - It returns each file's folder, name, path, size, content type and
+    download link, read-only. The link is built from the download token
+    Storage already keeps on the file, in the same form `getDownloadURL()`
+    gives the app's own uploads. A file with no token gets no link: it is
+    shown but not linked, and nothing in Storage is changed.
+- The 36- and 10-lesson versions share one library, so each lesson gets one
+  video from either folder. If a lesson matches a file in both folders,
+  neither is chosen: the row lists both and says "choose one", and the lesson
+  is not linked until one is picked from the dropdown.
 - Each video (MP4, M4V, MOV, WebM) shows its size and length and is matched to
   a lesson by file name vs. lesson name (library title or either version's
   name), one file per lesson, over the 36-lesson order plus the Thank you
