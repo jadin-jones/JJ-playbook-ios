@@ -182,17 +182,22 @@ save.
   from each lesson's Fundamental (Studio → Twin Thieves → Lessons). A lesson
   filed under a later fundamental shows up further down, so the list seems
   to skip its number.
-- **Navy sidebar** (desktop and iPad in landscape, members only; `ttNavy`).
-  The sidebar is #13213B. Its label is #8FB8EA. Playbook is a #22375C button
-  with a light border and the yellow (#F5C518) triangle. Headings are
-  #9EC5F0, semi-bold, with #CFE0F5 counts and a thin white-12% line between
-  groups. Each lesson is a rounded tab (white 8% outline, 3% fill, #E8EEF7
-  text, #2F4A78 number circle); hover raises it to a 10% fill and 20% outline.
-  The current lesson is yellow (outline, tinted fill, yellow circle with a
-  navy number). My Profile is light text. Every text colour passes WCAG AA
-  (lowest 4.9:1, white on a done lesson's green circle). The phone menu,
-  Studio and the Playbook's sidebar are unchanged (`ttSide` stays the phone
-  menu's list; `ttSideDark` is the sidebar's).
+- **Light sidebar** (desktop and iPad in landscape, members only; `ttLight`;
+  replaced the navy one from PR #22). A white panel (1px #DFE5EE border,
+  rounded) that stays in view. Playbook is a navy #1B2C4A button with white
+  bold text and the yellow (#F5C518) triangle. Each group heading
+  (#13213B, bold caps; count #5B6B82) has a thin #E3E8EF line above it.
+  Lesson rows have no box: #1F2D45 text, medium weight, hover #EEF2F7, and a
+  white number circle with a 2px #9AABC2 ring. A done lesson's circle is solid
+  #2E8B57 with a drawn white tick (an icon), plus "(completed)" for screen
+  readers. The current lesson is a solid #13213B row with white text and a
+  yellow circle. A block picked on the pyramid puts its group on #FFF6D6
+  (heading #6B4E00, count #8A6A10, rings #E0B000). Thank you! has a ★ in a
+  ringed circle. There is no line or path between lessons, since they can be
+  done in any order. Text passes WCAG AA (lowest 4.68:1, the picked count);
+  the tick is 4.25:1 as a graphic (AA needs 3:1); the rings are decorative.
+  The phone menu, Studio and the Playbook's sidebar are unchanged (`ttSide`
+  stays the phone menu's list; `ttSideLight` is the sidebar's).
 - **Playbook programs are untouched.** Everything is behind `isTT()`; the
   checks in `test/isolation/run.js` compare the Playbook's own pieces with
   `d5c35ad`.
