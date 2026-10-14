@@ -96,11 +96,19 @@ A lesson's video URL may be YouTube, Vimeo, Google Drive or a direct MP4
 
 ## Link videos from Storage (Studio → Twin Thieves → Lessons)
 
-- **Link videos from Storage** (admins only) lists, with the admin's own
-  sign-in, the Twin Thieves videos folder in Firebase Storage: a top-level
-  folder named like Twin Thieves (or `TT…`), or a videos folder inside it. No
-  other folder is ever opened. If none is found, or the rules refuse the
-  listing, the card says so and takes a typed Twin Thieves folder name.
+- **Link videos from Storage** (admins only) asks `/api/tt-videos`
+  (`netlify/functions/tt-videos.js`) for the Twin Thieves videos folder in
+  Firebase Storage, because Storage rules do not let the browser list
+  folders. The function checks the caller's ID token and requires an admin
+  (never through Microsoft). It finds a top-level folder named like Twin
+  Thieves (or `TT…`), or a videos folder inside one, and refuses any other
+  folder. Of every other folder it sees only the name. It returns each file's
+  name, path, size, content type and download link. The link is built from
+  the download token Storage already keeps on the file, in the same form
+  `getDownloadURL()` gives the app's own uploads. A file with no token gets no
+  link: it is shown but not linked, and nothing in Storage is changed. The
+  function needs `FIREBASE_STORAGE_BUCKET` only if the bucket is not
+  `<project>.firebasestorage.app`.
 - Each video (MP4, M4V, MOV, WebM) shows its size and length and is matched to
   a lesson by file name vs. lesson name (library title or either version's
   name), one file per lesson, over the 36-lesson order plus the Thank you
