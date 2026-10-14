@@ -534,6 +534,70 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
         && /const plan=ttImportPlan\(imp\.data,fresh\);[\s\S]{0,200}ids\(plan\)!==ids\(imp\.plan\)/.test(html)
         && html.indexOf("sset('ttlib:import-undo',undo)") > 0 && html.indexOf("sset('ttlib:import-undo',undo)") < html.indexOf("if(!(await sset('ttlib:master',out))) return stop("));
     }
+    {
+      // Link videos from Storage, on the real 36 lesson names.
+      const vt = new Function(line(/const TT_FUND_NAMES=[\s\S]*?;\n/) + line(/const TT_SEED=[\s\S]*?\]\];\n/)
+        + html.slice(html.indexOf('const ttNameInput='), html.indexOf('/* A thumbnail link as a CSS url()'))
+        + '\nreturn {TT_SEED,ttVideoPlan,ttVideoApply,ttVideoRevert,ttStoragePath,TT_VID_FOLDER_RE};')();
+      const ids = vt.TT_SEED.map((_, i) => 'tt' + String(i + 1).padStart(2, '0'));
+      const idOf = t => ids[vt.TT_SEED.findIndex(x => x[1] === t)];
+      const lessons = vt.TT_SEED.map(([fund, title], i) => ({ id: ids[i], fund, title, videoUrl: '', thumbUrl: '', summary: 's' + i, discussion: ['d'], additional: [], handouts: [{ label: 'PDF', url: 'h' }] }))
+        .concat([{ id: 'ttthanks', fund: 'thanks', title: 'Thank you!', closing: true, videoUrl: '', summary: 'thanks' }]);
+      lessons[ids.indexOf(idOf('Trust Bank'))].videoUrl = 'https://www.youtube.com/watch?v=abcdefgh';
+      lessons[ids.indexOf(idOf('Eat the Frog'))].thumbUrl = 'https://own/frog.jpg';
+      const lib = { lessons, order36: ids.slice(), order10: ids.slice(0, 10), names: { '36': { [idOf('Be the Buffalo')]: 'Week 4: Be the Buffalo' } } };
+      const copy = JSON.parse(JSON.stringify(lib));
+      const F = 'twin-thieves-videos/', MB = 1048576;
+      const files = [['Be_the_Buffalo.mp4', 210, 300], ['4_Steps_to_Be_the_Buffalo.mp4', 60, 300], ['08_Water_the_Bamboo.mov', 40, 240], ['Trust_Bank.mp4', 50, 300],
+        ['Eat_the_Frog.mp4', 30, 200], ['Thank_You.mp4', 10, 60], ['Random_Outtakes.mp4', 20, 100], ['notes.txt', 1, 0]]
+        .map(([name, mb, dur]) => ({ path: F + name, name, size: mb * MB, dur, url: 'https://firebasestorage.googleapis.com/v0/b/test-6b2ab.firebasestorage.app/o/' + encodeURIComponent(F + name) + '?alt=media&token=t' }));
+      const urls = {}; files.forEach(f => { urls[f.path] = f.url; });
+      const p = vt.ttVideoPlan(files, lib, {}), row = t => p.rows.find(r => r.id === (t === 'thanks' ? 'ttthanks' : idOf(t)));
+      ok('videos: matched by file name to the right lesson ("Be_the_Buffalo.mp4" → "Be the Buffalo", not "4 Steps to Be the Buffalo")',
+        row('Be the Buffalo').path === F + 'Be_the_Buffalo.mp4' && row('4 Steps to Be the Buffalo').path === F + '4_Steps_to_Be_the_Buffalo.mp4'
+        && row('Water the Bamboo').path === F + '08_Water_the_Bamboo.mov' && row('thanks').path === F + 'Thank_You.mp4' && p.rows.length === 37,
+        JSON.stringify(p.rows.filter(r => r.path).map(r => r.name + '=' + r.path)));
+      ok('videos: a lesson that has a video is skipped and its file does not go to a neighbour ("Trust Bank" / "Trust Triangle")',
+        row('Trust Bank').status === 'skip' && row('Trust Triangle').status === 'none' && !row('Trust Triangle').path);
+      ok('videos: lessons with no file show none; unmatched files are listed; non-videos are ignored',
+        p.rows.filter(r => r.status === 'none').length === 31 && p.unmatched.map(f => f.name).join() === 'Random_Outtakes.mp4' && p.files.length === 7);
+      ok('videos: over 20 MB per minute is flagged', row('Be the Buffalo').heavy && !row('4 Steps to Be the Buffalo').heavy && row('Water the Bamboo').mov);
+      ok('videos: the thumbnail goes only to linked lessons, and keeps a lesson\'s own unless replace is ticked',
+        p.linking === 5 && p.thumbs === 4 && row('Eat the Frog').thumb === 'keep' && vt.ttVideoPlan(files, lib, { replaceThumbs: true }).thumbs === 5);
+      const r = vt.ttVideoApply(lib, p, urls, 'https://copy/thumb.jpg');
+      const keys = ['id', 'title', 'fund', 'summary', 'discussion', 'additional', 'handouts', 'closing'];
+      ok('videos: Confirm sets only the video and thumbnail; text, names, handouts, order and fundamentals stay',
+        r.lib.lessons.every((l, i) => keys.every(k => JSON.stringify(l[k]) === JSON.stringify(copy.lessons[i][k])))
+        && JSON.stringify([r.lib.order36, r.lib.order10, r.lib.names]) === JSON.stringify([copy.order36, copy.order10, copy.names])
+        && r.lib.lessons.find(l => l.id === idOf('Be the Buffalo')).videoUrl === urls[F + 'Be_the_Buffalo.mp4']
+        && r.lib.lessons.find(l => l.id === idOf('Be the Buffalo')).thumbUrl === 'https://copy/thumb.jpg'
+        && r.lib.lessons.find(l => l.id === idOf('Eat the Frog')).thumbUrl === 'https://own/frog.jpg'
+        && r.lib.lessons.find(l => l.id === idOf('Trust Bank')).videoUrl === copy.lessons[ids.indexOf(idOf('Trust Bank'))].videoUrl
+        && Object.keys(r.prev).length === 5 && JSON.stringify(lib) === JSON.stringify(copy));
+      const again = vt.ttVideoPlan(files.concat([{ path: F + 'Eat_the_Frog_v2.mp4', name: 'Eat_the_Frog_v2.mp4', size: MB, dur: 60, url: 'u' }]), r.lib, {});
+      ok('videos: running it again links nothing already linked', again.linking === 0 && row('Be the Buffalo') && again.rows.find(x => x.id === idOf('Be the Buffalo')).status === 'same',
+        JSON.stringify(again.rows.filter(x => x.status === 'link').map(x => x.name)));
+      ok('videos: "Replace existing videos" links over a lesson\'s video', vt.ttVideoPlan(files, lib, { replaceVideos: true }).rows.find(x => x.id === idOf('Trust Bank')).status === 'link');
+      const pk = vt.ttVideoPlan(files, lib, { picks: { [idOf('Trust Triangle')]: F + 'Random_Outtakes.mp4', [idOf('Be the Buffalo')]: '' } });
+      ok('videos: a dropdown choice wins, "No video" leaves a lesson out, one file for two lessons blocks',
+        pk.rows.find(x => x.id === idOf('Trust Triangle')).path === F + 'Random_Outtakes.mp4' && pk.rows.find(x => x.id === idOf('Be the Buffalo')).status === 'none'
+        && pk.unmatched.map(f => f.name).join() === 'Be_the_Buffalo.mp4'
+        && vt.ttVideoPlan(files, lib, { picks: { tt01: F + 'Thank_You.mp4', tt02: F + 'Thank_You.mp4' } }).blockers.length === 1);
+      const edited = JSON.parse(JSON.stringify(r.lib)); edited.lessons.find(l => l.id === idOf('Be the Buffalo')).videoUrl = 'https://edited/later.mp4';
+      ok('videos: Undo puts the previous videos and thumbnails back exactly, and keeps a video changed since',
+        JSON.stringify(vt.ttVideoRevert(r.lib, r.prev)) === JSON.stringify(copy)
+        && vt.ttVideoRevert(edited, r.prev).lessons.find(l => l.id === idOf('Be the Buffalo')).videoUrl === 'https://edited/later.mp4' && vt.ttStoragePath(urls[F + 'Thank_You.mp4']) === F + 'Thank_You.mp4');
+      const scan = html.slice(html.indexOf('  async ttVidScan(folder){'), html.indexOf('  ttOrgRec(id){'));
+      ok('videos: admins only; only Twin Thieves folders are opened; writes only ttlib:master and its Undo (Undo first) and one thumbnail copy',
+        /v\.ttVidCan=s\.role==='admin'&&!editing;/.test(html) && /const s=this\.state; if\(s\.role!=='admin'\) return;/.test(scan)
+        && /root\.prefixes\.filter\(p=>TT_VID_FOLDER_RE\.test\(p\.name\)\)/.test(scan) && /if\(!TT_VID_FOLDER_RE\.test\(folder\)\) return note/.test(scan)
+        && (scan.match(/sset\('([^']+)'/g) || []).every(x => /ttlib:(master|video-undo)/.test(x))
+        && (scan.match(/uploadMedia\([^)]*\)/g) || []).join() === "uploadMedia(file,'session-thumbnails')"
+        && !/\.(delete|put|putString|updateMetadata)\(/.test(scan.replace(/uploadMedia/g, ''))
+        && scan.indexOf("sset('ttlib:video-undo',undo)") < scan.indexOf("if(!(await sset('ttlib:master',out))) return stop(")
+        && !vt.TT_VID_FOLDER_RE.test('session-videos') && !vt.TT_VID_FOLDER_RE.test('session-thumbnails') && !vt.TT_VID_FOLDER_RE.test('challenge-videos')
+        && vt.TT_VID_FOLDER_RE.test('twin-thieves-videos') && vt.TT_VID_FOLDER_RE.test('TT36'));
+    }
     const j1 = fs.readFileSync(path.join(ROOT, 'netlify/functions/join.js'), 'utf8'), j2 = fs.readFileSync(path.join(ROOT, 'netlify/functions/tt-join.js'), 'utf8');
     ok('logging: the temporary sign-in error logs are gone', !/verify', e && e\.code, e && e\.message/.test(j1 + j2));
   }

@@ -5692,6 +5692,69 @@ sc-if,sc-for{display:none!important}
 </sc-if>
 </div>
 </sc-if>
+<sc-if value="{{ ttVidCan }}" hint-placeholder-val="{{ false }}">
+<div data-tt-videos="1" style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:14px 16px;margin-bottom:12px">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+<div style="flex:1;min-width:200px">
+<p style="margin:0;font-weight:900;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#0C1B2E">Lesson videos</p>
+<p style="margin:3px 0 0;font-size:12px;line-height:1.45;color:#7E8D9C">Link the videos in the Twin Thieves folder in Storage to their lessons, by file name, with the challenge thumbnail. You see a preview first; nothing changes until you confirm. Safe to run again as more videos are uploaded.</p>
+</div>
+<button data-tt-videos-open="1" sc-camel-on-click="{{ onTTVidOpen }}" style="{{ ttBtnNavy }};flex:none">Link videos from Storage</button>
+</div>
+<sc-if value="{{ ttVidBusy }}" hint-placeholder-val="{{ false }}"><p style="margin:10px 0 0;font-size:12.5px;color:#37475C">{{ ttVidMsg }}</p></sc-if>
+<sc-if value="{{ ttVidHasErr }}" hint-placeholder-val="{{ false }}">
+<p style="margin:10px 0 0;font-size:12.5px;color:#8F2D13">{{ ttVidErr }}</p>
+<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><input type="text" value="{{ ttVidFolderIn }}" sc-camel-on-change="{{ onTTVidFolderIn }}" placeholder="Twin Thieves folder, e.g. twin-thieves-videos" style="{{ ttInp }};flex:1;min-width:200px"><button sc-camel-on-click="{{ onTTVidFolderGo }}" style="{{ ttBtnLine }}">Open this folder</button></div>
+</sc-if>
+<sc-if value="{{ ttVidCanUndo }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #EEF3F8">
+<span style="flex:1;min-width:160px;font-size:12px;color:#37475C">{{ ttVidUndoNote }}</span>
+<button sc-camel-on-click="{{ onTTVidUndo }}" style="{{ ttBtnLine }}">Undo last video link</button>
+</div>
+</sc-if>
+<sc-if value="{{ ttVidOpenNow }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:12px;padding-top:12px;border-top:2px solid #DCE6F0">
+<p style="margin:0;font-weight:900;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#0C1B2E">Preview · {{ ttVidFolder }} · {{ ttVidFileCount }}</p>
+<sc-if value="{{ ttVidHasOther }}" hint-placeholder-val="{{ false }}"><p style="margin:4px 0 0;font-size:12px;color:#7E8D9C">{{ ttVidOtherFolders }}</p></sc-if>
+<p style="margin:4px 0 8px;font-size:12.5px;color:#37475C">{{ ttVidHead }}</p>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 10px">
+<img data-tt-videos-thumb="1" src="{{ ttVidThumb }}" alt="Thumbnail for the linked lessons" style="width:160px;max-width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid #DCE6F0;background:#0C2647">
+<div style="display:flex;flex-direction:column;gap:6px">
+<button role="checkbox" sc-camel-on-click="{{ onTTVidRepVid }}" style="{{ ttVidRepVidStyle }}">{{ ttVidRepVid }}</button>
+<button role="checkbox" sc-camel-on-click="{{ onTTVidRepTh }}" style="{{ ttVidRepThStyle }}">{{ ttVidRepTh }}</button>
+</div>
+</div>
+<sc-for list="{{ ttVidBlockers }}" as="vb" hint-placeholder-count="0"><p style="margin:0 0 6px;font-size:12.5px;font-weight:700;color:#8F2D13">✕ {{ vb.text }}</p></sc-for>
+<sc-for list="{{ ttVidRows }}" as="vr" hint-placeholder-count="2">
+<div data-tt-videos-row="1" style="{{ vr.cardStyle }}">
+<p style="margin:0;font-weight:800;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#00A3E0">{{ vr.num }}</p>
+<p style="margin:2px 0 4px;font-weight:800;font-size:13.5px;color:#0C1B2E">{{ vr.name }}</p>
+<p style="margin:0;font-size:12.5px;color:#37475C"><span style="font-weight:800">{{ vr.file }}</span><sc-if value="{{ vr.hasMeta }}" hint-placeholder-val="{{ true }}"> · {{ vr.meta }}</sc-if></p>
+<p style="margin:2px 0 0;font-size:12px;color:#7E8D9C">{{ vr.status }}</p>
+<sc-if value="{{ vr.hasThumb }}" hint-placeholder-val="{{ true }}"><p style="margin:2px 0 0;font-size:12px;color:#7E8D9C">{{ vr.thumb }}</p></sc-if>
+<sc-for list="{{ vr.flags }}" as="fl" hint-placeholder-count="0"><p style="margin:4px 0 0;font-size:12px;font-weight:800;color:#7A5A00">⚠ {{ fl.text }}</p></sc-for>
+<sc-if value="{{ vr.canPick }}" hint-placeholder-val="{{ true }}">
+<sc-raw-select value="{{ vr.pickValue }}" sc-camel-on-change="{{ vr.onPick }}" style="{{ ttInp }};margin-top:6px;padding:7px 10px;font-size:12.5px">
+<sc-for list="{{ vr.pickOptions }}" as="po" hint-placeholder-count="2"><option value="{{ po.value }}">{{ po.label }}</option></sc-for>
+</sc-raw-select>
+</sc-if>
+</div>
+</sc-for>
+<sc-if value="{{ ttVidHasUnmatched }}" hint-placeholder-val="{{ false }}">
+<div style="border-top:1px solid #EEF3F8;padding:12px 4px">
+<p style="margin:0 0 4px;font-weight:800;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#7A5A00">⚠ Files that matched no lesson (choose them above to link them)</p>
+<sc-for list="{{ ttVidUnmatched }}" as="um" hint-placeholder-count="1"><p style="margin:0;font-size:12.5px;color:#37475C">{{ um.text }}</p></sc-for>
+</div>
+</sc-if>
+<div style="{{ ttVidBarStyle }}">
+<span style="flex:1 1 100%;font-size:12px;color:#37475C">Only videos and thumbnails change; everything else stays.</span>
+<button sc-camel-on-click="{{ onTTVidCancel }}" style="{{ ttBtnLine }}">Cancel</button>
+<sc-if value="{{ ttVidReady }}" hint-placeholder-val="{{ true }}"><button data-tt-videos-confirm="1" sc-camel-on-click="{{ onTTVidConfirm }}" style="{{ ttBtnNavy }}">{{ ttVidConfirmLabel }}</button></sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:6px 12px 10px">
 <p style="margin:10px 4px 6px;font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C">{{ ttStudioSummary }}</p>
 <sc-for list="{{ ttStudioRows }}" as="lr" hint-placeholder-count="8">
@@ -8597,6 +8660,115 @@ function ttImportRevert(lib,prev){
   const lessons=(lib.lessons||[]).map(l=>{ const p=l&&prev[l.id]; if(!p) return l;
     return Object.assign({},l,{summary:p.summary,discussion:(p.discussion||[]).slice(),additional:(p.additional||[]).slice()}); });
   return Object.assign({},lib,{lessons});
+}
+/* Studio → Twin Thieves → Lessons → Link videos from Storage. Files in the
+   Twin Thieves videos folder are matched to lessons by file name vs. lesson
+   name (the library title and both versions' names): "Be_the_Buffalo.mp4" →
+   "Be the Buffalo". Only each lesson's videoUrl and thumbUrl are ever set. */
+const TT_VID_FOLDER_RE=/twin|thie|(^|[^a-z])tt([^a-z]|$)/i;
+const TT_VID_EXT_RE=/\.(mp4|m4v|mov|webm)$/i;
+const TT_VID_NOISE=new Set(['week','wk','lesson','final','export','edit','edited','video','hd','sd','720p','1080p','4k','tt','copy','new','v1','v2','v3','v4','v5']);
+const TT_THUMB_SRC='https://48441925.fs1.hubspotusercontent-na1.net/hubfs/48441925/Challenge.png';
+const TT_MB_PER_MIN=20;
+// A file name's words: no folder, extension, "Twin Thieves" prefix or leading numbering ("08_", "Lesson 8 -", "Week 4:").
+function ttFileWords(name){
+  let s=String(name||'').split('/').pop().replace(/\.[^.]+$/,'').replace(/([a-z])([A-Z])/g,'$1 $2');
+  s=s.replace(/^\s*(twin[\s_\-]*thieves|tt\d{0,2})[\s_\-:]+(?=[a-z0-9])/i,'');
+  s=s.replace(/^\s*(lesson|week|wk|ep|episode|part|tt)[\s_\-]*\d{1,2}[\s_.\-:)]*/i,'')
+     .replace(/^\s*0\d[\s_.\-)]+/,'').replace(/^\s*\d{1,2}[.)][\s_]*/,'').replace(/^\s*\d{1,2}[\s_]*-[\s_]+/,'');
+  return ttImportWords(s.replace(/[_.\-]+/g,' ')).filter(w=>!TT_VID_NOISE.has(w));
+}
+// How well a file name fits a lesson name: 0 (not at all) to 1 (same words).
+function ttVidScore(file,name){
+  const A=Array.from(new Set(ttFileWords(file))), B=Array.from(new Set(ttImportWords(name)));
+  if(!A.length||!B.length) return 0;
+  const n=A.filter(w=>B.indexOf(w)>=0).length;
+  return (n/Math.min(A.length,B.length)>=0.75&&n/Math.max(A.length,B.length)>=0.5)?n/Math.max(A.length,B.length):0;
+}
+// The Storage path a Firebase download link points at ('' for any other link).
+function ttStoragePath(u){
+  const m=String(u||'').match(/firebasestorage\.(?:googleapis\.com|app)\/v0\/b\/[^/]+\/o\/([^?#]+)/i);
+  try{ return m?decodeURIComponent(m[1]):''; }catch(e){ return ''; }
+}
+/* The preview. files: [{path,name,size,dur}] from the folder; opts:
+   {replaceVideos, replaceThumbs, picks:{lessonId: path or '' for none}}.
+   Lessons are the 36-lesson order plus the Thank you lesson. A lesson with
+   a video is skipped unless replaceVideos; it still claims its best file so
+   that file never goes to a neighbour ("Trust Bank" vs "Trust Triangle"). */
+function ttVideoPlan(files,lib,opts){
+  opts=opts||{}; const picks=opts.picks||{};
+  const by={}; ((lib&&lib.lessons)||[]).forEach(l=>{ if(l&&l.id) by[l.id]=l; });
+  const order=((lib&&lib.order36)||[]).map(id=>by[id]).filter(l=>l&&!l.closing);
+  const thanks=((lib&&lib.lessons)||[]).find(l=>l&&l.closing);
+  const names=(lib&&lib.names)||{};
+  const vids=(files||[]).filter(f=>f&&f.path&&TT_VID_EXT_RE.test(f.path));
+  const fileBy={}; vids.forEach(f=>{ fileBy[f.path]=f; });
+  const lessons=order.map((l,i)=>({l,pos:i+1})).concat(thanks?[{l:thanks,pos:null}]:[]);
+  const nameOf=l=>String((names['36']||{})[l.id]||'').trim()||l.title||l.id;
+  const linkedTo={}; lessons.forEach(({l})=>{ const p=ttStoragePath(l.videoUrl); if(p&&fileBy[p]) linkedTo[p]=l.id; });
+  const blockers=[], chosen={}, used={};
+  // Picks from the dropdown first.
+  Object.keys(picks).forEach(id=>{ const p=picks[id]; if(!p||!by[id]) return;
+    if(!fileBy[p]) return;
+    if(used[p]) blockers.push(fileBy[p].name+' is chosen for two lessons.');
+    used[p]=id; chosen[id]=p; });
+  // Then the best name matches, highest score first, one file per lesson.
+  const pairs=[];
+  lessons.forEach(({l})=>{ if(l.id in picks) return;
+    const cand=[l.title,(names['36']||{})[l.id],(names['10']||{})[l.id]].filter(Boolean);
+    vids.forEach(f=>{ if(used[f.path]||(linkedTo[f.path]&&linkedTo[f.path]!==l.id)) return;
+      const sc=Math.max.apply(null,cand.map(c=>ttVidScore(f.name||f.path,c)));
+      if(sc>0) pairs.push({id:l.id,path:f.path,sc}); }); });
+  pairs.sort((a,b)=>b.sc-a.sc||(a.id<b.id?-1:1));
+  pairs.forEach(p=>{ if(chosen[p.id]||used[p.path]) return; chosen[p.id]=p.path; used[p.path]=p.id; });
+  const rows=lessons.map(({l,pos})=>{
+    const path=chosen[l.id]||'', f=path?fileBy[path]:null, has=!!String(l.videoUrl||'').trim();
+    const same=!!(has&&path&&ttStoragePath(l.videoUrl)===path);
+    const link=!!(f&&!same&&(!has||opts.replaceVideos));
+    const hasThumb=!!String(l.thumbUrl||'').trim();
+    const rate=f&&f.dur>0?f.size/(f.dur/60):0;
+    return {id:l.id,pos,name:nameOf(l),closing:!!l.closing,path,file:f,picked:l.id in picks,
+      status:link?'link':(same?'same':(has?'skip':'none')),
+      thumb:link?((!hasThumb||opts.replaceThumbs)?'set':'keep'):'',
+      heavy:rate>TT_MB_PER_MIN*1024*1024,mov:!!(f&&/\.mov$/i.test(f.path))};
+  });
+  const unmatched=vids.filter(f=>!used[f.path]&&!linkedTo[f.path]);
+  return {rows,blockers,unmatched,files:vids,
+    linking:rows.filter(r=>r.status==='link').length,thumbs:rows.filter(r=>r.thumb==='set').length};
+}
+/* The library with each linked lesson's video (and thumbnail, when set), and
+   what they replace, for Undo. urls: {path: download link}. */
+function ttVideoApply(lib,plan,urls,thumbUrl){
+  const go={}; plan.rows.forEach(r=>{ if(r.status==='link'&&urls[r.path]) go[r.id]=r; });
+  const prev={};
+  const lessons=(lib.lessons||[]).map(l=>{ const r=l&&go[l.id]; if(!r) return l;
+    const next={videoUrl:urls[r.path]}; if(r.thumb==='set'&&thumbUrl) next.thumbUrl=thumbUrl;
+    prev[l.id]={videoUrl:l.videoUrl==null?null:l.videoUrl,thumbUrl:l.thumbUrl==null?null:l.thumbUrl,setVideo:next.videoUrl,setThumb:next.thumbUrl||null};
+    return Object.assign({},l,next); });
+  return {lib:Object.assign({},lib,{lessons}),prev};
+}
+/* Undo: a lesson's video and thumbnail go back, each only if it is still
+   the one the run set (a later edit in the lesson is kept). */
+function ttVideoRevert(lib,prev){
+  const lessons=(lib.lessons||[]).map(l=>{ const p=l&&prev[l.id]; if(!p) return l;
+    // null: the lesson had no such field before, so it goes again.
+    const out=Object.assign({},l), back=(k,v)=>{ if(v==null) delete out[k]; else out[k]=v; };
+    if(String(l.videoUrl||'')===String(p.setVideo||'')) back('videoUrl',p.videoUrl);
+    if(p.setThumb!=null&&String(l.thumbUrl||'')===String(p.setThumb)) back('thumbUrl',p.thumbUrl);
+    return out; });
+  return Object.assign({},lib,{lessons});
+}
+/* An image link as a JPEG File (at most 1920 px, on navy), for keeping our
+   own copy of an outside image. The link must allow cross-origin reading. */
+async function ttImageCopy(url,name){
+  const img=await new Promise((res,rej)=>{ const i=new Image(); i.crossOrigin='anonymous';
+    i.onload=()=>res(i); i.onerror=()=>rej(new Error('the thumbnail image could not be downloaded')); i.src=url; });
+  const w=img.naturalWidth||1, h=img.naturalHeight||1, sc=Math.min(1,1920/Math.max(w,h));
+  const cv=document.createElement('canvas'); cv.width=Math.max(1,Math.round(w*sc)); cv.height=Math.max(1,Math.round(h*sc));
+  const g=cv.getContext('2d'); g.fillStyle='#0C2647'; g.fillRect(0,0,cv.width,cv.height); g.drawImage(img,0,0,cv.width,cv.height);
+  const blob=await new Promise(res=>{ try{ cv.toBlob(res,'image/jpeg',0.85); }catch(e){ res(null); } });
+  if(!blob) throw new Error('the thumbnail image could not be copied');
+  return new File([blob],name,{type:'image/jpeg'});
 }
 /* A thumbnail link as a CSS url(): only http(s), quotes and brackets escaped. */
 const ttCssUrl=u=>/^https?:\/\//i.test(String(u||''))?'url("'+String(u).replace(/["\\()\s]/g,c=>encodeURIComponent(c))+'")':'';
@@ -16032,10 +16204,10 @@ class Component extends DCLogic {
     if(this.state.ttDemo) return;
     // The approved-email lists (ttallow:, admins only): 'error' when unreadable, so Studio won't save over them.
     const allowOf=id=>sgetStrict('ttallow:'+id).then(a=>(!a?[]:(Array.isArray(a.emails)?a.emails:'error')),()=>'error');
-    const [lib,o36,o10,a36,a10,undo]=await Promise.all([sget('ttlib:master').catch(()=>null),sget('org:TT36').catch(()=>null),sget('org:TT10').catch(()=>null),
-      allowOf('TT36'),allowOf('TT10'),sget('ttlib:import-undo').catch(()=>null)]);
+    const [lib,o36,o10,a36,a10,undo,vundo]=await Promise.all([sget('ttlib:master').catch(()=>null),sget('org:TT36').catch(()=>null),sget('org:TT10').catch(()=>null),
+      allowOf('TT36'),allowOf('TT10'),sget('ttlib:import-undo').catch(()=>null),sget('ttlib:video-undo').catch(()=>null)]);
     this.setState({ttLib:lib&&Array.isArray(lib.lessons)?lib:ttSeedLibrary(),ttLibSaved:!!(lib&&Array.isArray(lib.lessons)),
-      ttOrgs:[o36,o10].filter(Boolean),ttAllow:{TT36:a36,TT10:a10},ttAllowEdit:{},ttImpUndo:undo||null});
+      ttOrgs:[o36,o10].filter(Boolean),ttAllow:{TT36:a36,TT10:a10},ttAllowEdit:{},ttImpUndo:undo||null,ttVidUndo:vundo||null});
   }
   /* Codes → Approved emails: when the list is not empty, /api/tt-join lets
      only these addresses join with the code (invites are not checked).
@@ -16149,6 +16321,121 @@ class Component extends DCLogic {
       await sset('ttlib:import-undo',done);
       this.setState({ttLib:out,ttLibSaved:true,ttImpUndo:done});
       this.toast('Import undone for '+Object.keys(rec.items).length+' lessons');
+    })();
+  }
+  /* Link videos from Storage: find the Twin Thieves videos folder (a
+     top-level folder named like Twin Thieves, or its videos subfolder),
+     list its video files with size and length, and show the preview. Reads
+     Storage with the admin's own sign-in; nothing is changed here. Only
+     folders named like Twin Thieves are ever opened. */
+  async ttVidScan(folder){
+    const s=this.state; if(s.role!=='admin') return;
+    const note=(msg,extra)=>this.setState({ttVid:Object.assign({},this.state.ttVid||{},{busy:false,err:msg},extra||{})});
+    if(s.ttDemo){
+      const lib=this.ttLib(), ord=(lib.order36||[]).map(id=>lib.lessons.find(l=>l.id===id)).filter(Boolean);
+      const files=ord.slice(0,9).map((l,i)=>({path:'twin-thieves-videos/'+String(i+1).padStart(2,'0')+'_'+String(l.title).replace(/[^\w]+/g,'_')+'.mp4',
+        size:(i===2?210:38+i*3)*1024*1024,dur:i===2?300:240+i*20,url:''}))
+        .concat([{path:'twin-thieves-videos/Outtakes_Blooper_Reel.mp4',size:52*1024*1024,dur:180,url:''}]);
+      files.forEach(f=>{ f.name=f.path.split('/').pop(); f.url='https://example.invalid/'+encodeURIComponent(f.name); });
+      return this.setState({ttVid:{folder:'twin-thieves-videos/',folders:['twin-thieves-videos/'],files},ttVidOpts:{picks:{}}});
+    }
+    this.setState({ttVid:{busy:true,msg:'Looking in Storage…'},ttVidOpts:{picks:{}}});
+    const denied=e=>/unauthorized|permission|403/i.test(String((e&&(e.code||e.message))||''));
+    let st; try{ st=await this.fbStorage(); }catch(e){ return note('Could not load Storage. Check the connection and try again.'); }
+    const hasVids=async ref=>{ const r=await ref.listAll(); return {ref,r,n:r.items.filter(i=>TT_VID_EXT_RE.test(i.name)).length}; };
+    let pick=null, folders=[];
+    try{
+      if(folder){
+        if(!TT_VID_FOLDER_RE.test(folder)) return note('Only a Twin Thieves folder can be opened here.');
+        pick=await hasVids(st.ref(String(folder).replace(/\/+$/,'')));
+        folders=[pick.ref.fullPath+'/'];
+      }else{
+        const root=await st.ref().list({maxResults:1000});
+        const found=[];
+        for(const p of root.prefixes.filter(p=>TT_VID_FOLDER_RE.test(p.name))){
+          const top=await hasVids(p); if(top.n) found.push(top);
+          for(const sub of top.r.prefixes.filter(x=>/video|vid|mp4/i.test(x.name))){ const c=await hasVids(sub); if(c.n) found.push(c); }
+        }
+        folders=found.map(f=>f.ref.fullPath+'/');
+        const last=(s.ttVidUndo&&s.ttVidUndo.folder)||'';
+        pick=found.find(f=>f.ref.fullPath+'/'===last)||found.sort((a,b)=>b.n-a.n)[0]||null;
+        if(!pick) return note('No Twin Thieves videos folder was found in Storage (a top-level folder named like Twin Thieves, with video files in it, or in its videos folder).');
+      }
+    }catch(e){
+      return note(denied(e)?'Storage rules do not let this admin account list that folder. Nothing was changed.'
+        :'Could not list Storage: '+((e&&(e.code||e.message))||'try again')+'. Nothing was changed.');
+    }
+    const items=pick.r.items.filter(i=>TT_VID_EXT_RE.test(i.name));
+    this.setState({ttVid:{busy:true,msg:'Reading '+items.length+' videos in '+pick.ref.fullPath+'/…'}});
+    const dur=url=>new Promise(res=>{ const v=document.createElement('video'); let done=false;
+      const fin=d=>{ if(done) return; done=true; try{ v.removeAttribute('src'); v.load(); }catch(e){} res(d); };
+      v.preload='metadata'; v.muted=true;
+      v.onloadedmetadata=()=>fin(isFinite(v.duration)?v.duration:0); v.onerror=()=>fin(0);
+      setTimeout(()=>fin(0),20000); v.src=url; });
+    const files=[]; let i=0;
+    try{
+      await Promise.all(Array.from({length:4},async()=>{ while(i<items.length){ const it=items[i++];
+        const [md,url]=await Promise.all([it.getMetadata(),it.getDownloadURL()]);
+        files.push({path:it.fullPath,name:it.name,size:Number(md.size)||0,url,dur:await dur(url)}); } }));
+    }catch(e){
+      return note(denied(e)?'Storage rules do not let this admin account read the files in '+pick.ref.fullPath+'/. Nothing was changed.'
+        :'Could not read the videos: '+((e&&(e.code||e.message))||'try again')+'. Nothing was changed.');
+    }
+    files.sort((a,b)=>a.name<b.name?-1:1);
+    this.setState({ttVid:{folder:pick.ref.fullPath+'/',folders,files}});
+  }
+  /* Confirm: plan again against the library as saved now (stop if anything
+     in the preview changed), keep our own copy of the thumbnail in Storage
+     (made once, then reused), keep the replaced videos and thumbnails in
+     ttlib:video-undo (admins only) first, then save the library. */
+  ttVidConfirm(){
+    const vid=this.state.ttVid, opts=this.state.ttVidOpts||{};
+    if(!vid||!vid.files) return;
+    const sig=p=>p.rows.filter(r=>r.status==='link').map(r=>r.id+':'+r.path+':'+r.thumb).join(',');
+    const before=ttVideoPlan(vid.files,this.ttLib(),opts); if(before.blockers.length||!before.linking) return;
+    const urls={}; vid.files.forEach(f=>{ urls[f.path]=f.url; });
+    if(this.state.ttDemo){ const r=ttVideoApply(this.ttLib(),before,urls,TT_THUMB_SRC);
+      this.setState({ttLib:r.lib,ttVid:null,ttVidUndo:{at:Date.now(),folder:vid.folder,items:r.prev}}); return this.toast('Videos linked (preview: not saved)'); }
+    return this.guard('link lesson videos',async()=>{
+      this.setState({ttVidBusy:true});
+      const stop=msg=>{ this.setState({ttVidBusy:false}); this.toast(msg,true); };
+      let fresh=null, rec=null;
+      try{ [fresh,rec]=await Promise.all([sgetStrict('ttlib:master'),sgetStrict('ttlib:video-undo')]); }catch(x){ return stop('Could not read the lesson library. Nothing was changed.'); }
+      if(!fresh||!Array.isArray(fresh.lessons)) return stop('The lesson library is not saved yet. Nothing was changed.');
+      const plan=ttVideoPlan(vid.files,fresh,opts);
+      if(plan.blockers.length||sig(plan)!==sig(before)) return stop('The lessons changed since the preview. Open the tool again. Nothing was changed.');
+      let thumb=(rec&&rec.thumbCopy)||'';
+      if(plan.thumbs&&!thumb){
+        try{ const file=await ttImageCopy(TT_THUMB_SRC,'twin-thieves-challenge.jpg');
+          thumb=await this.uploadMedia(file,'session-thumbnails'); }
+        catch(e){ return stop('Could not store the thumbnail in Storage ('+((e&&(e.code||e.message))||'error')+'). Nothing was changed.'); }
+      }
+      const r=ttVideoApply(fresh,plan,urls,thumb);
+      const undo={at:Date.now(),folder:vid.folder,items:r.prev,thumbCopy:thumb||null};
+      if(!(await sset('ttlib:video-undo',undo))) return stop('Could not keep the current videos for Undo. Nothing was changed.');
+      const out=Object.assign({},r.lib,{updatedAt:Date.now()});
+      if(!(await sset('ttlib:master',out))) return stop('Could not save the lessons. Nothing was changed.');
+      this.setState({ttLib:out,ttLibSaved:true,ttVid:null,ttVidBusy:false,ttVidUndo:undo});
+      this.toast('Videos linked for '+Object.keys(r.prev).length+' lessons');
+    })();
+  }
+  /* Undo the last link: those lessons' video and thumbnail go back to what
+     they were, where they are still what the link set. */
+  ttVidUndoRun(){
+    const u=this.state.ttVidUndo; if(!u||!u.items||u.undoneAt) return;
+    const n=Object.keys(u.items).length;
+    if(!window.confirm('Undo the last video link? The video and thumbnail of '+n+' lessons go back to what they were before it.')) return;
+    if(this.state.ttDemo){ this.setState({ttLib:ttVideoRevert(this.ttLib(),u.items),ttVidUndo:Object.assign({},u,{undoneAt:Date.now()})}); return this.toast('Video link undone (preview: not saved)'); }
+    return this.guard('undo the video link',async()=>{
+      let fresh=null, rec=null;
+      try{ [fresh,rec]=await Promise.all([sgetStrict('ttlib:master'),sgetStrict('ttlib:video-undo')]); }catch(x){ return this.toast('Could not read the lessons. Nothing was changed.',true); }
+      if(!fresh||!Array.isArray(fresh.lessons)||!rec||!rec.items||rec.undoneAt) return this.toast('There is no video link to undo. Nothing was changed.',true);
+      const out=Object.assign({},ttVideoRevert(fresh,rec.items),{updatedAt:Date.now()});
+      if(!(await sset('ttlib:master',out))) return this.toast('Could not save. Nothing was changed.',true);
+      const done=Object.assign({},rec,{undoneAt:Date.now()});
+      await sset('ttlib:video-undo',done);
+      this.setState({ttLib:out,ttLibSaved:true,ttVidUndo:done});
+      this.toast('Video link undone for '+Object.keys(rec.items).length+' lessons');
     })();
   }
   ttOrgRec(id){ return (this.state.ttOrgs||[]).find(o=>o&&o.code===id)||null; }
@@ -16343,6 +16630,66 @@ class Component extends DCLogic {
           keep:keep.length?'Kept as it is: '+keep.join(', ')+'.':'',hasKeep:keep.length>0,
           replaces:(cur.summary||(cur.discussion||[]).length||(cur.additional||[]).length)?'Replaces what this lesson has now (Undo brings it back).':'',
           cardStyle:'border-top:1px solid #EEF3F8;padding:12px 4px;'+(it.flags.length?'background:#FFF9E0;border-left:3px solid #E0B400;padding-left:10px':'')};
+      });
+    }
+    // Link videos from Storage: a preview, then Confirm (admins only).
+    const vid=s.ttVid||null, vopts=s.ttVidOpts||{picks:{}};
+    v.ttVidCan=s.role==='admin'&&!editing;
+    v.onTTVidOpen=()=>{ if(!(vid&&vid.busy)) this.ttVidScan(); };
+    v.ttVidBusy=!!(vid&&vid.busy); v.ttVidMsg=(vid&&vid.msg)||'';
+    v.ttVidErr=(vid&&vid.err)||''; v.ttVidHasErr=!!v.ttVidErr;
+    v.ttVidFolderIn=(vid&&vid.typed)||'';
+    v.onTTVidFolderIn=e=>this.setState({ttVid:Object.assign({},this.state.ttVid||{},{typed:e.target.value})});
+    v.onTTVidFolderGo=()=>{ const f=String((this.state.ttVid||{}).typed||'').trim(); if(f) this.ttVidScan(f); };
+    const vundo=s.ttVidUndo, vplan=vid&&vid.files?ttVideoPlan(vid.files,lib,vopts):null;
+    v.ttVidOpenNow=!!vplan;
+    v.ttVidCanUndo=!vplan&&!!(vundo&&vundo.items&&Object.keys(vundo.items).length&&!vundo.undoneAt);
+    v.ttVidUndoNote=v.ttVidCanUndo?'Last link: '+Object.keys(vundo.items).length+' lessons, '+new Date(vundo.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'.':'';
+    v.onTTVidUndo=()=>this.ttVidUndoRun();
+    if(vplan){
+      const mb=b=>(b/1048576).toFixed(b<10*1048576?1:0)+' MB';
+      const len=d=>d>0?Math.floor(d/60)+':'+String(Math.round(d%60)).padStart(2,'0'):'length unknown';
+      const setOpt=patch=>this.setState({ttVidOpts:Object.assign({},this.state.ttVidOpts||{picks:{}},patch)});
+      const box=on=>'display:inline-flex;align-items:center;gap:8px;background:'+(on?'#EAF6FC':'#fff')+';border:1.5px solid '+(on?'#00A3E0':'#DCE6F0')+';border-radius:10px;padding:8px 12px;font-family:inherit;font-weight:800;font-size:12px;color:#0C1B2E;cursor:pointer';
+      // Above the phone's fixed bottom bar (64 px); 12 px on a wide screen.
+      let wide=true; try{ wide=window.matchMedia(WIDE_MQ).matches; }catch(e){}
+      v.ttVidBarStyle='position:sticky;bottom:'+(wide?'12px':'calc(76px + env(safe-area-inset-bottom,0px))')+';margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;background:#fff;border:1px solid #DCE6F0;border-radius:12px;padding:10px 12px;box-shadow:0 6px 20px rgba(12,38,71,.12)';
+      v.ttVidFolder=vid.folder; v.ttVidFileCount=vplan.files.length+' video'+(vplan.files.length===1?'':'s');
+      v.ttVidOtherFolders=(vid.folders||[]).length>1?'Other Twin Thieves video folders: '+vid.folders.filter(f=>f!==vid.folder).join(', '):'';
+      v.ttVidHasOther=!!v.ttVidOtherFolders;
+      v.ttVidRepVid=(vopts.replaceVideos?'☑':'☐')+' Replace existing videos'; v.ttVidRepVidStyle=box(!!vopts.replaceVideos);
+      v.ttVidRepTh=(vopts.replaceThumbs?'☑':'☐')+' Replace existing thumbnails'; v.ttVidRepThStyle=box(!!vopts.replaceThumbs);
+      v.onTTVidRepVid=()=>setOpt({replaceVideos:!vopts.replaceVideos});
+      v.onTTVidRepTh=()=>setOpt({replaceThumbs:!vopts.replaceThumbs});
+      v.ttVidThumb=(vundo&&vundo.thumbCopy)||TT_THUMB_SRC;
+      const heavy=vplan.rows.filter(r=>r.status==='link'&&r.heavy).length;
+      v.ttVidHead=vplan.linking+' lesson'+(vplan.linking===1?'':'s')+' will get a video · '+vplan.thumbs+' the thumbnail'
+        +(heavy?' · '+heavy+' video'+(heavy===1?'':'s')+' over '+TT_MB_PER_MIN+' MB per minute':'')
+        +' · '+vplan.rows.filter(r=>r.status==='none').length+' with no video found yet';
+      v.ttVidBlockers=vplan.blockers.map(t=>({text:t}));
+      v.ttVidReady=!vplan.blockers.length&&vplan.linking>0;
+      v.ttVidConfirmLabel=s.ttVidBusy?'Saving…':'Confirm: link '+vplan.linking+' video'+(vplan.linking===1?'':'s');
+      v.onTTVidConfirm=()=>{ if(!s.ttVidBusy) this.ttVidConfirm(); };
+      v.onTTVidCancel=()=>this.setState({ttVid:null,ttVidOpts:{picks:{}}});
+      v.ttVidUnmatched=vplan.unmatched.map(f=>({text:f.name+' · '+mb(f.size)+' · '+len(f.dur)}));
+      v.ttVidHasUnmatched=vplan.unmatched.length>0;
+      const fileOpts=vplan.files.map(f=>({value:f.path,label:f.name+' · '+mb(f.size)}));
+      v.ttVidRows=vplan.rows.map(r=>{ const cur=by[r.id]||{}, f=r.file;
+        const flags=[];
+        if(r.status==='link'&&r.heavy) flags.push('Over '+TT_MB_PER_MIN+' MB per minute ('+Math.round(f.size/1048576/(f.dur/60))+' MB/min): re-export before linking');
+        if(r.status==='link'&&r.mov) flags.push('A .mov file may not play in every browser: an MP4 is safer');
+        if(r.status==='link'&&!r.picked&&f&&ttVidScore(f.name,r.name)<1) flags.push('Close but not exact: check the file name');
+        const status={link:'Will link'+(cur.videoUrl?' (replaces the current video)':''),same:'Already linked to this file',
+          skip:'Already has a video: skipped (tick "Replace existing videos" to change it)',none:'No video found yet'}[r.status];
+        return {num:r.closing?'Thank you':'Lesson '+r.pos,name:r.name,status,
+          file:f?f.name:'—',meta:f?mb(f.size)+' · '+len(f.dur):'',hasMeta:!!f,
+          thumb:r.thumb==='set'?'Thumbnail: set to the challenge image'+(cur.thumbUrl?' (replaces the current one)':''):(r.thumb==='keep'?'Thumbnail: keeps its own (tick "Replace existing thumbnails" to change it)':''),
+          hasThumb:!!r.thumb,
+          flags:flags.map(t=>({text:t})),
+          canPick:r.status!=='skip'&&r.status!=='same',pickValue:r.path,
+          pickOptions:[{value:'',label:'— No video —'}].concat(fileOpts),
+          onPick:e=>{ const o=this.state.ttVidOpts||{picks:{}}; setOpt({picks:Object.assign({},o.picks,{[r.id]:e.target.value})}); },
+          cardStyle:'border-top:1px solid #EEF3F8;padding:12px 4px;'+(flags.length&&r.status==='link'?'background:#FFF9E0;border-left:3px solid #E0B400;padding-left:10px':(r.status==='link'?'':'opacity:.78'))};
       });
     }
     if(editing){
