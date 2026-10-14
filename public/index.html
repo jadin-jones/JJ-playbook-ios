@@ -538,6 +538,24 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:#00A3E0;box-sh
 [data-tt-side="1"] [data-tt-side-row="1"]>button:not([data-tt-cur="1"]):hover{background:#EEF2F7!important}
 [data-tt-side="1"] [data-tt-side-row="1"]>button:focus-visible{outline:2px solid #13213B;outline-offset:1px}
 @keyframes jjFall{0%{transform:translateY(0) rotate(0deg);opacity:0}8%{opacity:.95}100%{transform:translateY(112vh) rotate(540deg);opacity:.15}}
+/* The Twin Thieves lesson player's own control bar (ttpInstall). Only
+   [data-ttp-box] carries these. */
+/* No double-tap zoom on the player, so quick taps on its buttons all count. */
+[data-ttp-box="1"]{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+[data-ttp-box="1"] [data-ttp-bar="1"]{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:4px;padding:22px 8px 6px;background:linear-gradient(transparent,rgba(0,0,0,.72));color:#FFFFFF;transition:opacity .2s;font-family:Montserrat,system-ui,sans-serif}
+[data-ttp-box="1"][data-idle="1"][data-paused="0"] [data-ttp-bar="1"]{opacity:0;pointer-events:none}
+[data-ttp-box="1"][data-idle="1"][data-paused="0"]{cursor:none}
+[data-ttp-box="1"] [data-ttp-bar="1"] button{flex:none;min-width:36px;height:36px;padding:0 6px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;border-radius:8px;color:#FFFFFF;cursor:pointer;font-family:inherit;font-weight:800;font-size:12.5px}
+[data-ttp-box="1"] [data-ttp-bar="1"] button:hover{background:rgba(255,255,255,.16)}
+[data-ttp-box="1"] [data-ttp-bar="1"] button:focus-visible,[data-ttp-box="1"] [data-ttp-seek="1"]:focus-visible,[data-ttp-box="1"]:focus-visible{outline:2px solid #FADA01;outline-offset:1px}
+[data-ttp-box="1"] [data-ttp-bar="1"] button[hidden]{display:none}
+[data-ttp-box="1"] [data-ttp-act="play"][data-state="playing"] [data-ttp-i="play"],[data-ttp-box="1"] [data-ttp-act="play"][data-state="paused"] [data-ttp-i="pause"],
+[data-ttp-box="1"] [data-ttp-act="mute"][data-state="muted"] [data-ttp-i="on"],[data-ttp-box="1"] [data-ttp-act="mute"][data-state="on"] [data-ttp-i="muted"]{display:none}
+[data-ttp-box="1"] [data-ttp-seek="1"]{flex:1;min-width:40px;margin:0 6px;height:24px;accent-color:#FADA01;cursor:pointer;background:transparent}
+[data-ttp-box="1"] [data-ttp-time="1"]{flex:none;font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;padding:0 4px}
+[data-ttp-box="1"]:fullscreen{width:100%;height:100%}
+@media (pointer:coarse){[data-ttp-box="1"] [data-ttp-bar="1"] button{min-width:42px;height:42px}}
+@media (max-width:420px){[data-ttp-box="1"] [data-ttp-time="1"]{display:none}}
 @keyframes jjPop{0%{opacity:0;transform:scale(.72)}60%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
 @keyframes jjSweep{from{opacity:0;transform:translateX(-70px)}to{opacity:1;transform:translateX(0)}}
 @keyframes jjCellRise{from{opacity:0;transform:translateY(16px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -5458,10 +5476,21 @@ sc-if,sc-for{display:none!important}
 </button>
 </sc-if>
 <sc-if value="{{ ttVideoFrame }}" hint-placeholder-val="{{ false }}">
-<iframe src="{{ ttVideoSrc }}" title="Lesson video" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen="allowfullscreen" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
+<iframe sc-camel-src="{{ ttVideoSrc }}" title="Lesson video" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen="allowfullscreen" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
 </sc-if>
 <sc-if value="{{ ttVideoFile }}" hint-placeholder-val="{{ false }}">
-<video src="{{ ttVideoSrc }}" poster="{{ ttVideoPoster }}" controls="controls" autoplay="autoplay" playsinline="playsinline" style="position:absolute;inset:0;width:100%;height:100%;background:#000"></video>
+<div data-ttp-box="1" data-idle="0" data-paused="1" tabindex="0" aria-label="Lesson video player" style="position:absolute;inset:0;background:#000;outline:none">
+<video data-ttp="1" sc-camel-src="{{ ttVideoSrc }}" sc-camel-poster="{{ ttVideoPoster }}" autoplay="autoplay" playsinline="playsinline" webkit-playsinline="true" draggable="false" controlslist="nodownload noplaybackrate noremoteplayback" disableremoteplayback="disableremoteplayback" style="position:absolute;inset:0;width:100%;height:100%;background:#000"></video>
+<div data-ttp-bar="1" role="group" aria-label="Video controls">
+<button type="button" data-ttp-act="play" data-state="paused" aria-label="Play"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" data-ttp-i="play"><path d="M8 5v14l11-7z" fill="currentColor"></path></svg><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" data-ttp-i="pause"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"></path></svg></button>
+<input type="range" data-ttp-seek="1" min="0" max="1000" step="1" value="0" aria-label="Seek">
+<span data-ttp-time="1">0:00 / 0:00</span>
+<button type="button" data-ttp-act="mute" data-state="on" aria-label="Mute"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" data-ttp-i="on"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"></path><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" data-ttp-i="muted"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"></path><path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button>
+<button type="button" data-ttp-act="speed" aria-label="Playback speed 1×. Change speed">1×</button>
+<button type="button" data-ttp-act="pip" aria-label="Picture in Picture" hidden="hidden"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"></rect><rect x="12" y="11.5" width="7" height="5.5" rx="1" fill="currentColor"></rect></svg></button>
+<button type="button" data-ttp-act="full" aria-label="Full screen"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</div>
+</div>
 </sc-if>
 </div>
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;margin-top:12px">
@@ -8571,6 +8600,99 @@ function ttVideo(u,start){
   if(isDirectVideo(u)) return {kind:'file',src:u+(st?'#t='+st:'')};
   return {kind:'frame',src:embedUrl(u)};
 }
+/* The Twin Thieves lesson player's own control bar: play, seek, time, mute,
+   speed (1x/1.25x/1.5x/2x), Picture in Picture and fullscreen. It replaces
+   the browser's controls, which in Chrome and Edge always carry a ⋮ menu
+   with Download; right-click on the player is blocked too. It runs on any
+   [data-ttp-box] holding a video[data-ttp], through listeners on document
+   (media events are caught on their way down), so the template only draws
+   the bar. A deterrent only: the video still reaches the browser. On an
+   iPhone, fullscreen is Apple's own player, which has no Download. */
+const TTP_SPEEDS=[1,1.25,1.5,2];
+const ttpHooks={onError:null};
+let ttpRate=1;
+function ttpFmt(t){ t=Math.max(0,Math.floor(t||0)); const h=Math.floor(t/3600),m=Math.floor(t%3600/60),x=t%60;
+  return (h?h+':'+String(m).padStart(2,'0'):String(m))+':'+String(x).padStart(2,'0'); }
+function ttpPipOk(v){
+  try{ if(document.pictureInPictureEnabled&&typeof v.requestPictureInPicture==='function') return true;
+    return typeof v.webkitSetPresentationMode==='function'&&!!(v.webkitSupportsPresentationMode&&v.webkitSupportsPresentationMode('picture-in-picture')); }catch(e){ return false; }
+}
+function ttpUpdate(box){
+  const v=box&&box.querySelector('video[data-ttp]'); if(!v) return;
+  const q=x=>box.querySelector(x), d=isFinite(v.duration)?v.duration:0, paused=v.paused||v.ended;
+  const sk=q('[data-ttp-seek]');
+  if(sk&&!box._ttpDrag){ sk.value=d?String(Math.round(v.currentTime/d*1000)):'0'; }
+  if(sk){ sk.style.setProperty('--ttp-pct',(d?Math.min(100,v.currentTime/d*100):0)+'%'); sk.setAttribute('aria-valuetext',ttpFmt(v.currentTime)+' of '+ttpFmt(d)); }
+  const tm=q('[data-ttp-time]'); if(tm) tm.textContent=ttpFmt(v.currentTime)+' / '+ttpFmt(d);
+  const pl=q('[data-ttp-act="play"]'); if(pl){ pl.setAttribute('aria-label',paused?'Play':'Pause'); pl.setAttribute('data-state',paused?'paused':'playing'); }
+  const mu=q('[data-ttp-act="mute"]'); if(mu){ mu.setAttribute('aria-label',v.muted?'Unmute':'Mute'); mu.setAttribute('data-state',v.muted?'muted':'on'); }
+  const sp=q('[data-ttp-act="speed"]'); if(sp){ const r=v.playbackRate||1; sp.textContent=r+'×'; sp.setAttribute('aria-label','Playback speed '+r+'×. Change speed'); }
+  const pp=q('[data-ttp-act="pip"]'); if(pp) pp.hidden=!ttpPipOk(v);
+  box.setAttribute('data-paused',paused?'1':'0');
+}
+function ttpWake(box){
+  if(!box) return; box.setAttribute('data-idle','0'); clearTimeout(box._ttpIdle);
+  box._ttpIdle=setTimeout(()=>{ const v=box.querySelector('video[data-ttp]'); if(v&&!v.paused) box.setAttribute('data-idle','1'); },2600);
+}
+function ttpAct(box,act){
+  const v=box.querySelector('video[data-ttp]'); if(!v) return;
+  if(act==='play'){ if(v.paused||v.ended){ const p=v.play(); if(p&&p.catch) p.catch(()=>{}); } else v.pause(); }
+  else if(act==='mute') v.muted=!v.muted;
+  else if(act==='speed'){ const i=TTP_SPEEDS.indexOf(v.playbackRate); ttpRate=TTP_SPEEDS[(i+1)%TTP_SPEEDS.length]; v.defaultPlaybackRate=ttpRate; v.playbackRate=ttpRate; }
+  else if(act==='pip'){
+    try{ if(document.pictureInPictureElement===v) document.exitPictureInPicture();
+      else if(typeof v.requestPictureInPicture==='function'&&document.pictureInPictureEnabled){ const p=v.requestPictureInPicture(); if(p&&p.catch) p.catch(()=>{}); }
+      else if(typeof v.webkitSetPresentationMode==='function') v.webkitSetPresentationMode(v.webkitPresentationMode==='picture-in-picture'?'inline':'picture-in-picture'); }catch(e){}
+  }
+  else if(act==='full'){
+    try{ const fs=document.fullscreenElement||document.webkitFullscreenElement;
+      if(fs){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); }
+      else if(box.requestFullscreen){ const p=box.requestFullscreen(); if(p&&p.catch) p.catch(()=>{}); }
+      else if(box.webkitRequestFullscreen) box.webkitRequestFullscreen();
+      else if(v.webkitEnterFullscreen) v.webkitEnterFullscreen(); }catch(e){}
+  }
+  ttpUpdate(box); ttpWake(box);
+}
+(function ttpInstall(){
+  const boxOf=t=>t&&t.closest?t.closest('[data-ttp-box]'):null;
+  ['timeupdate','play','pause','ended','loadedmetadata','durationchange','volumechange','ratechange','seeked',
+   'enterpictureinpicture','leavepictureinpicture','webkitpresentationmodechanged'].forEach(n=>document.addEventListener(n,e=>{
+    const v=e.target; if(!v||!v.matches||!v.matches('video[data-ttp]')) return;
+    if(n==='loadedmetadata'&&v.playbackRate!==ttpRate){ v.defaultPlaybackRate=ttpRate; v.playbackRate=ttpRate; }
+    if(n==='play'||n==='pause') ttpWake(boxOf(v));
+    ttpUpdate(boxOf(v)); },true));
+  document.addEventListener('error',e=>{ const v=e.target;
+    if(v&&v.matches&&v.matches('video[data-ttp]')&&ttpHooks.onError) ttpHooks.onError(v); },true);
+  // No "Save video as": the player has no context menu.
+  document.addEventListener('contextmenu',e=>{ if(boxOf(e.target)) e.preventDefault(); },true);
+  document.addEventListener('click',e=>{ const box=boxOf(e.target); if(!box) return;
+    const b=e.target.closest('[data-ttp-act]');
+    // Already done on the touch's release (below): not twice.
+    if(b){ if(b._ttpUp&&Date.now()-b._ttpUp<800){ b._ttpUp=0; return; } ttpAct(box,b.getAttribute('data-ttp-act')); return; }
+    if(e.target.matches('video[data-ttp]')){
+      // A tap on a phone first brings the bar back; a click plays or pauses.
+      if(box._ttpTouch&&box.getAttribute('data-idle')==='1'){ ttpWake(box); return; }
+      ttpAct(box,'play'); } });
+  document.addEventListener('pointerdown',e=>{ const box=boxOf(e.target); if(box){ box._ttpTouch=e.pointerType==='touch'; if(!box._ttpTouch) ttpWake(box); } },true);
+  /* A touch acts on its release: browsers can drop the click of a second
+     quick tap (taken as a double tap), so tapping speed twice still counts. */
+  document.addEventListener('pointerup',e=>{ if(e.pointerType!=='touch') return; const box=boxOf(e.target); if(!box) return;
+    const b=e.target.closest('[data-ttp-act]'); if(!b||box.getAttribute('data-idle')==='1') return;
+    b._ttpUp=Date.now(); ttpAct(box,b.getAttribute('data-ttp-act')); },true);
+  document.addEventListener('pointermove',e=>{ if(e.pointerType!=='touch') ttpWake(boxOf(e.target)); },true);
+  document.addEventListener('input',e=>{ const sk=e.target; if(!sk.matches||!sk.matches('[data-ttp-seek]')) return;
+    const box=boxOf(sk), v=box&&box.querySelector('video[data-ttp]'); if(!v) return;
+    box._ttpDrag=true; const d=isFinite(v.duration)?v.duration:0; if(d) v.currentTime=Number(sk.value)/1000*d; ttpUpdate(box); ttpWake(box); },true);
+  document.addEventListener('change',e=>{ const sk=e.target; if(sk.matches&&sk.matches('[data-ttp-seek]')){ const box=boxOf(sk); if(box){ box._ttpDrag=false; ttpUpdate(box); } } },true);
+  document.addEventListener('keydown',e=>{ const box=boxOf(e.target); if(!box) return;
+    if(e.target!==box&&!e.target.matches('video[data-ttp]')) return;
+    const v=box.querySelector('video[data-ttp]'); if(!v) return;
+    const k=e.key;
+    if(k===' '||k==='k'){ e.preventDefault(); ttpAct(box,'play'); }
+    else if(k==='ArrowRight'||k==='ArrowLeft'){ e.preventDefault(); v.currentTime=Math.max(0,v.currentTime+(k==='ArrowRight'?5:-5)); }
+    else if(k==='m') ttpAct(box,'mute');
+    else if(k==='f') ttpAct(box,'full'); });
+})();
 /* A JPG or PNG for a video cover. One over 1920 px on its long side, or over
    600 KB, is redrawn at most 1920 px as a JPEG at 85% (on navy, for PNG
    transparency); a smaller one is uploaded as it is. */
@@ -10528,6 +10650,8 @@ class Component extends DCLogic {
 
   constructor(p){
     super(p);
+    // The Twin Thieves player tells the lesson page when its video fails to load.
+    ttpHooks.onError=v=>{ try{ this.ttVideoError(v); }catch(e){} };
     this.state={
       booting:false, role:null, view:'gate', tab:'playbook',
       name:'', email:'', idkey:'', code:'', org:null, program:null, resp:null,
@@ -16207,6 +16331,48 @@ class Component extends DCLogic {
     return true;
   }
   ttOpen(id){ this.setState({view:'ttlesson',tab:'lessons',ttLessonId:id,ttTab:'overview',ttPlay:false,ttSeek:0,ttMenu:false,ttFocus:null},()=>this.ttScrollSide()); window.scrollTo(0,0); }
+  /* Lesson videos in Firebase Storage play from a short-lived link that
+     /api/tt-video gives a signed-in member (about 4 hours). A video that is
+     not in this project's Storage (url null), the design preview, or a link
+     the server could not give plays from the library's own link, so a video
+     never stops playing because of this. _ttLinks: lesson id → {url, exp,
+     at}. */
+  ttVideoLinkFor(l){
+    const own=/^https:\/\/firebasestorage\.(googleapis\.com|app)\//i.test(String(l.videoUrl||''));
+    if(!own||this.state.ttDemo||this._ttSignedBroken) return {src:l.videoUrl};
+    const k=(this._ttLinks||{})[l.id];
+    // A signed link is used while it has 10 minutes left; "use the library's link" until it runs out.
+    if(k&&!k.busy&&(k.url?k.exp-Date.now()>10*60000:k.exp>Date.now())) return {src:k.url||l.videoUrl};
+    return {src:''};
+  }
+  async ttVideoLink(l,force){
+    const links=this._ttLinks||(this._ttLinks={}), k=links[l.id];
+    if(this.ttVideoLinkFor(l).src&&!force) return;
+    if(k&&k.busy) return;
+    links[l.id]={busy:true,exp:0};
+    let out={url:null,exp:Date.now()+5*60000,at:Date.now()};
+    try{
+      await authReady();
+      const r=await authFetch('/api/tt-video',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lesson:l.id})},15000);
+      let j={}; try{ j=await r.json(); }catch(e){}
+      if(r.ok&&j.ok) out={url:j.url||null,exp:j.url?Number(j.expiresAt)||0:Date.now()+3600000,at:Date.now()};
+    }catch(e){}
+    links[l.id]=out;
+    this.setState({ttLinkTick:Date.now()});
+  }
+  /* The player failed to load. A short-lived link that has run out (left
+     paused for hours) gets a fresh one, at the same place; one that fails
+     straight away means signed links don't work here, so the library's own
+     links are used from then on. */
+  ttVideoError(video){
+    const s=this.state; if(s.view!=='ttlesson'||!s.ttPlay) return;
+    const l=this.ttLessons().find(x=>x.id===s.ttLessonId); if(!l) return;
+    const k=(this._ttLinks||{})[l.id]; if(!k||!k.url||String(video.currentSrc||video.src||'').indexOf(k.url)!==0) return;
+    const at=Math.floor(video.currentTime||0);
+    if(Date.now()-k.at<60000){ this._ttSignedBroken=true; return this.setState({ttLinkTick:Date.now(),ttSeek:at}); }
+    delete this._ttLinks[l.id];
+    this.setState({ttSeek:at},()=>this.ttVideoLink(l,true));
+  }
   /* The lesson list scrolls inside itself (sidebar or phone menu) to the
      current lesson, or to the heading of the fundamental picked on the
      pyramid, without moving the page. */
@@ -17009,15 +17175,16 @@ class Component extends DCLogic {
               :'background:#FFFFFF;border:2px solid '+ring+';color:'+(l.closing?'#8A6A10':'#13213B'))),
         titleStyle:'font-size:12.5px;line-height:1.3;color:'+(me?'#FFFFFF':'#1F2D45')+';font-weight:'+(me?'700':'500')}); };
     const side=[], sideLight=[];
-    groups.forEach(g=>{ const dn=g.lessons.filter(l=>this.ttDone(l.id)).length, on=g.fund===focus, all=dn===g.lessons.length;
+    groups.forEach((g,gi)=>{ const dn=g.lessons.filter(l=>this.ttDone(l.id)).length, on=g.fund===focus, all=dn===g.lessons.length;
       const head={isHead:true,isRow:false,fund:g.fund,focus:on?'1':'0',text:g.name,count:(all?'✓ ':'')+dn+'/'+g.lessons.length};
       side.push(Object.assign({},head,{
         headStyle:'box-sizing:border-box;height:22px;margin-top:2px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px;border-radius:8px;font-weight:800;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;'
           +(on?'background:#00A3E0;color:#FFFFFF':'color:#7E8D9C'),
         countStyle:'flex:none;font-size:10px;letter-spacing:.04em;font-weight:800;color:'+(on?'#FFFFFF':(all?'#2F7F55':'#9DAAB8'))}));
-      // Light: a thin line above every heading (9px with its margins), then the 26px heading.
+      /* Light: a thin line above every heading (9px with its margins), then the
+         26px heading. The first group's line is the list's own top edge. */
       sideLight.push(Object.assign({},head,{
-        ruleStyle:'height:1px;background:#E3E8EF;margin:4px 4px',
+        ruleStyle:gi?'height:1px;background:#E3E8EF;margin:4px 4px':'height:4px',
         headStyle:'box-sizing:border-box;height:26px;margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 14px 0;font-weight:800;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;'
           +(on?'background:#FFF6D6;border-radius:10px 10px 0 0;color:#6B4E00':'color:#13213B'),
         countStyle:'flex:none;font-size:10px;letter-spacing:.04em;font-weight:700;color:'+(on?'#8A6A10':'#5B6B82')}));
@@ -17029,7 +17196,9 @@ class Component extends DCLogic {
        35px with its line (--tt-hh in all); lesson rows share the rest (rows spread by CSS;
        a long list scrolls inside). */
     const nRows=Math.max(1,side.filter(r=>r.isRow).length), hh=groups.length*24;
-    v.ttSideListStyle='position:relative;height:calc(100vh - 300px);min-height:120px;overflow-y:auto;margin:4px -4px 8px;padding:0 0 4px;scrollbar-color:#C9D3E0 transparent;'
+    /* Its top edge is a fixed line, clear of the Playbook button: rows scroll
+       away under the line, never up against the button. */
+    v.ttSideListStyle='position:relative;height:calc(100vh - 308px);min-height:120px;overflow-y:auto;margin:10px -4px 8px;padding:0 0 4px;border-top:1px solid #E3E8EF;scrollbar-color:#C9D3E0 transparent;'
       +'--tt-h:calc(100vh - 306px);--tt-n:'+nRows+';--tt-hh:'+(groups.length*35+6)+'px';
     // The phone menu's list; --tt-n spreads its rows over the height (CSS above).
     v.ttDrawerListStyle='flex:1;min-height:0;overflow-y:auto;position:relative;padding:0 10px 10px calc(10px + env(safe-area-inset-left));--tt-n:'+nRows+';--tt-hh:'+hh+'px';
@@ -17068,10 +17237,14 @@ class Component extends DCLogic {
       v.ttSub=v.ttFund+' · '+v.ttProgressText;
       const vid=ttVideo(cur.videoUrl,s.ttSeek);
       v.ttHasVideo=vid.kind!=='none'; v.ttNoVideo=!v.ttHasVideo;
-      v.ttShowPoster=!s.ttPlay; v.ttPlaying=!!s.ttPlay;
-      v.ttVideoFrame=s.ttPlay&&vid.kind==='frame'; v.ttVideoFile=s.ttPlay&&vid.kind==='file';
-      v.ttVideoSrc=vid.src||'';
-      v.onTTPlay=()=>{ if(!v.ttHasVideo) return this.toast('No video added for this lesson yet'); this.setState({ttPlay:true}); };
+      /* A video file in Firebase Storage plays from a short-lived link
+         (/api/tt-video); until it arrives the cover stays up. */
+      const link=vid.kind==='file'?this.ttVideoLinkFor(cur):{src:vid.src};
+      const waiting=!!s.ttPlay&&vid.kind==='file'&&!link.src;
+      v.ttShowPoster=!s.ttPlay||waiting; v.ttPlaying=!!s.ttPlay;
+      v.ttVideoFrame=s.ttPlay&&vid.kind==='frame'; v.ttVideoFile=s.ttPlay&&vid.kind==='file'&&!waiting;
+      v.ttVideoSrc=vid.kind==='file'?(link.src?link.src+(s.ttSeek?'#t='+Math.max(0,Math.floor(s.ttSeek)):''):''):(vid.src||'');
+      v.onTTPlay=()=>{ if(!v.ttHasVideo) return this.toast('No video added for this lesson yet'); this.setState({ttPlay:true}); if(vid.kind==='file') this.ttVideoLink(cur); };
       /* The cover before it plays: the lesson's thumbnail if it has one (a
          light veil keeps the play button readable), else the usual navy. */
       const thumb=ttCssUrl(cur.thumbUrl);
@@ -17081,7 +17254,7 @@ class Component extends DCLogic {
           :'background:radial-gradient(circle at 50% 45%,#1E4C7D,#0C2647 70%)');
       v.ttSummary=cur.summary||''; v.ttHasSummary=!!cur.summary; v.ttNoSummary=!cur.summary;
       v.ttChapters=(cur.chapters||[]).filter(c=>c&&c.label).map(c=>({t:c.t,label:c.label,
-        onTap:()=>{ if(!v.ttHasVideo) return this.toast('No video added for this lesson yet'); this.setState({ttPlay:true,ttSeek:ttSecs(c.t)}); window.scrollTo({top:0,behavior:'smooth'}); }}));
+        onTap:()=>{ if(!v.ttHasVideo) return this.toast('No video added for this lesson yet'); this.setState({ttPlay:true,ttSeek:ttSecs(c.t)}); if(vid.kind==='file') this.ttVideoLink(cur); window.scrollTo({top:0,behavior:'smooth'}); }}));
       v.ttHasChapters=v.ttChapters.length>0;
       // Transcripts are kept in the library but not shown (Studio no longer edits them).
       // Where this fits: the Playbook pyramid, this lesson's block lit, display-only.

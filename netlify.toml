@@ -5,7 +5,7 @@
   # is the site root.
   publish = "public"
   # The Netlify functions (join, members, peer, ms-verify, coach, granola,
-  # migrate-peers, auth-proxy, tt-join, tt-invite, tt-videos) live here.
+  # migrate-peers, auth-proxy, tt-join, tt-invite, tt-videos, tt-video) live here.
   # This file overrides the dashboard's "Functions directory": the top-level
   # functions/ folder is the Firebase Cloud Functions source (deployed with
   # the Firebase CLI, never by Netlify) and must never be picked up as
@@ -47,6 +47,12 @@
 [[redirects]]
   from = "/api/tt-videos"
   to = "/.netlify/functions/tt-videos"
+  status = 200
+
+# A short-lived link to one Twin Thieves lesson video, for a signed-in member.
+[[redirects]]
+  from = "/api/tt-video"
+  to = "/.netlify/functions/tt-video"
   status = 200
 
 # People answering a peer or team link reach their round via /api/peer.

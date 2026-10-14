@@ -291,6 +291,51 @@ first, otherwise Gmail rewrites the address.
   - Someone who is also in a Playbook program shows their latest use of either.
   - "Never" is inferred: no renewal more than an hour after `joinedAt`.
 
+## Lesson video player and short-lived links (October 2026)
+
+- **Own control bar** (`ttpInstall`, `[data-ttp-box]`). It has play, seek,
+  time, mute, speed (1x → 1.25x → 1.5x → 2x), Picture in Picture (shown where
+  the browser has it) and full screen.
+  - There are no browser controls, so Chrome and Edge show no ⋮ menu or
+    Download. The video carries `controlslist="nodownload …"`.
+  - Right-click on the player is blocked, so there's no "Save video as".
+  - The bar hides after 2.6 s of no movement while playing.
+  - On phones: a tap brings the bar back; buttons act on the touch's release,
+    so quick taps all count; there is no double-tap zoom.
+  - Keys: Space/K play or pause, arrows ±5 s, M mute, F full screen.
+  - On an iPhone, full screen is Apple's own player (no Download).
+  - This is a deterrent: the video still reaches the browser.
+- **Short-lived links** (`/api/tt-video`, `ttVideoLinkFor`). A lesson video
+  that is a file in this project's Storage plays from a v4 signed link,
+  read-only, for 4 hours. The service account's key signs it on the server,
+  with no call out.
+  - **Who gets one:** a verified member whose `ttmembers` orgs hold TT36 or
+    TT10, for a lesson in that version (or Thank you!), or an admin, for
+    Preview as a member.
+  - **Which file:** a caller names the lesson, never a file. Only the file
+    `ttlib:master` links to, in this bucket, is signed.
+  - **Seeking:** signed links answer Range requests, so seeking and long
+    videos play as before.
+  - **Renewal:** a link with under 10 minutes left is replaced. A video
+    paused until its link runs out gets a fresh one at the same place.
+  - **Fallbacks:** if the server can't give a link, or a signed link fails
+    within a minute, the library's own link plays instead, so a video never
+    stops because of this. YouTube, Vimeo, Drive and other buckets play from
+    their own links. The design preview never asks.
+- **The old links still work.** Each file's download token is unchanged, and
+  `ttlib:master` (readable by every Twin Thieves member) still holds the
+  token links. Anyone who has one, or digs it out of the library, can play
+  the file without signing in. To retire them:
+  1. Check that the signed links play on live.
+  2. Remove the fallback to the library's link.
+  3. Revoke each video file's download token (Firebase console → Storage →
+     file → access token → Revoke, or set `firebaseStorageDownloadTokens` to
+     a new value). That is a live data change, file by file, and every stored
+     token link then stops working.
+  4. Keep "Link videos from Storage" from writing token links again.
+  5. Check the Storage rules for who may call `getDownloadURL` on those
+     folders.
+
 ## Design preview
 
 `?ttpreview=home`, `?ttpreview=lesson` and `?ttpreview=studio` show sample
