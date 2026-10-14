@@ -94,6 +94,34 @@ A lesson's video URL may be YouTube, Vimeo, Google Drive or a direct MP4
   change, and only those the file has. **Undo last import** puts them back.
 - The file itself is never in the repo (`scripts/out/` is ignored).
 
+## Link videos from Storage (Studio → Twin Thieves → Lessons)
+
+- **Link videos from Storage** (admins only) lists, with the admin's own
+  sign-in, the Twin Thieves videos folder in Firebase Storage: a top-level
+  folder named like Twin Thieves (or `TT…`), or a videos folder inside it. No
+  other folder is ever opened. If none is found, or the rules refuse the
+  listing, the card says so and takes a typed Twin Thieves folder name.
+- Each video (MP4, M4V, MOV, WebM) shows its size and length and is matched to
+  a lesson by file name vs. lesson name (library title or either version's
+  name), one file per lesson, over the 36-lesson order plus the Thank you
+  lesson: `Be_the_Buffalo.mp4` → Be the Buffalo. Leading numbering and a
+  "Twin Thieves" prefix are ignored. Any match can be changed from a dropdown.
+- Marked to check: over 20 MB per minute ("re-export before linking"), `.mov`
+  files, and near (not exact) name matches. Lessons with no file say "No video
+  found yet"; files that matched nothing are listed.
+- Safe to run again: a lesson that has a video is skipped unless **Replace
+  existing videos** is ticked (and still claims its file, so the file never
+  goes to a similarly named lesson).
+- Every lesson that gets a video also gets the challenge thumbnail, unless it
+  has its own and **Replace existing thumbnails** is not ticked. On the first
+  Confirm the image is downloaded once from HubSpot, redrawn as a JPEG (at most
+  1920 px) and uploaded to `session-thumbnails/`; later runs reuse that copy.
+- **Confirm** reads the library as saved, stops if anything in the preview
+  changed, keeps the replaced videos and thumbnails in `ttlib:video-undo`
+  (admins only), then saves `ttlib:master`. Only `videoUrl` and `thumbUrl`
+  change. **Undo last video link** puts them back where they are still what
+  the link set.
+
 ## Studio text boxes keep their spaces
 
 The per-version lesson name (Versions) used to be trimmed on every key, so
