@@ -5647,6 +5647,51 @@ sc-if,sc-for{display:none!important}
 </div>
 </sc-if>
 <sc-if value="{{ ttNotEditing }}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{ ttImpCan }}" hint-placeholder-val="{{ false }}">
+<div data-tt-import="1" style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:14px 16px;margin-bottom:12px">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+<div style="flex:1;min-width:200px">
+<p style="margin:0;font-weight:900;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#0C1B2E">Lesson content</p>
+<p style="margin:3px 0 0;font-size:12px;line-height:1.45;color:#7E8D9C">Set the video summary, discussion and additional questions of all 36 lessons from a JSON file. You see a preview first; nothing changes until you confirm.</p>
+</div>
+<label style="flex:none;display:inline-flex;align-items:center;justify-content:center;background:#0C2647;color:#FFFFFF;border-radius:10px;padding:10px 14px;font-weight:900;font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Import lesson content<input type="file" accept=".json,application/json" sc-camel-on-change="{{ onTTImportFile }}" style="display:none"></label>
+</div>
+<sc-if value="{{ ttImpHasErr }}" hint-placeholder-val="{{ false }}"><p style="margin:10px 0 0;font-size:12.5px;color:#8F2D13">{{ ttImpErr }}</p></sc-if>
+<sc-if value="{{ ttImpCanUndo }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #EEF3F8">
+<span style="flex:1;min-width:160px;font-size:12px;color:#37475C">{{ ttImpUndoNote }}</span>
+<button sc-camel-on-click="{{ onTTImpUndo }}" style="{{ ttBtnLine }}">Undo last import</button>
+</div>
+</sc-if>
+<sc-if value="{{ ttImpOpen }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:12px;padding-top:12px;border-top:2px solid #DCE6F0">
+<p style="margin:0;font-weight:900;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#0C1B2E">Preview · {{ ttImpFile }}</p>
+<p style="margin:4px 0 8px;font-size:12.5px;color:#37475C">{{ ttImpHead }}</p>
+<sc-for list="{{ ttImpBlockers }}" as="ib" hint-placeholder-count="0"><p style="margin:0 0 6px;font-size:12.5px;font-weight:700;color:#8F2D13">✕ {{ ib.text }}</p></sc-for>
+<sc-for list="{{ ttImpItems }}" as="it" hint-placeholder-count="2">
+<div data-tt-import-row="1" style="{{ it.cardStyle }}">
+<p style="margin:0;font-weight:800;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#00A3E0">{{ it.num }} · {{ it.fund }}</p>
+<div style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:4px 0 6px;font-size:13px">
+<span style="color:#7E8D9C">Platform</span><span style="font-weight:800;color:#0C1B2E">{{ it.platform }}</span>
+<span style="color:#7E8D9C">PDF</span><span style="font-weight:800;color:#0C1B2E">{{ it.pdf }}</span>
+</div>
+<sc-for list="{{ it.flags }}" as="fl" hint-placeholder-count="0"><p style="margin:0 0 4px;font-size:12px;font-weight:800;color:#7A5A00">⚠ {{ fl.text }}</p></sc-for>
+<sc-if value="{{ it.hasSummary }}" hint-placeholder-val="{{ true }}"><p style="margin:6px 0 2px;font-weight:800;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#7E8D9C">Video summary</p><p style="margin:0;font-size:13px;line-height:1.5;color:#37475C;white-space:pre-line">{{ it.summary }}</p></sc-if>
+<sc-if value="{{ it.hasDisc }}" hint-placeholder-val="{{ true }}"><p style="margin:8px 0 2px;font-weight:800;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#7E8D9C">Discussion questions</p><ul style="margin:0;padding-left:18px"><sc-for list="{{ it.disc }}" as="q" hint-placeholder-count="1"><li style="font-size:13px;line-height:1.5;color:#37475C">{{ q.text }}</li></sc-for></ul></sc-if>
+<sc-if value="{{ it.hasAdd }}" hint-placeholder-val="{{ true }}"><p style="margin:8px 0 2px;font-weight:800;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#7E8D9C">Additional questions</p><ul style="margin:0;padding-left:18px"><sc-for list="{{ it.add }}" as="q" hint-placeholder-count="2"><li style="font-size:13px;line-height:1.5;color:#37475C">{{ q.text }}</li></sc-for></ul></sc-if>
+<sc-if value="{{ it.hasKeep }}" hint-placeholder-val="{{ false }}"><p style="margin:6px 0 0;font-size:12px;color:#7E8D9C">{{ it.keep }}</p></sc-if>
+<p style="margin:6px 0 0;font-size:11.5px;color:#9DAAB8">{{ it.replaces }}</p>
+</div>
+</sc-for>
+<div style="position:sticky;bottom:12px;margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #DCE6F0;border-radius:12px;padding:10px 12px;box-shadow:0 6px 20px rgba(12,38,71,.12)">
+<span style="flex:1;min-width:160px;font-size:12px;color:#37475C">Only the summary and questions are set. Names, videos, thumbnails, handouts, fundamentals, order, the Thank you lesson and progress stay as they are.</span>
+<button sc-camel-on-click="{{ onTTImpCancel }}" style="{{ ttBtnLine }}">Cancel</button>
+<sc-if value="{{ ttImpReady }}" hint-placeholder-val="{{ true }}"><button data-tt-import-confirm="1" sc-camel-on-click="{{ onTTImpConfirm }}" style="{{ ttBtnNavy }}">{{ ttImpConfirmLabel }}</button></sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:6px 12px 10px">
 <p style="margin:10px 4px 6px;font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7E8D9C">{{ ttStudioSummary }}</p>
 <sc-for list="{{ ttStudioRows }}" as="lr" hint-placeholder-count="8">
@@ -8471,6 +8516,87 @@ async function shrinkImage(f){
   const blob=await new Promise(res=>cv.toBlob(res,'image/jpeg',0.85));
   if(!blob) throw new Error('that image could not be shrunk');
   return new File([blob],String(f.name||'thumbnail').replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg'});
+}
+/* Studio → Twin Thieves → Versions: a lesson's per-version name. Typing keeps
+   exactly what was typed (spaces too); only saving trims the ends, and a
+   name that is empty or the library's own is dropped. */
+const ttNameInput=val=>String(val==null?'':val).slice(0,120);
+function ttCleanNames(names,by){
+  const out={};
+  Object.keys(names||{}).forEach(ver=>{ const m={};
+    Object.keys(names[ver]||{}).forEach(id=>{ const t=String(names[ver][id]||'').trim();
+      if(t&&t!==String((by[id]||{}).title||'')) m[id]=t; });
+    if(Object.keys(m).length) out[ver]=m; });
+  return out;
+}
+/* Studio → Twin Thieves → Lessons → Import lesson content. The file is a
+   list of 36 entries {lesson, fundamental, title, concept, story, summary,
+   discussion[], additional[]}; entry N goes to lesson N of the 36-lesson
+   order (by position, never by title). Only the video summary, discussion
+   and additional questions are set, and only those the file has; names,
+   videos, thumbnails, handouts, fundamentals, order, the Thank you lesson
+   and progress are never touched. */
+const TT_IMPORT_STOP=new Set(['the','a','an','to','of','and','or','vs','your','you','my','in','on','for','with','is','be','it','at','by','from','how']);
+function ttImportWords(s){
+  return String(s||'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9+=]+/g,' ').split(' ')
+    .filter(w=>w&&!TT_IMPORT_STOP.has(w)).map(w=>w.length>4?w.replace(/(ing|ed|es|s)$/,''):w).filter(Boolean);
+}
+// Two names are related when at least half the words of the shorter one are in the other.
+function ttNamesRelated(a,b){
+  const A=ttImportWords(a),B=ttImportWords(b); if(!A.length||!B.length) return false;
+  return A.filter(w=>B.indexOf(w)>=0).length/Math.min(A.length,B.length)>=0.5;
+}
+function ttImportPlan(data,lib){
+  const arr=Array.isArray(data)?data:(data&&Array.isArray(data.lessons)?data.lessons:null);
+  if(!arr) return {err:'That file has no list of lessons.'};
+  if(!arr.length) return {err:'That file has no lessons in it.'};
+  const by={}; ((lib&&lib.lessons)||[]).forEach(l=>{ if(l&&l.id) by[l.id]=l; });
+  const order=((lib&&lib.order36)||[]).map(id=>by[id]).filter(l=>l&&!l.closing);
+  const names=((lib&&lib.names)||{})['36']||{};
+  const txt=(x,max)=>String(x==null?'':x).replace(/\r\n?/g,'\n').trim().slice(0,max);
+  const list=x=>(Array.isArray(x)?x:(x==null||x===''?[]:[x])).map(q=>txt(q,1500)).filter(Boolean).slice(0,40);
+  const items=[], blockers=[], seen={};
+  arr.forEach((e,i)=>{
+    if(!e||typeof e!=='object'){ blockers.push('Entry '+(i+1)+' is not a lesson.'); return; }
+    const m=String(e.lesson==null?'':e.lesson).match(/\d+/), pos=m?parseInt(m[0],10):i+1;
+    const flags=[]; if(!m) flags.push('No lesson number: matched by its place in the file');
+    if(!(pos>=1&&pos<=36)){ blockers.push('Entry '+(i+1)+' is lesson '+pos+'; only 1 to 36 are allowed.'); return; }
+    if(seen[pos]){ blockers.push('Lesson '+pos+' is in the file twice.'); return; }
+    seen[pos]=1;
+    const l=order[pos-1];
+    if(!l){ blockers.push('There is no lesson '+pos+' in the 36-lesson order.'); return; }
+    const platform=String(names[l.id]||'').trim()||l.title||l.id;
+    const pdfTitle=txt(e.title,200);
+    if(!ttNamesRelated(platform,pdfTitle)) flags.push('Names look different: check this is the same lesson');
+    const pdfFund=txt(e.fundamental,80), norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9+=]/g,'');
+    const fundName=TT_FUND_NAMES[l.fund]||'';
+    if(pdfFund&&fundName&&norm(pdfFund).indexOf(norm(fundName))<0&&norm(fundName).indexOf(norm(pdfFund))<0)
+      flags.push('Fundamental differs: '+fundName+' here, '+pdfFund+' in the file');
+    const set={};
+    const summary=txt(e.summary,8000); if(summary) set.summary=summary;
+    const disc=list(e.discussion); if(disc.length) set.discussion=disc;
+    const add=list(e.additional); if(add.length) set.additional=add;
+    if(!Object.keys(set).length) flags.push('Nothing to set: no summary or questions in the file');
+    items.push({pos,id:l.id,platform,pdfTitle,fund:fundName,pdfFund,set,flags});
+  });
+  items.sort((a,b)=>a.pos-b.pos);
+  return {items,blockers,missing:Array.from({length:Math.min(36,order.length)},(_,k)=>k+1).filter(p=>!seen[p])};
+}
+/* The library with the plan's fields set, and the values they replace
+   (for Undo). Everything else in every lesson is kept as it is. */
+function ttImportApply(lib,plan){
+  const set={}; plan.items.forEach(it=>{ if(Object.keys(it.set).length) set[it.id]=it.set; });
+  const prev={};
+  const lessons=(lib.lessons||[]).map(l=>{ const s=l&&set[l.id]; if(!s||l.closing) return l;
+    prev[l.id]={summary:l.summary==null?'':l.summary,discussion:(l.discussion||[]).slice(),additional:(l.additional||[]).slice()};
+    return Object.assign({},l,JSON.parse(JSON.stringify(s))); });
+  return {lib:Object.assign({},lib,{lessons}),prev};
+}
+/* Undo: those three fields back to what they were, nothing else. */
+function ttImportRevert(lib,prev){
+  const lessons=(lib.lessons||[]).map(l=>{ const p=l&&prev[l.id]; if(!p) return l;
+    return Object.assign({},l,{summary:p.summary,discussion:(p.discussion||[]).slice(),additional:(p.additional||[]).slice()}); });
+  return Object.assign({},lib,{lessons});
 }
 /* A thumbnail link as a CSS url(): only http(s), quotes and brackets escaped. */
 const ttCssUrl=u=>/^https?:\/\//i.test(String(u||''))?'url("'+String(u).replace(/["\\()\s]/g,c=>encodeURIComponent(c))+'")':'';
@@ -15906,10 +16032,10 @@ class Component extends DCLogic {
     if(this.state.ttDemo) return;
     // The approved-email lists (ttallow:, admins only): 'error' when unreadable, so Studio won't save over them.
     const allowOf=id=>sgetStrict('ttallow:'+id).then(a=>(!a?[]:(Array.isArray(a.emails)?a.emails:'error')),()=>'error');
-    const [lib,o36,o10,a36,a10]=await Promise.all([sget('ttlib:master').catch(()=>null),sget('org:TT36').catch(()=>null),sget('org:TT10').catch(()=>null),
-      allowOf('TT36'),allowOf('TT10')]);
+    const [lib,o36,o10,a36,a10,undo]=await Promise.all([sget('ttlib:master').catch(()=>null),sget('org:TT36').catch(()=>null),sget('org:TT10').catch(()=>null),
+      allowOf('TT36'),allowOf('TT10'),sget('ttlib:import-undo').catch(()=>null)]);
     this.setState({ttLib:lib&&Array.isArray(lib.lessons)?lib:ttSeedLibrary(),ttLibSaved:!!(lib&&Array.isArray(lib.lessons)),
-      ttOrgs:[o36,o10].filter(Boolean),ttAllow:{TT36:a36,TT10:a10},ttAllowEdit:{}});
+      ttOrgs:[o36,o10].filter(Boolean),ttAllow:{TT36:a36,TT10:a10},ttAllowEdit:{},ttImpUndo:undo||null});
   }
   /* Codes → Approved emails: when the list is not empty, /api/tt-join lets
      only these addresses join with the code (invites are not checked).
@@ -15966,6 +16092,63 @@ class Component extends DCLogic {
       const out=Object.assign({},lib,{updatedAt:Date.now()});
       if(!(await sset('ttlib:master',out))) return this.toast('Could not save',true);
       this.setState({ttLib:out,ttLibSaved:true}); this.toast(msg||'Saved');
+    })();
+  }
+  /* Import lesson content: read the chosen JSON file in the browser and show
+     the preview. Nothing is saved until Confirm. */
+  ttImportFile(e){
+    const f=e.target.files&&e.target.files[0]; e.target.value='';
+    if(!f||this.state.role!=='admin') return;
+    if(f.size>3*1024*1024) return this.setState({ttImp:{err:'That file is over 3 MB. Choose the lesson content JSON file.'}});
+    const rd=new FileReader();
+    rd.onload=()=>{ let data;
+      try{ data=JSON.parse(String(rd.result||'')); }catch(x){ return this.setState({ttImp:{err:'That file is not valid JSON.'}}); }
+      const plan=ttImportPlan(data,this.ttLib());
+      this.setState({ttImp:plan.err?{err:plan.err}:{name:f.name,data,plan}}); };
+    rd.onerror=()=>this.setState({ttImp:{err:'Could not read that file.'}});
+    rd.readAsText(f);
+  }
+  /* Confirm: plan again against the library as saved now (so nothing newer
+     is overwritten, and stop if the order changed since the preview), keep
+     the values being replaced in ttlib:import-undo (admins only) first, then
+     save the library. */
+  ttImportConfirm(){
+    const imp=this.state.ttImp; if(!imp||!imp.plan||imp.plan.blockers.length) return;
+    const ids=p=>p.items.map(it=>it.pos+':'+it.id).join(',');
+    if(this.state.ttDemo){ const r=ttImportApply(this.ttLib(),imp.plan);
+      this.setState({ttLib:r.lib,ttImp:null,ttImpUndo:{at:Date.now(),items:r.prev}}); return this.toast('Lesson content imported (preview: not saved)'); }
+    return this.guard('import lesson content',async()=>{
+      this.setState({ttImpBusy:true});
+      const stop=msg=>{ this.setState({ttImpBusy:false}); this.toast(msg,true); };
+      let fresh=null; try{ fresh=await sgetStrict('ttlib:master'); }catch(x){ return stop('Could not read the lesson library. Nothing was changed.'); }
+      if(!fresh||!Array.isArray(fresh.lessons)) return stop('The lesson library is not saved yet. Nothing was changed.');
+      const plan=ttImportPlan(imp.data,fresh);
+      if(plan.err||plan.blockers.length||ids(plan)!==ids(imp.plan)) return stop('The lesson order changed since the preview. Choose the file again. Nothing was changed.');
+      const r=ttImportApply(fresh,plan), undo={at:Date.now(),file:String(imp.name||'').slice(0,120),items:r.prev};
+      if(!(await sset('ttlib:import-undo',undo))) return stop('Could not keep the current content for Undo. Nothing was changed.');
+      const out=Object.assign({},r.lib,{updatedAt:Date.now()});
+      if(!(await sset('ttlib:master',out))) return stop('Could not save the lessons. Nothing was changed.');
+      this.setState({ttLib:out,ttLibSaved:true,ttImp:null,ttImpBusy:false,ttImpUndo:undo});
+      this.toast('Lesson content imported for '+Object.keys(r.prev).length+' lessons');
+    })();
+  }
+  /* Undo the last import: those lessons' summary and questions go back to
+     what they were before it. Nothing else changes. */
+  ttImportUndo(){
+    const u=this.state.ttImpUndo; if(!u||!u.items||u.undoneAt) return;
+    const n=Object.keys(u.items).length;
+    if(!window.confirm('Undo the last import? The summary and questions of '+n+' lessons go back to what they were before it. Edits made to those three since then are lost.')) return;
+    if(this.state.ttDemo){ this.setState({ttLib:ttImportRevert(this.ttLib(),u.items),ttImpUndo:Object.assign({},u,{undoneAt:Date.now()})}); return this.toast('Import undone (preview: not saved)'); }
+    return this.guard('undo the lesson content import',async()=>{
+      let fresh=null, rec=null;
+      try{ [fresh,rec]=await Promise.all([sgetStrict('ttlib:master'),sgetStrict('ttlib:import-undo')]); }catch(x){ return this.toast('Could not read the lessons. Nothing was changed.',true); }
+      if(!fresh||!Array.isArray(fresh.lessons)||!rec||!rec.items||rec.undoneAt) return this.toast('There is no import to undo. Nothing was changed.',true);
+      const out=Object.assign({},ttImportRevert(fresh,rec.items),{updatedAt:Date.now()});
+      if(!(await sset('ttlib:master',out))) return this.toast('Could not save. Nothing was changed.',true);
+      const done=Object.assign({},rec,{undoneAt:Date.now()});
+      await sset('ttlib:import-undo',done);
+      this.setState({ttLib:out,ttLibSaved:true,ttImpUndo:done});
+      this.toast('Import undone for '+Object.keys(rec.items).length+' lessons');
     })();
   }
   ttOrgRec(id){ return (this.state.ttOrgs||[]).find(o=>o&&o.code===id)||null; }
@@ -16130,6 +16313,38 @@ class Component extends DCLogic {
         onEdit:()=>{ this.setState({ttEditId:l.id,ttDraft:JSON.parse(JSON.stringify(by[l.id]||l))}); window.scrollTo(0,0); },
         onPreview:()=>this.ttPreviewAsMember(lib,l.id)};
     });
+    // Import lesson content: a JSON file, a preview, then Confirm (admins only).
+    const imp=s.ttImp||null, plan=imp&&imp.plan;
+    v.ttImpCan=s.role==='admin'&&!editing;
+    v.onTTImportFile=e=>this.ttImportFile(e);
+    v.ttImpErr=(imp&&imp.err)||''; v.ttImpHasErr=!!v.ttImpErr;
+    v.ttImpOpen=!!plan;
+    const undo=s.ttImpUndo;
+    v.ttImpCanUndo=!plan&&!!(undo&&undo.items&&Object.keys(undo.items).length&&!undo.undoneAt);
+    v.ttImpUndoNote=v.ttImpCanUndo?'Last import: '+Object.keys(undo.items).length+' lessons, '+new Date(undo.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'.':'';
+    v.onTTImpUndo=()=>this.ttImportUndo();
+    if(plan){
+      const flagged=plan.items.filter(it=>it.flags.length).length, n=plan.items.filter(it=>Object.keys(it.set).length).length;
+      v.ttImpFile=imp.name||'';
+      v.ttImpHead=n+' lesson'+(n===1?'':'s')+' will get new content'+(flagged?' · '+flagged+' to check (marked below)':'')
+        +(plan.missing.length?' · not in the file: lesson'+(plan.missing.length===1?' ':'s ')+plan.missing.join(', '):'');
+      v.ttImpBlockers=plan.blockers.map(t=>({text:t})); v.ttImpBlocked=plan.blockers.length>0;
+      v.ttImpReady=!v.ttImpBlocked&&n>0;
+      v.ttImpConfirmLabel=s.ttImpBusy?'Saving…':'Confirm: set content for '+n+' lesson'+(n===1?'':'s');
+      v.onTTImpConfirm=()=>{ if(!s.ttImpBusy) this.ttImportConfirm(); };
+      v.onTTImpCancel=()=>this.setState({ttImp:null});
+      v.ttImpItems=plan.items.map(it=>{ const cur=by[it.id]||{};
+        const keep=[!it.set.summary&&'summary',!it.set.discussion&&'discussion questions',!it.set.additional&&'additional questions'].filter(Boolean);
+        return {num:'Lesson '+it.pos,platform:it.platform,pdf:it.pdfTitle||'(no title in the file)',fund:it.fund,
+          flags:it.flags.map(t=>({text:t})),hasFlags:it.flags.length>0,
+          summary:it.set.summary||'',hasSummary:!!it.set.summary,
+          disc:(it.set.discussion||[]).map(t=>({text:t})),hasDisc:!!it.set.discussion,
+          add:(it.set.additional||[]).map(t=>({text:t})),hasAdd:!!it.set.additional,
+          keep:keep.length?'Kept as it is: '+keep.join(', ')+'.':'',hasKeep:keep.length>0,
+          replaces:(cur.summary||(cur.discussion||[]).length||(cur.additional||[]).length)?'Replaces what this lesson has now (Undo brings it back).':'',
+          cardStyle:'border-top:1px solid #EEF3F8;padding:12px 4px;'+(it.flags.length?'background:#FFF9E0;border-left:3px solid #E0B400;padding-left:10px':'')};
+      });
+    }
     if(editing){
       const d=s.ttDraft, set=patch=>this.setState({ttDraft:Object.assign({},this.state.ttDraft,patch)});
       const listEd=(key,ph)=>(d[key]||[]).map((q,i)=>({value:q,ph,
@@ -16144,13 +16359,13 @@ class Component extends DCLogic {
       v.ttEdBook=db.bookChapter?String(db.bookChapter):''; v.ttEdBookReview=db.bookReview;
       v.onTTEdBook=e=>{ const n=parseInt(e.target.value,10); set({bookChapter:n>0?n:null,bookReview:false}); };
       v.ttBookOptions=[{value:'',label:'None'}].concat(TT_BOOK_CHAPTERS.map((t,i)=>({value:String(i+1),label:'Chapter '+(i+1)+' · '+t})));
-      v.ttEdVideo=d.videoUrl||''; v.onTTEdVideo=e=>set({videoUrl:e.target.value.trim()});
+      v.ttEdVideo=d.videoUrl||''; v.onTTEdVideo=e=>set({videoUrl:e.target.value});
       const vk=ttVideo(d.videoUrl).kind;
       v.ttEdVideoNote=!d.videoUrl?'YouTube, Vimeo, Google Drive or a direct MP4 link.'
         :(vk==='file'?'Plays as a video file. Chapters jump to their time.':(/youtu|vimeo/i.test(d.videoUrl)?'Embedded player. Chapters jump to their time.':'Shown in a frame (e.g. Google Drive). Chapters cannot jump the video.'));
       // The video's cover image (optional): a link, or an upload shrunk first.
       v.ttEdThumb=d.thumbUrl||''; v.ttEdHasThumb=!!d.thumbUrl;
-      v.onTTEdThumb=e=>set({thumbUrl:e.target.value.trim()});
+      v.onTTEdThumb=e=>set({thumbUrl:e.target.value});
       v.onTTEdThumbRemove=()=>{ set({thumbUrl:''}); this.setState({ttThUp:null}); };
       v.onTTEdThumbFile=e=>this.ttUploadThumb(e,d.id);
       const up=s.ttThUp&&s.ttThUp.id===d.id?s.ttThUp:null;
@@ -16162,16 +16377,18 @@ class Component extends DCLogic {
       v.onTTAddAdd=()=>set({additional:(d.additional||[]).concat([''])});
       v.ttEdHand=(d.handouts||[]).map((h,i)=>({label:h.label||'',url:h.url||'',
         onLabel:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.handouts||[])); a[i].label=e.target.value; set({handouts:a}); },
-        onUrl:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.handouts||[])); a[i].url=e.target.value.trim(); set({handouts:a}); },
+        onUrl:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.handouts||[])); a[i].url=e.target.value; set({handouts:a}); },
         onRemove:()=>{ const a=(this.state.ttDraft.handouts||[]).slice(); a.splice(i,1); set({handouts:a}); }}));
       v.onTTAddHand=()=>set({handouts:(d.handouts||[]).concat([{label:'Printable PDF',url:''}])});
       v.ttEdChap=(d.chapters||[]).map((c,i)=>({t:c.t||'',label:c.label||'',
-        onT:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.chapters||[])); a[i].t=e.target.value.trim(); set({chapters:a}); },
+        onT:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.chapters||[])); a[i].t=e.target.value; set({chapters:a}); },
         onLabel:e=>{ const a=JSON.parse(JSON.stringify(this.state.ttDraft.chapters||[])); a[i].label=e.target.value; set({chapters:a}); },
         onRemove:()=>{ const a=(this.state.ttDraft.chapters||[]).slice(); a.splice(i,1); set({chapters:a}); }}));
       v.onTTAddChap=()=>set({chapters:(d.chapters||[]).concat([{t:'0:00',label:''}])});
       const clean=()=>{ const x=Object.assign(JSON.parse(JSON.stringify(this.state.ttDraft)),ttBook(this.state.ttDraft));
+        // Boxes keep what is typed; the ends are trimmed here, on save.
         x.title=String(x.title||'').trim()||'Untitled';
+        x.videoUrl=String(x.videoUrl||'').trim();
         x.thumbUrl=String(x.thumbUrl||'').trim();
         ['discussion','additional'].forEach(k=>{ x[k]=(x[k]||[]).map(q=>String(q||'').trim()).filter(Boolean); });
         x.handouts=(x.handouts||[]).filter(h=>h&&String(h.label||'').trim()).map(h=>({label:String(h.label).trim(),url:String(h.url||'').trim()}));
@@ -16186,11 +16403,13 @@ class Component extends DCLogic {
     const o36=lib.order36||[], o10=lib.order10||[];
     const move=(arr,i,dir)=>{ const a=arr.slice(), j=i+dir; if(j<0||j>=a.length) return a; [a[i],a[j]]=[a[j],a[i]]; return a; };
     /* A lesson's name in one version: blank, or the library's own name, means
-       the library's. Saved with the versions. */
+       the library's. Saved with the versions. The box keeps what is typed,
+       spaces included (it used to trim on every key, which ate each space
+       as it was typed); Save versions trims the ends (ttCleanNames). */
     const names=lib.names||{};
     const setName=(ver,id,val)=>{ const L=this.state.ttLib||lib, all=JSON.parse(JSON.stringify(L.names||{}));
-      const m=all[ver]||(all[ver]={}), t=String(val||'').replace(/\s+/g,' ').trim().slice(0,120);
-      if(t&&t!==String((by[id]||{}).title||'')) m[id]=t; else delete m[id];
+      const m=all[ver]||(all[ver]={}), t=ttNameInput(val);
+      if(t) m[id]=t; else delete m[id];
       this.setState({ttLib:Object.assign({},L,{names:all}),ttVerDirty:true}); };
     v.ttVerNameNote='Each version can show its own name for a lesson. Leave a name empty to use the library name. Progress is never affected.';
     v.ttV36=o36.map((id,i)=>{ const l=by[id]||{}; const in10=o10.indexOf(id)>=0;
@@ -16209,7 +16428,7 @@ class Component extends DCLogic {
     v.ttV10Count=o10.length+' of 10 chosen'+(o10.length>10?' (more than 10)':'');
     v.ttV10Empty=!o10.length;
     v.ttVerDirty=!!s.ttVerDirty;
-    v.onTTVerSave=()=>{ this.ttSaveLib(lib,'Versions saved'); this.setState({ttVerDirty:false}); };
+    v.onTTVerSave=()=>{ this.ttSaveLib(Object.assign({},lib,{names:ttCleanNames(lib.names,by)}),'Versions saved'); this.setState({ttVerDirty:false}); };
     // Codes: one card per program.
     v.ttCodeCards=['TT36','TT10'].map(id=>{ const o=this.ttOrgRec(id), ver=id==='TT10'?10:36;
       const edit=(s.ttCodeEdit||{})[id]||{};
