@@ -320,6 +320,13 @@ first, otherwise Gmail rewrites the address.
   - Keys: Space/K play or pause, arrows ±5 s, M mute, F full screen.
   - On an iPhone, full screen is Apple's own player (no Download).
   - This is a deterrent: the video still reaches the browser.
+- **The whole platform has this player.** The Playbook's session videos
+  (Video 1 and "more videos"), challenge videos and the welcome video use the
+  same bar and the same rules: no browser controls, no Download, no
+  right-click. Their own code is unchanged: their refs still set the source,
+  start on the tap and catch errors, and the welcome video keeps its
+  first-play button. Audio players keep the browser's controls.
+  Short-lived links are still Twin Thieves only.
 - **Short-lived links** (`/api/tt-video`, `ttVideoLinkFor`). A lesson video
   that is a file in this project's Storage plays from a v4 signed link,
   read-only, for 4 hours. The service account's key signs it on the server,
