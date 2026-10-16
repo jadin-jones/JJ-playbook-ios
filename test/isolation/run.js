@@ -809,6 +809,77 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('logging: the temporary sign-in error logs are gone', !/verify', e && e\.code, e && e\.message/.test(j1 + j2));
   }
 
+  // ---- /api/tt-video: a short-lived link to a lesson video, for Twin Thieves members only. ----
+  {
+    const st = makeStore(), signed = [], buckets = [];
+    const B = 'test-6b2ab.firebasestorage.app';
+    const fb = (bk, p) => 'https://firebasestorage.googleapis.com/v0/b/' + bk + '/o/' + encodeURIComponent(p) + '?alt=media&token=tok';
+    st.docs['jj_playbook/ttlib:master'] = V({ order36: ['tt01', 'tt02', 'tt03', 'tt05'], order10: ['tt02'], lessons: [
+      { id: 'tt01', videoUrl: fb(B, '36 Lesson Video Folder/Be the Buffalo.mp4') },
+      { id: 'tt02', videoUrl: fb(B, '10 Lessons Video/Water the Bamboo.mp4') },
+      { id: 'tt03', videoUrl: 'https://youtu.be/abcdefghijk' },
+      { id: 'tt05', videoUrl: fb('someone-else.appspot.com', 'x/y.mp4') },
+      { id: 'tt09', videoUrl: fb(B, '../x.mp4') },
+      { id: 'ttthanks', closing: true, videoUrl: fb(B, '36 Lesson Video Folder/Thank you.mp4') }] });
+    st.docs['ttmembers/m36@s.org'] = { email: 'm36@s.org', orgs: ['TT36'] };
+    st.docs['ttmembers/m10@s.org'] = { email: 'm10@s.org', orgs: ['TT10'] };
+    st.docs['ttmembers/gone@s.org'] = { email: 'gone@s.org', orgs: [] };
+    st.docs['members/pb@s.org'] = { email: 'pb@s.org', orgs: ['PLAYBOOK26'] };
+    const users = { M36: U('m36@s.org'), M10: U('m10@s.org'), G: U('gone@s.org'), PB: U('pb@s.org'), ADM: U('charlie@jadin-jones.com'),
+      MS: U('m36@s.org', 'microsoft.com'), UV: Object.assign(U('m36@s.org'), { email_verified: false }) };
+    const prev = process.env.FIREBASE_PROJECT_ID; process.env.FIREBASE_PROJECT_ID = 'test-6b2ab';
+    const tv = async (tok, body) => { const h = loadFn('tt-video.js', st, users);
+      require.cache[path.join(ROOT, 'netlify/lib/firebase-admin.js')].exports.admin.storage = () => ({ bucket: n => { buckets.push(n);
+        return { file: p => ({ getSignedUrl: async o => { signed.push({ p, o }); return ['https://storage.googleapis.com/' + n + '/' + encodeURIComponent(p) + '?X-Goog-Expires=14400&X-Goog-Signature=s']; } }) }; } });
+      const r = await call(h, tok, body); return { code: r.statusCode, body: JSON.parse(r.body) }; };
+    const t0 = Date.now(), a = await tv('M36', { lesson: 'tt01' });
+    ok('tt-video: a TT36 member gets a 4-hour signed link to their lesson\'s own file (v4, read only), in this project\'s bucket',
+      a.code === 200 && /^https:\/\/storage\.googleapis\.com\//.test(a.body.url) && signed.length === 1 && signed[0].p === '36 Lesson Video Folder/Be the Buffalo.mp4'
+      && signed[0].o.version === 'v4' && signed[0].o.action === 'read' && Math.abs(signed[0].o.expires - (t0 + 4 * 3600000)) < 5000
+      && a.body.expiresAt === signed[0].o.expires && buckets.every(b => b === B), JSON.stringify(a.body) + JSON.stringify(signed));
+    const b10 = [await tv('M10', { lesson: 'tt02' }), await tv('M10', { lesson: 'tt01' }), await tv('M10', { lesson: 'ttthanks' })];
+    ok('tt-video: a TT10 member gets only their version\'s lessons (and the closing Thank you!)', b10.map(r => r.code).join() === '200,403,200', b10.map(r => r.code).join());
+    const n0 = signed.length;
+    const no = [await tv('G', { lesson: 'tt01' }), await tv('PB', { lesson: 'tt01' }), await tv('MS', { lesson: 'tt01' }), await tv('UV', { lesson: 'tt01' }), await tv('NOPE', { lesson: 'tt01' })];
+    ok('tt-video: a removed member, a Playbook-only member, an unconfirmed Microsoft sign-in, an unverified email and a bad token get nothing',
+      no.map(r => r.code).join() === '403,403,403,403,401' && signed.length === n0, no.map(r => r.code).join());
+    const other = [await tv('M36', { lesson: 'tt03' }), await tv('M36', { lesson: 'tt05' }), await tv('ADM', { lesson: 'tt09' })];
+    ok('tt-video: a YouTube link, another bucket\'s file or a path with ".." is never signed (url null: the app plays its own link)',
+      other.every(r => r.code === 200 && r.body.url === null) && signed.length === n0, JSON.stringify(other.map(r => r.body)));
+    const adm = await tv('ADM', { lesson: 'tt02' }), bad = [await tv('M36', { lesson: '../etc' }), await tv('M36', { lesson: 'tt77' }), await tv('M36', { path: 'session-videos/x.mp4' })];
+    ok('tt-video: an admin may ask for any lesson (Preview as a member); a caller never names a file; an unknown lesson is refused',
+      adm.code === 200 && !!adm.body.url && bad.map(r => r.code).join() === '400,404,400' && signed.length === n0 + 1, bad.map(r => r.code).join());
+    ok('tt-video: nothing is written (only the rate limit\'s own count); the download tokens are never touched',
+      st.writes.every(w => /^rateLimits\//.test(w)) && !/setMetadata|makePublic|delete\(|save\(/.test(fs.readFileSync(path.join(ROOT, 'netlify/functions/tt-video.js'), 'utf8')), st.writes.join());
+    process.env.FIREBASE_PROJECT_ID = prev; if (prev === undefined) delete process.env.FIREBASE_PROJECT_ID;
+    // The real SDK signs a v4 link with the service account's own key, with no call out (a made-up key here).
+    {
+      const crypto = require('crypto'), { privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } });
+      const fa = require(path.join(ROOT, 'node_modules/firebase-admin'));
+      const app = fa.initializeApp({ credential: fa.credential.cert({ projectId: 'p-test', clientEmail: 'sa@p-test.iam.gserviceaccount.com', privateKey }) }, 'sign-test-' + Date.now());
+      let u = ''; try { [u] = await app.storage().bucket('p-test.firebasestorage.app').file('36 Lesson Video Folder/Be the Buffalo.mp4').getSignedUrl({ version: 'v4', action: 'read', expires: Date.now() + 4 * 3600000 }); } catch (e) { u = 'ERR ' + e.message; }
+      await app.delete().catch(() => {});
+      ok('tt-video: the Admin SDK signs it locally, read-only, for 4 hours (X-Goog-Expires=14400)',
+        /^https:\/\/storage\.googleapis\.com\/p-test\.firebasestorage\.app\/36%20Lesson%20Video%20Folder\/Be%20the%20Buffalo\.mp4\?X-Goog-Algorithm=GOOG4-RSA-SHA256&/.test(u) && /X-Goog-Expires=14400&/.test(u), u.slice(0, 160));
+    }
+    // The app: the Twin Thieves player and its links.
+    const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
+    let main = ''; try { main = execSync('git show origin/main:public/index.html', { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }).toString(); } catch (e) {}
+    const ttv = (html.match(/<video data-ttp="1"[^>]*>/g) || []);
+    ok('player: the lesson video has no browser controls (no ⋮ menu, no Download), nodownload, no remote playback; right-click is blocked',
+      ttv.length === 1 && !/ controls=/.test(ttv[0]) && /controlslist="nodownload noplaybackrate noremoteplayback"/.test(ttv[0]) && /disableremoteplayback=/.test(ttv[0])
+      && !/disable-picture-in-picture|disablepictureinpicture/i.test(ttv[0]) && /document\.addEventListener\('contextmenu',e=>\{ if\(boxOf\(e\.target\)\) e\.preventDefault\(\); \},true\);/.test(html));
+    ok('player: its own bar has play, seek, time, mute, speed (1x, 1.25x, 1.5x, 2x), Picture in Picture and full screen',
+      /const TTP_SPEEDS=\[1,1\.25,1\.5,2\];/.test(html) && ['play', 'mute', 'speed', 'pip', 'full'].every(a => (html.match(new RegExp('data-ttp-act="' + a + '"', 'g')) || []).length >= 1)
+      && /data-ttp-seek="1"/.test(html) && /data-ttp-time="1"/.test(html));
+    const pbVideos = src => (src.match(/<video ref="[^"]*"[^>]*>/g) || []).concat(src.match(/<video ref="\{\{ welcomeRef \}\}"[^>]*>/g) || []).join('\n');
+    ok('player: the Playbook\'s videos are unchanged', !!main && !!pbVideos(html) && pbVideos(html) === pbVideos(main));
+    const lk = html.slice(html.indexOf('  ttVideoLinkFor(l){'), html.indexOf('  ttToggleDone(id){'));
+    ok('links (app): a Storage file plays from /api/tt-video; the preview, a failed or broken signed link and any other link use the library\'s own link; nothing saved',
+      !!lk && /authFetch\('\/api\/tt-video'/.test(lk) && /if\(!own\|\|this\.state\.ttDemo\|\|this\._ttSignedBroken\) return \{src:l\.videoUrl\};/.test(lk)
+      && /return \{src:k\.url\|\|l\.videoUrl\}/.test(lk) && !/sset\(|localStorage/.test(lk) && (html.match(/\/api\/tt-video'/g) || []).length === 1);
+  }
+
   console.log(bad ? bad + ' of ' + n + ' FAILED' : 'ALL ' + n + ' PASSED');
   process.exit(bad ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });
