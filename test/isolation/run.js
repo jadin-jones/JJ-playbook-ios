@@ -828,8 +828,18 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('player: its own bar has play, seek, time, mute, speed (1x, 1.25x, 1.5x, 2x), Picture in Picture and full screen',
       /const TTP_SPEEDS=\[1,1\.25,1\.5,2\];/.test(html) && ['play', 'mute', 'speed', 'pip', 'full'].every(a => (html.match(new RegExp('data-ttp-act="' + a + '"', 'g')) || []).length >= 1)
       && /data-ttp-seek="1"/.test(html) && /data-ttp-time="1"/.test(html));
-    const pbVideos = src => (src.match(/<video ref="[^"]*"[^>]*>/g) || []).concat(src.match(/<video ref="\{\{ welcomeRef \}\}"[^>]*>/g) || []).join('\n');
-    ok('player: the Playbook\'s videos are unchanged', !!main && !!pbVideos(html) && pbVideos(html) === pbVideos(main));
+    // Every video on the platform (the Playbook's too) has the same player: our bar, no browser controls.
+    const vids = html.match(/<video\s[^>]*>/g) || [];
+    const boxes = (html.match(/<div data-ttp-box="1"[^>]*>/g) || []).length, bars = (html.match(/<div data-ttp-bar="1" role="group" aria-label="Video controls">/g) || []).length;
+    ok('player: every video on the platform (Twin Thieves lessons; the Playbook\'s session, more, challenge and welcome videos) has the same bar and no browser controls, Download or "Save video as"',
+      vids.length === 5 && vids.every(v => /data-ttp="1"/.test(v) && !/ controls=|disable-picture-in-picture|disablepictureinpicture/i.test(v) && /controlslist="nodownload noplaybackrate noremoteplayback"/.test(v))
+      && boxes === 5 && bars === 5 && ['Session video player', 'Challenge video player', 'Welcome video player', 'Lesson video player'].every(l => html.indexOf('aria-label="' + l + '"') > 0),
+      vids.length + ' videos, ' + boxes + ' boxes, ' + bars + ' bars');
+    ok('player: the Playbook\'s own player code is as it was (the refs still set the source, start on the tap, and catch errors; the welcome video keeps its own first-play button)',
+      ['{{ item.videoRef }}', '{{ mv.ref }}', '{{ item.chvRef }}', '{{ welcomeRef }}'].every(r => vids.some(v => v.indexOf('ref="' + r + '"') > 0))
+      && /el\.onerror=\(\)=>this\.setState\(\{vidErr:/.test(html) && /el\.src=media;/.test(html) && /chvRef:el=>\{ if\(!el\|\|el\.dataset\.jjWired\) return; el\.dataset\.jjWired='1';/.test(html)
+      && /v\.welcomeRef=el=>\{ this\._welcomeVid=el;/.test(html) && /<button sc-camel-on-click="\{\{ onWelcomePlay \}\}" aria-label="Play"/.test(html)
+      && (html.match(/<audio\b[^>]*controls=/g) || []).length === 2);
     const lk = html.slice(html.indexOf('  ttVideoLinkFor(l){'), html.indexOf('  ttToggleDone(id){'));
     ok('links (app): a Storage file plays from /api/tt-video; the preview, a failed or broken signed link and any other link use the library\'s own link; nothing saved',
       !!lk && /authFetch\('\/api\/tt-video'/.test(lk) && /if\(!own\|\|this\.state\.ttDemo\|\|this\._ttSignedBroken\) return \{src:l\.videoUrl\};/.test(lk)
