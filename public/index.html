@@ -5392,10 +5392,12 @@ sc-if,sc-for{display:none!important}
 <svg sc-camel-view-box="-62 4 364 256" style="width:100%;height:auto;display:block;margin:14px 0 2px;overflow:visible">
 <polygon points="150,10 10,250 -58,250" fill="#0A1F3A"></polygon>
 {{ ttPyrTiers }}
+<defs><filter id="ttInkNavy" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 0.047 0 0 0 0 0.149 0 0 0 0 0.278 0 0 0 1 0"></feColorMatrix></filter></defs>
 <sc-for list="{{ ttPyrCells }}" as="c" hint-placeholder-count="9">
-<g data-tt-block="{{ c.fund }}" data-tt-empty="{{ c.empty }}" sc-camel-on-click="{{ c.onTap }}" style="{{ c.gStyle }}">
+<g data-tt-block="{{ c.fund }}" data-tt-empty="{{ c.empty }}" data-tt-gold="{{ c.goldAttr }}" sc-camel-on-click="{{ c.onTap }}" style="{{ c.gStyle }}">
 <polygon points="{{ c.points }}" fill="{{ c.fill }}" stroke="rgba(255,255,255,.28)" stroke-width="1"></polygon>
-<image sc-camel-href="{{ c.icon }}" x="{{ c.ix }}" y="{{ c.iy }}" width="{{ c.isz }}" height="{{ c.isz }}" opacity="{{ c.iconOpacity }}" sc-camel-preserve-aspect-ratio="xMidYMid meet" style="pointer-events:none"></image>
+<image sc-camel-href="{{ c.icon }}" x="{{ c.ix }}" y="{{ c.iy }}" width="{{ c.isz }}" height="{{ c.isz }}" opacity="{{ c.iconOpacity }}" filter="{{ c.iconFilter }}" sc-camel-preserve-aspect-ratio="xMidYMid meet" style="pointer-events:none"></image>
+<sc-if value="{{ c.gold }}" hint-placeholder-val="{{ false }}"><circle cx="{{ c.chkX }}" cy="{{ c.chkY }}" r="5.2" fill="#0C2647" style="pointer-events:none"></circle><path d="{{ c.chkPath }}" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none"></path></sc-if>
 </g>
 </sc-for>
 <sc-for list="{{ ttPyrLabels }}" as="l" hint-placeholder-count="12">
@@ -5404,7 +5406,7 @@ sc-if,sc-for{display:none!important}
 </foreignObject>
 </sc-for>
 <sc-if value="{{ ttPyrHasSel }}" hint-placeholder-val="{{ false }}">
-<polygon points="{{ ttPyrSel }}" fill="none" stroke="#FADA01" stroke-width="2.5" stroke-linejoin="round" style="pointer-events:none"></polygon>
+<polygon points="{{ ttPyrSel }}" fill="none" stroke="{{ ttPyrSelStroke }}" stroke-width="2.5" stroke-linejoin="round" style="pointer-events:none"></polygon>
 </sc-if>
 </svg>
 <div style="text-align:center;font-size:10.5px;color:#A9BDD6;letter-spacing:.04em;margin-top:6px">{{ ttPyrCaption }}</div>
@@ -5515,10 +5517,12 @@ sc-if,sc-for{display:none!important}
 <section style="{{ ttFitCardStyle }}">
 <p style="margin:0 0 auto;font-weight:800;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#FADA01">Where this fits</p>
 <svg sc-camel-view-box="-6 4 312 252" style="width:100%;height:auto;display:block;margin:6px auto 0;overflow:visible" aria-hidden="true">
+<defs><filter id="ttInkNavy" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 0.047 0 0 0 0 0.149 0 0 0 0 0.278 0 0 0 1 0"></feColorMatrix></filter></defs>
 <sc-for list="{{ ttCells }}" as="c" hint-placeholder-count="9">
-<g sc-camel-on-click="{{ c.onTap }}" style="{{ c.gStyle }}">
+<g data-tt-fit-block="{{ c.fund }}" data-tt-gold="{{ c.goldAttr }}" sc-camel-on-click="{{ c.onTap }}" style="{{ c.gStyle }}">
 <polygon points="{{ c.points }}" fill="{{ c.fill }}" stroke="rgba(255,255,255,.28)" stroke-width="1"></polygon>
-<image href="{{ c.icon }}" x="{{ c.ix }}" y="{{ c.iy }}" width="{{ c.isz }}" height="{{ c.isz }}" opacity="{{ c.iconOpacity }}" sc-camel-preserve-aspect-ratio="xMidYMid meet" style="pointer-events:none"></image>
+<image href="{{ c.icon }}" x="{{ c.ix }}" y="{{ c.iy }}" width="{{ c.isz }}" height="{{ c.isz }}" opacity="{{ c.iconOpacity }}" filter="{{ c.iconFilter }}" sc-camel-preserve-aspect-ratio="xMidYMid meet" style="pointer-events:none"></image>
+<sc-if value="{{ c.gold }}" hint-placeholder-val="{{ false }}"><circle cx="{{ c.chkX }}" cy="{{ c.chkY }}" r="5.2" fill="#0C2647" style="pointer-events:none"></circle><path d="{{ c.chkPath }}" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none"></path></sc-if>
 </g>
 </sc-for>
 <sc-for list="{{ ttCellLabels }}" as="l" hint-placeholder-count="12">
@@ -16141,6 +16145,37 @@ class Component extends DCLogic {
         onTap:()=>pick(m,n)}); });
     return {cells,cellLabels:base.cellLabels,sel};
   }
+  /* The fundamentals this member has finished: every one of its lessons in
+     their own version is marked complete. Overview and Thank you! are in no
+     block; a fundamental with no lessons in the version is never gold. */
+  ttGoldFunds(list){
+    const gold=new Set();
+    TT_PYR.forEach(p=>{ const ls=(list||[]).filter(l=>!l.closing&&l.fund===p.id);
+      if(ls.length&&ls.every(l=>this.ttDone(l.id))) gold.add(p.id); });
+    return gold;
+  }
+  /* Gold on a Twin Thieves pyramid (the home page's or "Where this fits"):
+     a finished block is filled gold with a navy icon and label and a small
+     check. pyr is pyramidVM's (or ttPyramidVM's) cells and labels, which are
+     copied, never changed; hl is the block that also carries "THIS LESSON"
+     (two more labels). The Playbook's pyramid never comes here. */
+  ttGoldCells(pyr,gold,hl){
+    const onPyr=t=>byRow(TT_PYR.filter(m=>(m.tier||0)===t)).filter(m=>m.pyramid!==false&&!partRoot(m));
+    const order=[3,2,1].reduce((a,t)=>a.concat(onPyr(t)),[]);
+    if(!pyr||order.length!==pyr.cells.length) return pyr;
+    const labels=pyr.cellLabels.slice(); let li=0;
+    /* The block icons are blue artwork; on a yellow block (gold, or "THIS
+       LESSON") they are drawn navy (the ttInkNavy filter), to read clearly. */
+    const ink=c=>Object.assign(c,{iconFilter:c.fill==='#FADA01'?'url(#ttInkNavy)':''});
+    const cells=pyr.cells.map((c,i)=>ink((()=>{ const m=order[i], k=pyrLines(m).length+(m.id===hl?2:0), g=gold.has(m.id);
+      if(g) for(let j=li;j<li+k&&j<labels.length;j++) labels[j]=Object.assign({},labels[j],{style:String(labels[j].style).replace('color:#FFFFFF','color:#0C2647')});
+      li+=k;
+      if(!g) return Object.assign({},c,{fund:m.id,gold:false,goldAttr:'0'});
+      const x=c.ix+c.isz+4, y=c.iy+3;
+      return Object.assign({},c,{fund:m.id,gold:true,goldAttr:'1',fill:'#FADA01',icon:iconFor(m,'#0C2647'),iconOpacity:1,
+        chkX:x.toFixed(1),chkY:y.toFixed(1),chkPath:'M'+(x-2.4).toFixed(1)+' '+y.toFixed(1)+'l1.6 1.7l3.2-3.4'}); })()));
+    return Object.assign({},pyr,{cells,cellLabels:labels});
+  }
   /* The level labels in the wedge left of the pyramid, as on the Playbook
      home, dimmed for a level with no lessons in this version. */
   ttTierText(count){
@@ -17049,9 +17084,12 @@ class Component extends DCLogic {
       const count={}; groups.forEach(g=>{ count[g.fund]=g.lessons.length; });
       const pick=(m,n)=>{ if(!n) return this.setState({ttFocus:m.id,ttMenu:false});
         this.setState(W?{ttFocus:m.id}:{ttFocus:m.id,ttMenu:true},()=>this.ttScrollSide()); };
-      const pyr=this.ttPyramidVM(count,focus,pick);
+      // A fundamental finished in this version is gold (ttGoldFunds).
+      const gold=this.ttGoldFunds(list);
+      const pyr=this.ttGoldCells(this.ttPyramidVM(count,focus,pick),gold,null);
       v.ttPyrCells=pyr.cells; v.ttPyrLabels=pyr.cellLabels; v.ttPyrTiers=this.ttTierText(count);
-      v.ttPyrSel=pyr.sel; v.ttPyrHasSel=!!pyr.sel;
+      // The picked block's outline is white on a gold block, so it still shows.
+      v.ttPyrSel=pyr.sel; v.ttPyrHasSel=!!pyr.sel; v.ttPyrSelStroke=gold.has(focus)?'#FFFFFF':'#FADA01';
       const rgb=hexRgb('#0C2647');
       v.ttHeroStyle='border-radius:18px;padding:20px 16px 18px;color:#FFFFFF;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,'+shade(rgb,0.42)+' 0%,'+shade(rgb,0.18)+' 50%,#0C2647 100%)';
       v.ttPyrCaption=(W?'Click':'Tap')+' a block to see its lessons';
@@ -17086,7 +17124,8 @@ class Component extends DCLogic {
       // Transcripts are kept in the library but not shown (Studio no longer edits them).
       // Where this fits: the Playbook pyramid, this lesson's block lit, display-only.
       const hl=TT_PYR.some(p=>p.id===cur.fund)?cur.fund:null;
-      const pyr=this.pyramidVM(TT_PYR,{highlight:hl,readOnly:true});
+      // Finished fundamentals are gold here too, as on the pyramid page.
+      const pyr=this.ttGoldCells(this.pyramidVM(TT_PYR,{highlight:hl,readOnly:true}),this.ttGoldFunds(list),hl);
       v.ttCells=pyr.cells; v.ttCellLabels=pyr.cellLabels;
       /* The questions (with the handouts and Mark complete at their foot) are
          full width. Below them, on wide screens, "In the book" (left) and

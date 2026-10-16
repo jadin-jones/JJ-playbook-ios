@@ -496,6 +496,50 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
     ok('pyramid page: its view model and the grouped list are built only after "if(!tt) return"',
       !!rnd && rnd.indexOf('if(!tt) return;') > 0 && rnd.indexOf('ttGroups(') > rnd.indexOf('if(!tt) return;') && rnd.indexOf('ttPyramidVM(') > rnd.indexOf('if(!tt) return;')
       && (html.match(/this\.ttGroups\(|this\.ttPyramidVM\(|this\.ttTierText\(/g) || []).length === 3);
+    // Gold blocks: a fundamental finished in the member's own version (Twin Thieves only).
+    {
+      let main = ''; try { main = execSync('git show origin/main:public/index.html', { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }).toString(); } catch (e) {}
+      const mk = (prog) => new Function('TT_PYR', 'byRow', 'partRoot', 'pyrLines', 'iconFor', 'prog',
+        'return ({ state:{ttProg:prog},' + method(html, 'ttDone') + ',' + method(html, 'ttGoldFunds') + ',' + method(html, 'ttGoldCells') + '});')(
+        eval(line(/const TT_PYR=\[[\s\S]*?\];\n/).replace(/^const TT_PYR=/, '').replace(/;\n$/, '')), a => a.slice().sort((x, y) => (x.order || 0) - (y.order || 0)),
+        () => false, m => [String(m.name || '').toUpperCase()], (m, c) => 'icon:' + m.id + ':' + c, prog);
+      const L = (id, fund, extra) => Object.assign({ id, fund, title: id }, extra || {});
+      const v36 = [L('tt01', 'overview'), L('tt02', 'energy'), L('tt03', 'energy'), L('tt04', 'energy'), L('tt08', 'execute'), L('ttthanks', 'thanks', { closing: true })];
+      const v10 = [L('tt03', 'energy'), L('tt08', 'execute')];
+      const done = ids => Object.fromEntries(ids.map(i => [i, { doneAt: 1 }]));
+      const g = (prog, list) => Array.from(mk(prog).ttGoldFunds(list)).sort().join(',') || 'none';
+      ok('gold: a fundamental turns gold when every one of its lessons in the member\'s version is complete',
+        g(done(['tt02', 'tt03', 'tt04']), v36) === 'energy', g(done(['tt02', 'tt03', 'tt04']), v36));
+      ok('gold: it stays normal while one of them is missing, and goes back on undo (a lesson marked not complete)',
+        g(done(['tt02', 'tt04']), v36) === 'none' && g(Object.assign(done(['tt02', 'tt03', 'tt04']), { tt03: undefined }), v36) === 'none');
+      ok('gold: a TWIN10 member\'s block counts only their 10-lesson version\'s lessons',
+        g(done(['tt03']), v10) === 'energy' && g(done(['tt03']), v36) === 'none' && g(done(['tt03', 'tt08']), v10) === 'energy,execute');
+      ok('gold: Overview and Thank you! belong to no block; a fundamental with no lessons in the version is never gold',
+        g(done(['tt01', 'ttthanks']), v36) === 'none' && g(done(['tt01', 'tt02', 'tt03', 'tt04', 'tt08', 'ttthanks']), v36) === 'energy,execute'
+        && g({}, []) === 'none');
+      // The cells: gold fill, navy icon (filter) and labels, a check; the input is not changed.
+      const vm = mk(done([]));
+      const tp = eval(line(/const TT_PYR=\[[\s\S]*?\];\n/).replace(/^const TT_PYR=/, '').replace(/;\n$/, ''));
+      const ord = [3, 2, 1].reduce((a, t) => a.concat(tp.filter(m => m.tier === t).sort((x, y) => x.order - y.order)), []);
+      const pyr = { cells: ord.map(m => ({ fill: '#123663', icon: 'blue', ix: 10, iy: 10, isz: 20, iconOpacity: 1 })),
+        cellLabels: ord.map(m => ({ text: m.name, style: 'font-size:8px;color:#FFFFFF' })), sel: '' };
+      const snap = JSON.stringify(pyr);
+      const out = vm.ttGoldCells(pyr, new Set(['energy']), null), ei = ord.findIndex(m => m.id === 'energy');
+      ok('gold: the block is filled #FADA01 with a navy icon and label and a check; the others and pyramidVM\'s own cells are left as they are',
+        out.cells[ei].fill === '#FADA01' && out.cells[ei].gold === true && out.cells[ei].iconFilter === 'url(#ttInkNavy)' && !!out.cells[ei].chkPath
+        && /color:#0C2647/.test(out.cellLabels[ei].style) && out.cells.filter(c => c.gold).length === 1 && out.cells.filter((c, i) => i !== ei).every(c => c.fill === '#123663' && c.iconFilter === '')
+        && out.cellLabels.filter((l, i) => i !== ei).every(l => /color:#FFFFFF/.test(l.style)) && JSON.stringify(pyr) === snap);
+      ok('gold: drawn on the pyramid page and on "Where this fits", from the member\'s progress at every render (so Mark complete or undo shows at once); the picked block\'s outline turns white on gold',
+        /const gold=this\.ttGoldFunds\(list\);\n      const pyr=this\.ttGoldCells\(this\.ttPyramidVM\(count,focus,pick\),gold,null\);/.test(html)
+        && /const pyr=this\.ttGoldCells\(this\.pyramidVM\(TT_PYR,\{highlight:hl,readOnly:true\}\),this\.ttGoldFunds\(list\),hl\);/.test(html)
+        && /v\.ttPyrSelStroke=gold\.has\(focus\)\?'#FFFFFF':'#FADA01';/.test(html) && /stroke="\{\{ ttPyrSelStroke \}\}"/.test(html)
+        && (html.match(/data-tt-gold="\{\{ c\.goldAttr \}\}"/g) || []).length === 2 && (html.match(/this\.ttGoldCells\(/g) || []).length === 2);
+      const pbMarkup = src => { const a = src.indexOf('{{ tierText }}'), b = src.indexOf('Tap an unlocked block to start'); return a > 0 && b > a ? src.slice(a, b) : ''; };
+      ok('gold: the Playbook\'s pyramid is exactly as on main (its markup, pyramidVM, fundLit, fundUnlocked and its one call)',
+        !!main && !!pbMarkup(html) && pbMarkup(html) === pbMarkup(main) && method(html, 'pyramidVM') === method(main, 'pyramidVM')
+        && !!method(html, 'fundLit') && method(html, 'fundLit') === method(main, 'fundLit') && !!method(html, 'fundUnlocked') && method(html, 'fundUnlocked') === method(main, 'fundUnlocked')
+        && (html.match(/Object\.assign\(v,this\.pyramidVM\(allMods\)\);/g) || []).length === 1 && (html.match(/this\.pyramidVM\(/g) || []).length === (main.match(/this\.pyramidVM\(/g) || []).length);
+    }
     ok('grouped list: fundamental headings only in the Twin Thieves sidebar and phone menu',
       (html.match(/data-tt-group="\{\{ sl\.fund \}\}"/g) || []).length === 2
       && /<div data-tt-list="1" data-tt-side="1"[^\n]*\n<sc-for list="\{\{ ttSideLight \}\}"[^\n]*\n<sc-if value="\{\{ sl\.isHead \}\}"/.test(html)
