@@ -177,6 +177,21 @@ save.
   landscape: the page stays, and that group lights up in the sidebar and
   scrolls into view. Phones: the menu opens on that group. A block with no
   lessons in the version is dimmed and says "No lessons in this section yet."
+- **Gold blocks** (`ttGoldFunds`, `ttGoldCells`). A fundamental whose lessons
+  in the member's own version are all marked complete turns gold (#FADA01)
+  on the pyramid page and on "Where this fits": a navy icon (the `ttInkNavy`
+  filter) and label, and a small navy check.
+  - A TWIN10 member's block counts only their 10 lessons.
+  - Overview and Thank you! belong to no block. A block with no lessons in
+    the version stays dimmed.
+  - It follows the progress at every render, so Mark complete or undo shows
+    at once.
+  - A picked gold block gets a white outline.
+  - On "Where this fits", the current lesson's block was already yellow with
+    "THIS LESSON"; it now also carries the check when that fundamental is
+    finished.
+  - The Playbook's pyramid (`pyramidVM`, its markup, `fundLit`) is untouched;
+    the gold is laid over a copy of its cells.
 - **A lesson sits under its fundamental's heading, so its number can be out
   of order there.** Numbers are places in the version's order; headings come
   from each lesson's Fundamental (Studio → Twin Thieves → Lessons). A lesson
