@@ -535,6 +535,42 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
         && /v\.ttPyrSelStroke=gold\.has\(focus\)\?'#FFFFFF':'#FADA01';/.test(html) && /stroke="\{\{ ttPyrSelStroke \}\}"/.test(html)
         && (html.match(/data-tt-gold="\{\{ c\.goldAttr \}\}"/g) || []).length === 2 && (html.match(/this\.ttGoldCells\(/g) || []).length === 2);
       const pbMarkup = src => { const a = src.indexOf('{{ tierText }}'), b = src.indexOf('Tap an unlocked block to start'); return a > 0 && b > a ? src.slice(a, b) : ''; };
+      // The 10-lesson version's own fundamental for a lesson (lib.funds['10']); the 36-lesson version keeps the library's.
+      {
+        const FO = eval(line(/const TT_FUND_ORDER=\[[^\n]*\];\n/).replace(/^const TT_FUND_ORDER=/, '').replace(/;\n$/, ''));
+        const cleanFunds = new Function('TT_FUND_ORDER', html.slice(html.indexOf('function ttCleanFunds('), html.indexOf('function ttCleanNames(')) + 'return ttCleanFunds;')(FO);
+        const mkV = (lib, ver, prog) => new Function('TT_FUND_ORDER', 'TT_FUND_NAMES', 'TT_THANKS_ID', 'TT_PYR', 'lib', 'ver', 'prog',
+          'return ({ state:{ttProg:prog||{}}, ttLib(){ return lib; }, ttVersion(){ return ver; },' + method(html, 'ttLessons') + ',' + method(html, 'ttGroups') + ',' + method(html, 'ttDone') + ',' + method(html, 'ttGoldFunds') + '});')(
+          FO, { overview: 'Overview', energy: 'Energy', feedback: 'Fast Feedback', execute: 'Execute' }, 'ttthanks', tp, lib, ver, prog);
+        const lessons = [{ id: 'tt01', fund: 'overview', title: 'The Twin Thieves' }, { id: 'tt06', fund: 'energy', title: 'Get To vs. Got To' }, { id: 'tt07', fund: 'energy', title: 'White Belt Mindset' },
+          { id: 'tt31', fund: 'feedback', title: 'Crucial Conversations' }, { id: 'ttthanks', fund: 'thanks', title: 'Thank you!', closing: true }];
+        const base = { lessons, order36: ['tt01', 'tt06', 'tt07', 'tt31'], order10: ['tt06', 'tt07', 'tt31'] };
+        const lib = Object.assign({}, base, { funds: { '10': { tt07: 'feedback' } } });
+        const l10 = mkV(lib, 10).ttLessons(10), l36 = mkV(lib, 36).ttLessons(36);
+        const w10 = l10.find(l => l.id === 'tt07'), w36 = l36.find(l => l.id === 'tt07');
+        ok('versions: a 10-lesson slot\'s own fundamental is what TWIN10 sees (the lesson itself, its number and title unchanged); TWIN36 sees the library\'s',
+          w10.fund === 'feedback' && w10.libFund === 'energy' && w10.title === 'White Belt Mindset' && w10.n === 2 && w36.fund === 'energy' && !('libFund' in w36));
+        ok('versions: the 36-lesson version is exactly as it was without one (same lessons, same fields)',
+          JSON.stringify(l36) === JSON.stringify(mkV(base, 36).ttLessons(36)) && JSON.stringify(mkV(lib, 36).ttGroups(l36)) === JSON.stringify(mkV(base, 36).ttGroups(mkV(base, 36).ttLessons(36))));
+        const g10 = mkV(lib, 10).ttGroups(l10).map(g => g.fund + ':' + g.lessons.map(l => l.id).join('+')).join(' ');
+        const g36 = mkV(lib, 36).ttGroups(l36).map(g => g.fund + ':' + g.lessons.map(l => l.id).join('+')).join(' ');
+        ok('versions: the TWIN10 sidebar and pyramid count it under its own fundamental; TWIN36 under the library\'s', g10 === 'energy:tt06 feedback:tt07+tt31' && g36 === 'overview:tt01 energy:tt06+tt07 feedback:tt31', g10 + ' | ' + g36);
+        const done = { tt07: { doneAt: 1 }, tt31: { doneAt: 1 } };
+        const gold10 = Array.from(mkV(lib, 10, done).ttGoldFunds(l10)).join(), gold36 = Array.from(mkV(lib, 36, done).ttGoldFunds(l36)).join();
+        ok('versions: gold follows the version\'s own fundamental (TWIN10 Fast Feedback complete; TWIN36 not), from the same progress, which is never touched',
+          gold10 === 'feedback' && gold36 === 'feedback' && Array.from(mkV(lib, 10, { tt31: { doneAt: 1 } }).ttGoldFunds(l10)).join() === '' && Array.from(mkV(lib, 36, { tt31: { doneAt: 1 } }).ttGoldFunds(l36)).join() === 'feedback'
+          && JSON.stringify(done) === JSON.stringify({ tt07: { doneAt: 1 }, tt31: { doneAt: 1 } }), gold10 + ' | ' + gold36);
+        const bad = Object.assign({}, base, { funds: { '10': { tt07: 'bogus', tt06: 'energy' }, '36': { tt07: 'feedback' } } });
+        ok('versions: an unknown fundamental, the library\'s own one, or a 36-lesson entry changes nothing',
+          JSON.stringify(mkV(bad, 10).ttLessons(10)) === JSON.stringify(mkV(base, 10).ttLessons(10)) && JSON.stringify(mkV(bad, 36).ttLessons(36)) === JSON.stringify(mkV(base, 36).ttLessons(36)));
+        const by = {}; lessons.forEach(l => { by[l.id] = l; });
+        ok('versions: Save keeps only real changes, 10-lesson only (the same as the library, unknown fundamentals or lessons, and the closing lesson are dropped)',
+          JSON.stringify(cleanFunds({ '10': { tt07: 'feedback', tt06: 'energy', tt31: 'nope', tt99: 'energy', ttthanks: 'energy' }, '36': { tt07: 'execute' } }, by)) === '{"10":{"tt07":"feedback"}}'
+          && JSON.stringify(cleanFunds({}, by)) === '{}' && JSON.stringify(cleanFunds(undefined, by)) === '{}');
+        ok('versions (Studio): the fundamental dropdown is on each 10-lesson slot only, and Save versions saves it with the names',
+          (html.match(/data-tt-v10-fund="1"/g) || []).length === 1 && html.indexOf('data-tt-v10-fund') > html.indexOf('{{ ttV10 }}') && html.indexOf('data-tt-v10-fund') < html.indexOf('{{ ttV36 }}')
+          && /this\.ttSaveLib\(Object\.assign\(\{\},lib,\{names:ttCleanNames\(lib\.names,by\),funds:ttCleanFunds\(lib\.funds,by\)\}\),'Versions saved'\);/.test(html));
+      }
       ok('gold: the Playbook\'s pyramid is exactly as on main (its markup, pyramidVM, fundLit, fundUnlocked and its one call)',
         !!main && !!pbMarkup(html) && pbMarkup(html) === pbMarkup(main) && method(html, 'pyramidVM') === method(main, 'pyramidVM')
         && !!method(html, 'fundLit') && method(html, 'fundLit') === method(main, 'fundLit') && !!method(html, 'fundUnlocked') && method(html, 'fundUnlocked') === method(main, 'fundUnlocked')
@@ -589,7 +625,7 @@ const call = (h, tok, body) => h({ httpMethod: 'POST', headers: { authorization:
         box === want && saved['36'].tt12 === want && !('tt13' in saved['36']) && !('tt14' in saved['36']), JSON.stringify({ box, saved }));
       ok('versions: the name box no longer trims on every key; Save versions cleans the names',
         !/replace\(\/\\s\+\/g,' '\)\.trim\(\)\.slice\(0,120\)/.test(html) && /t=ttNameInput\(val\);/.test(html)
-        && /v\.onTTVerSave=\(\)=>\{ this\.ttSaveLib\(Object\.assign\(\{\},lib,\{names:ttCleanNames\(lib\.names,by\)\}\)/.test(html));
+        && /v\.onTTVerSave=\(\)=>\{ this\.ttSaveLib\(Object\.assign\(\{\},lib,\{names:ttCleanNames\(lib\.names,by\)(,funds:ttCleanFunds\(lib\.funds,by\))?\}\)/.test(html));
       ok('lesson editor: video, thumbnail, handout and chapter boxes keep what is typed; trimmed on save',
         /v\.onTTEdVideo=e=>set\(\{videoUrl:e\.target\.value\}\);/.test(html) && /v\.onTTEdThumb=e=>set\(\{thumbUrl:e\.target\.value\}\);/.test(html)
         && /a\[i\]\.url=e\.target\.value; set\(\{handouts:a\}\);/.test(html) && /a\[i\]\.t=e\.target\.value; set\(\{chapters:a\}\);/.test(html)

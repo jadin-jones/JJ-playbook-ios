@@ -177,6 +177,16 @@ save.
   landscape: the page stays, and that group lights up in the sidebar and
   scrolls into view. Phones: the menu opens on that group. A block with no
   lessons in the version is dimmed and says "No lessons in this section yet."
+- **A 10-lesson slot can have its own fundamental** (Studio → Twin Thieves
+  → Versions → the dropdown on each 10-lesson slot; `lib.funds['10'][id]`,
+  cleaned by `ttCleanFunds`). The default is the library lesson's
+  fundamental, marked "(library)". `ttLessons(10)` then gives that lesson
+  the version's fundamental (and `libFund`).
+  - **Where TWIN10 sees it:** the pyramid counts, the sidebar groups, gold,
+    "Where this fits" and the lesson page's label.
+  - **What stays the library's:** the 36-lesson version, the library lesson
+    (video, summary, questions, PDFs, thumbnail) and Studio's Lessons tab.
+  - **Progress:** it is kept by lesson id, so it never moves.
 - **Gold blocks** (`ttGoldFunds`, `ttGoldCells`). A fundamental whose lessons
   in the member's own version are all marked complete turns gold (#FADA01)
   on the pyramid page and on "Where this fits": a navy icon (the `ttInkNavy`
