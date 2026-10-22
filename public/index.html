@@ -5849,10 +5849,14 @@ sc-if,sc-for{display:none!important}
 <sc-if value="{{ ttStudioIsVersions }}" hint-placeholder-val="{{ false }}">
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:14px 12px;margin-bottom:12px">
 <p style="margin:0 4px 4px;font-weight:900;font-size:14px;text-transform:uppercase;color:#0C1B2E">10-lesson version</p>
-<p style="margin:0 4px 10px;font-size:12.5px;color:#7E8D9C">{{ ttV10Count }}. Tick "Include in 10-lesson version" below, then set the order here. Editing a lesson changes it in both versions.</p>
+<p style="margin:0 4px 10px;font-size:12.5px;color:#7E8D9C">{{ ttV10Count }}. Tick "Include in 10-lesson version" below, then set the order here. Editing a lesson changes it in both versions. Each slot can sit under its own fundamental in this version; the 36-lesson version keeps the library's.</p>
 <sc-if value="{{ ttV10Empty }}" hint-placeholder-val="{{ false }}"><p style="margin:0 4px 6px;font-size:13px;color:#8F2D13">No lessons chosen yet.</p></sc-if>
 <sc-for list="{{ ttV10 }}" as="t" hint-placeholder-count="3">
-<div style="display:flex;align-items:center;gap:8px;border-top:1px solid #EEF3F8;padding:8px 4px"><span style="flex:none;width:24px;font-weight:900;color:#0C2647">{{ t.num }}</span><span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:12px;color:#7E8D9C">Library: {{ t.title }}</span><input type="text" value="{{ t.name }}" sc-camel-on-change="{{ t.onName }}" placeholder="{{ t.title }}" aria-label="Name in this version" style="{{ ttInp }};margin-top:4px;padding:7px 10px;font-size:13px"></span><button sc-camel-on-click="{{ t.onUp }}" style="{{ ttBtnMini }}">↑</button><button sc-camel-on-click="{{ t.onDown }}" style="{{ ttBtnMini }}">↓</button><button sc-camel-on-click="{{ t.onRemove }}" style="{{ ttBtnMini }}">✕</button></div>
+<div style="display:flex;align-items:center;gap:8px;border-top:1px solid #EEF3F8;padding:8px 4px"><span style="flex:none;width:24px;font-weight:900;color:#0C2647">{{ t.num }}</span><span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:12px;color:#7E8D9C">Library: {{ t.title }}</span><input type="text" value="{{ t.name }}" sc-camel-on-change="{{ t.onName }}" placeholder="{{ t.title }}" aria-label="Name in this version" style="{{ ttInp }};margin-top:4px;padding:7px 10px;font-size:13px"><sc-raw-select data-tt-v10-fund="1" value="{{ t.fundVal }}" sc-camel-on-change="{{ t.onFund }}" aria-label="Fundamental in this version" style="{{ ttInp }};margin-top:4px;padding:7px 10px;font-size:13px">
+<sc-for list="{{ t.fundOpts }}" as="fo" hint-placeholder-count="10">
+<option value="{{ fo.value }}">{{ fo.label }}</option>
+</sc-for>
+</sc-raw-select><sc-if value="{{ t.hasFundNote }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:11px;color:#7E8D9C;margin-top:3px">{{ t.fundNote }}</span></sc-if></span><button sc-camel-on-click="{{ t.onUp }}" style="{{ ttBtnMini }}">↑</button><button sc-camel-on-click="{{ t.onDown }}" style="{{ ttBtnMini }}">↓</button><button sc-camel-on-click="{{ t.onRemove }}" style="{{ ttBtnMini }}">✕</button></div>
 </sc-for>
 </div>
 <div style="background:#fff;border:1px solid #DCE6F0;border-radius:14px;padding:14px 12px">
@@ -8763,6 +8767,15 @@ async function shrinkImage(f){
    exactly what was typed (spaces too); only saving trims the ends, and a
    name that is empty or the library's own is dropped. */
 const ttNameInput=val=>String(val==null?'':val).slice(0,120);
+/* Studio → Twin Thieves → Versions: the 10-lesson version's own fundamentals.
+   Only real fundamentals, and only where one differs from the lesson's
+   library fundamental (the same means "the library's"); the 36-lesson
+   version never has any. */
+function ttCleanFunds(funds,by){
+  const m={}, f10=(funds&&funds['10'])||{};
+  Object.keys(f10).forEach(id=>{ const f=String(f10[id]||''); if(by[id]&&!by[id].closing&&TT_FUND_ORDER.indexOf(f)>=0&&f!==by[id].fund) m[id]=f; });
+  return Object.keys(m).length?{'10':m}:{};
+}
 function ttCleanNames(names,by){
   const out={};
   Object.keys(names||{}).forEach(ver=>{ const m={};
@@ -16271,14 +16284,20 @@ class Component extends DCLogic {
   /* This version's lessons in order, numbered, then the closing Thank you!
      A lesson shows this version's own name when Studio set one
      (lib.names['36'|'10'][id]), else the library's; libTitle keeps the
-     library's. Progress is kept by lesson id, so a name never touches it. */
+     library's. Progress is kept by lesson id, so a name never touches it.
+     The 10-lesson version may also file a lesson under its own fundamental
+     (lib.funds['10'][id], from Studio → Versions): fund is then that one and
+     libFund the library's. The 36-lesson version always has the library's. */
   ttLessons(ver){
     const lib=this.ttLib(), by={}; (lib.lessons||[]).forEach(l=>{ by[l.id]=l; });
     const v=(ver||this.ttVersion())===10?10:36;
     const ids=v===10?(lib.order10||[]):(lib.order36||[]);
     const nm=(lib.names&&lib.names[String(v)])||{};
+    const fv=v===10?((lib.funds&&lib.funds['10'])||{}):{};
     const list=ids.map(id=>by[id]).filter(l=>l&&!l.closing)
-      .map((l,i)=>Object.assign({},l,{n:i+1,libTitle:l.title,title:String(nm[l.id]||'').trim()||l.title}));
+      .map((l,i)=>{ const o=Object.assign({},l,{n:i+1,libTitle:l.title,title:String(nm[l.id]||'').trim()||l.title});
+        const f=fv[l.id]; if(f&&f!==l.fund&&TT_FUND_ORDER.indexOf(f)>=0) Object.assign(o,{fund:f,libFund:l.fund});
+        return o; });
     if(by[TT_THANKS_ID]) list.push(Object.assign({},by[TT_THANKS_ID],{n:0}));
     return list;
   }
@@ -17066,8 +17085,20 @@ class Component extends DCLogic {
         onToggle10:()=>{ const n10=in10?o10.filter(x=>x!==id):o10.concat([id]); this.setState({ttLib:Object.assign({},lib,{order10:n10}),ttVerDirty:true}); },
         onUp:()=>this.setState({ttLib:Object.assign({},lib,{order36:move(o36,i,-1)}),ttVerDirty:true}),
         onDown:()=>this.setState({ttLib:Object.assign({},lib,{order36:move(o36,i,1)}),ttVerDirty:true})}; });
-    v.ttV10=o10.map((id,i)=>{ const l=by[id]||{};
+    /* A 10-lesson slot's own fundamental: the library's unless changed here.
+       Saved with the versions; the 36-lesson version and the library keep
+       theirs, and progress (by lesson id) is untouched. */
+    const setFund10=(id,val)=>{ const L=this.state.ttLib||lib, all=JSON.parse(JSON.stringify(L.funds||{}));
+      const m=all['10']||(all['10']={}), lf=((L.lessons||[]).find(x=>x.id===id)||{}).fund;
+      if(val&&val!==lf&&TT_FUND_ORDER.indexOf(val)>=0) m[id]=val; else delete m[id];
+      this.setState({ttLib:Object.assign({},L,{funds:all}),ttVerDirty:true}); };
+    const f10=(lib.funds&&lib.funds['10'])||{};
+    const fundOpts=TT_FUND_ORDER.map(k=>({value:k,label:TT_FUND_NAMES[k]}));
+    v.ttV10=o10.map((id,i)=>{ const l=by[id]||{}, own=f10[id]&&f10[id]!==l.fund&&TT_FUND_ORDER.indexOf(f10[id])>=0;
       return {num:String(i+1),title:l.title||id,
+        fundVal:own?f10[id]:(l.fund||'overview'),fundOpts:fundOpts.map(o=>Object.assign({},o,{label:o.label+(o.value===l.fund?' (library)':'')})),
+        fundNote:own?'Library: '+(TT_FUND_NAMES[l.fund]||l.fund):'',hasFundNote:!!own,
+        onFund:e=>setFund10(id,e.target.value),
         name:(names['10']||{})[id]||'',onName:e=>setName('10',id,e.target.value),
         onUp:()=>this.setState({ttLib:Object.assign({},lib,{order10:move(o10,i,-1)}),ttVerDirty:true}),
         onDown:()=>this.setState({ttLib:Object.assign({},lib,{order10:move(o10,i,1)}),ttVerDirty:true}),
@@ -17075,7 +17106,7 @@ class Component extends DCLogic {
     v.ttV10Count=o10.length+' of 10 chosen'+(o10.length>10?' (more than 10)':'');
     v.ttV10Empty=!o10.length;
     v.ttVerDirty=!!s.ttVerDirty;
-    v.onTTVerSave=()=>{ this.ttSaveLib(Object.assign({},lib,{names:ttCleanNames(lib.names,by)}),'Versions saved'); this.setState({ttVerDirty:false}); };
+    v.onTTVerSave=()=>{ this.ttSaveLib(Object.assign({},lib,{names:ttCleanNames(lib.names,by),funds:ttCleanFunds(lib.funds,by)}),'Versions saved'); this.setState({ttVerDirty:false}); };
     // Codes: one card per program.
     v.ttCodeCards=['TT36','TT10'].map(id=>{ const o=this.ttOrgRec(id), ver=id==='TT10'?10:36;
       const edit=(s.ttCodeEdit||{})[id]||{};
